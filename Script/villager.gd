@@ -4,14 +4,14 @@ extends UnitBase
 # 参数
 # ============================================================
 
-# 每次砍多少木材
+# 每次采集多少资源
 @export var chop_amount: int = 1
 
 # 每隔多少秒砍一次
 @export var chop_interval: float = 1.0
 
-# 最多携带多少木材
-@export var carry_capacity: int = 5
+# 最多携带多少资源
+@export var carry_capacity: float = 5.0
 #当前是否正在退出工作
 var is_quitting_job: bool = false
 #正在清仓
@@ -50,18 +50,20 @@ enum Job {
 	MINER
 }
 
-func get_job_resource_type():
+func get_job_resource_type() -> Variant:
 
 	match job:
 
 		Job.LUMBERJACK:
-			return ResourceBase.ResourceType.WOOD
+			return ResourceType.Type.WOOD
 
 		Job.MINER:
-			return ResourceBase.ResourceType.STONE
+			return ResourceType.Type.STONE
 
 		Job.NONE:
 			return null
+
+	return null
 var job: Job = Job.NONE
 # 当前工作建筑
 var workplace: Node3D = null
@@ -74,8 +76,17 @@ var target_resource: ResourceBase = null
 # 据点
 var target_base: Node3D = null
 
-# 当前携带木材
-var carried_wood: int = 0
+# 当前携带的资源类型和数量
+var carried_resource_type: ResourceType.Type = ResourceType.Type.WOOD
+var carried_amount: float = 0.0
+
+# 旧字段仅保留给外部兼容，不参与正式运输流程。
+var carried_wood: int:
+	get:
+		return int(carried_amount) if carried_resource_type == ResourceType.Type.WOOD else 0
+	set(value):
+		carried_resource_type = ResourceType.Type.WOOD
+		carried_amount = float(value)
 
 # 砍树计时
 var chop_timer: float = 0.0
@@ -171,7 +182,7 @@ func find_nearest_resource():
 	# 获取当前职业需要的资源类型
 	# --------------------------------------------------------
 
-	var wanted_type = get_job_resource_type()
+	var wanted_type: Variant = get_job_resource_type()
 
 	if wanted_type == null:
 
@@ -205,7 +216,7 @@ func find_nearest_resource():
 			is_clearing_workplace_storage = true
 			print("📦 工作建筑已满，优先处理运输")
 
-			if try_transport_workplace_wood():
+			if try_transport_workplace_resource(wanted_type):
 				return
 
 
@@ -295,7 +306,7 @@ func find_nearest_resource():
 		# 先送回自己的工作建筑
 		# --------------------------------------------------------
 
-		if carried_wood > 0:
+		if carried_amount > 0.0:
 
 
 			go_to_workplace()
@@ -308,7 +319,7 @@ func find_nearest_resource():
 		# 看工作建筑还有没有库存需要运输
 		# --------------------------------------------------------
 
-		if try_transport_workplace_wood():
+		if try_transport_workplace_resource(wanted_type):
 
 			print("📦 没有生产任务，改为运输库存")
 
@@ -412,7 +423,7 @@ func gather_resource(delta):
 		target_resource = null
 
 		# 背包满了
-		if carried_wood >= carry_capacity:
+		if carried_amount >= carry_capacity:
 
 			print("🎒 背包已满，返回伐木场")
 
@@ -448,25 +459,28 @@ func gather_resource(delta):
 
 	if target_resource.has_method("gather"):
 
-		var free_space = carry_capacity - carried_wood
+		var free_space: float = carry_capacity - carried_amount
 
-		var amount_to_gather = min(
+		var amount_to_gather: int = mini(
 			chop_amount,
-			free_space
+			int(free_space)
 		)
 
 		var gathered_amount = target_resource.gather(
 			amount_to_gather
 		)
 
-		carried_wood += gathered_amount
+		var gather_type: Variant = get_job_resource_type()
+		if gather_type != null:
+			carried_resource_type = gather_type
+		carried_amount += float(gathered_amount)
 
 
 	# ========================================================
 	# 背包满
 	# ========================================================
 
-	if carried_wood >= carry_capacity:
+	if carried_amount >= carry_capacity:
 
 		print("🎒 背包已满，返回伐木场")
 
@@ -510,7 +524,7 @@ func gather_resource(delta):
 
 			print(
 				"🌳 树砍完了，但背包未满：",
-				carried_wood,
+				carried_amount,
 				"/",
 				carry_capacity,
 				"，继续寻找下一棵树"
@@ -574,11 +588,11 @@ func move_to_base():
 	move_along_navigation()
 
 # ============================================================
-# 存木材
+# 存入 Base
 # ============================================================
 func deposit_to_base():
 
-	if carried_wood <= 0:
+	if carried_amount <= 0.0:
 		start_current_job()
 		return
 
@@ -589,20 +603,27 @@ func deposit_to_base():
 
 	if target_base != null:
 
-		if target_base.has_method("deposit_wood"):
+		if target_base.has_method("add_resource"):
 
-			target_base.deposit_wood(
-				carried_wood
+			var stored_amount: float = target_base.add_resource(
+				carried_resource_type,
+				carried_amount
 			)
+
+			carried_amount -= stored_amount
 
 
 	print(
-		"📦 向据点卸下木材：",
-		carried_wood
+		"📦 向据点卸货完成，剩余携带：",
+		carried_amount,
+		" | 资源类型：",
+		carried_resource_type
 	)
 
-
-	carried_wood = 0
+	# Base 满仓时只扣除实际存入的数量，剩余资源继续保留。
+	if carried_amount > 0.0:
+		print("⚠️ Base 已满，居民仍携带：", carried_amount)
+		return
 
 
 	# ========================================================
@@ -627,9 +648,9 @@ func deposit_to_base():
 		# 工作建筑还有库存
 		if workplace != null:
 
-			if workplace.has_method("has_stored_wood"):
+			if workplace.has_method("has_resource"):
 
-				if workplace.has_stored_wood():
+				if workplace.has_resource(carried_resource_type):
 
 					print("📦 仓库还有库存，继续回去搬运")
 
@@ -912,7 +933,7 @@ func move_to_workplace():
 
 		if is_transporting:
 
-			take_wood_for_transport()
+			take_resource_for_transport()
 
 			return
 
@@ -934,7 +955,7 @@ func move_to_workplace():
 
 func deposit_to_workplace():
 
-	if carried_wood <= 0:
+	if carried_amount <= 0.0:
 
 		state = State.FIND_RESOURCE
 
@@ -948,29 +969,30 @@ func deposit_to_workplace():
 		return
 
 
-	if not workplace.has_method("deposit_wood"):
+	if not workplace.has_method("deposit_resource"):
 
-		print("❌ 工作建筑不能储存木材")
+		print("❌ 工作建筑不能储存资源")
 
 		return
 
 
-	var deposited = workplace.deposit_wood(
-		carried_wood
+	var deposited: float = workplace.deposit_resource(
+		carried_resource_type,
+		carried_amount
 	)
 
-	carried_wood -= deposited
+	carried_amount -= deposited
 
 
 	print(
-		"🎒 农民剩余携带木材：",
-		carried_wood
+		"🎒 居民剩余携带资源：",
+		carried_amount
 	)
 
 
 	# 当前先测试本地库存。
 	# 如果全部卸下，就继续工作。
-	if carried_wood <= 0:
+	if carried_amount <= 0.0:
 			# 正在离职
 		if is_quitting_job:
 			finish_quit_job()
@@ -980,8 +1002,8 @@ func deposit_to_workplace():
 	else:
 
 		print(
-			"⚠️ 伐木场已满，农民身上还有木材：",
-			carried_wood
+			"⚠️ 工作建筑已满，居民身上还有资源：",
+			carried_amount
 		)
 		# 进入清仓模式
 		is_clearing_workplace_storage = true
@@ -998,7 +1020,9 @@ func deposit_to_workplace():
 # 尝试运输工作建筑里的木材
 # ============================================================
 
-func try_transport_workplace_wood() -> bool:
+func try_transport_workplace_resource(
+	resource_type: ResourceType.Type
+) -> bool:
 
 	# --------------------------------------------------------
 	# 必须有工作建筑
@@ -1012,7 +1036,7 @@ func try_transport_workplace_wood() -> bool:
 	# 工作建筑必须支持取货
 	# --------------------------------------------------------
 
-	if not workplace.has_method("take_wood"):
+	if not workplace.has_method("take_resource"):
 		return false
 
 
@@ -1021,11 +1045,11 @@ func try_transport_workplace_wood() -> bool:
 	# 直接运往据点
 	# --------------------------------------------------------
 
-	if carried_wood > 0:
+	if carried_amount > 0.0:
 
 		print(
-			"📦 身上已有木材，开始运往据点：",
-			carried_wood
+			"📦 身上已有资源，开始运往据点：",
+			carried_amount
 		)
 
 		go_to_base()
@@ -1037,9 +1061,9 @@ func try_transport_workplace_wood() -> bool:
 	# 工作建筑没有库存
 	# --------------------------------------------------------
 
-	if workplace.has_method("has_stored_wood"):
+	if workplace.has_method("has_resource"):
 
-		if not workplace.has_stored_wood():
+		if not workplace.has_resource(resource_type):
 			return false
 
 
@@ -1073,11 +1097,12 @@ func try_transport_workplace_wood() -> bool:
 	# 直接取货
 	# --------------------------------------------------------
 
-	var free_space = carry_capacity - carried_wood
-	
+	var free_space: float = carry_capacity - carried_amount
+
 	is_transporting = true
 
-	var taken = workplace.take_wood(
+	var taken: float = workplace.take_resource(
+		resource_type,
 		free_space
 	)
 
@@ -1086,12 +1111,13 @@ func try_transport_workplace_wood() -> bool:
 		return false
 
 
-	carried_wood += taken
+	carried_resource_type = resource_type
+	carried_amount += taken
 
 
 	print(
-		"📦 伐木工开始兼职运输：",
-		carried_wood,
+		"📦 居民开始运输资源：",
+		carried_amount,
 		"/",
 		carry_capacity
 	)
@@ -1101,11 +1127,16 @@ func try_transport_workplace_wood() -> bool:
 
 
 	return true
+
+
+func try_transport_workplace_wood() -> bool:
+
+	return try_transport_workplace_resource(ResourceType.Type.WOOD)
 # ============================================================
 # 从工作建筑取货并运输到据点
 # ============================================================
 
-func take_wood_for_transport():
+func take_resource_for_transport():
 
 	if workplace == null:
 
@@ -1114,7 +1145,7 @@ func take_wood_for_transport():
 		return
 
 
-	if not workplace.has_method("take_wood"):
+	if not workplace.has_method("take_resource"):
 
 		is_transporting = false
 		state = State.FIND_RESOURCE
@@ -1126,7 +1157,7 @@ func take_wood_for_transport():
 
 
 	# 成功拿到货
-	if carried_wood > 0:
+	if carried_amount > 0.0:
 
 		go_to_base()
 
@@ -1134,7 +1165,7 @@ func take_wood_for_transport():
 
 
 	# 没有货
-	print("📦 伐木场已经没有需要运输的木材")
+	print("📦 工作建筑已经没有需要运输的资源")
 
 	is_transporting = false
 	state = State.FIND_RESOURCE
@@ -1148,12 +1179,12 @@ func fill_carry_from_workplace():
 		return
 
 
-	if not workplace.has_method("take_wood"):
+	if not workplace.has_method("take_resource"):
 		return
 
 
 	# 背包还能装多少
-	var free_space = carry_capacity - carried_wood
+	var free_space: float = carry_capacity - carried_amount
 
 
 	# 已经满了
@@ -1162,12 +1193,25 @@ func fill_carry_from_workplace():
 
 
 	# 从伐木场补货
-	var taken = workplace.take_wood(
+	var resource_type: Variant = get_job_resource_type()
+	if workplace.get("production_resource_type") != null:
+		resource_type = workplace.production_resource_type
+
+	if resource_type == null:
+		return
+
+	var taken: float = workplace.take_resource(
+		resource_type,
 		free_space
 	)
 
+	carried_resource_type = resource_type
+	carried_amount += taken
 
-	carried_wood += taken
+
+func take_wood_for_transport():
+
+	take_resource_for_transport()
 
 
 # ============================================================
@@ -1215,8 +1259,8 @@ func quit_job():
 	# 不能马上清空 workplace，因为还要知道送到哪里
 	if state == State.MOVE_TO_BASE:
 		return
-	if carried_wood > 0:
-		print("🎒 离职前先把携带资源送回工作建筑：", carried_wood)
+	if carried_amount > 0.0:
+		print("🎒 离职前先把携带资源送回工作建筑：", carried_amount)
 		go_to_workplace()
 		return
 

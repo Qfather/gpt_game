@@ -2,17 +2,12 @@ class_name ResourceBase
 extends Node3D
 
 
-enum ResourceType {
-	WOOD,
-	STONE
-}
-
-
 # ============================================================
 # 参数
 # ============================================================
 
-var resource_type: ResourceType = ResourceType.WOOD
+# 资源类型统一使用全局 ResourceType
+var resource_type: ResourceType.Type = ResourceType.Type.WOOD
 
 @export var min_amount: int = 5
 @export var max_amount: int = 10
@@ -36,6 +31,7 @@ func _ready():
 		min_amount,
 		max_amount
 	)
+
 	print(
 		"🌍 ResourceBase启动：",
 		name,
@@ -75,7 +71,7 @@ func release(worker: Node):
 
 func gather(amount: int) -> int:
 
-	var gathered_amount = min(
+	var gathered_amount: int = mini(
 		amount,
 		resource_amount
 	)

@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://ds5iuq38leawb"]
 
 [ext_resource type="Script" uid="uid://2v134eyjfwa5" path="res://Script/base.gd" id="1_d3q2k"]
+[ext_resource type="Script" uid="uid://c8iasvdn8ygnl" path="res://Script/resource/resource_storage.gd" id="2_7lj54"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_t2dwb"]
 size = Vector3(3, 2, 3)
@@ -11,3 +12,7 @@ script = ExtResource("1_d3q2k")
 [node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1945692895]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 mesh = SubResource("BoxMesh_t2dwb")
+
+[node name="ResourceStorage" type="Node" parent="." unique_id=971068545]
+script = ExtResource("2_7lj54")
+starting_food = 100.0

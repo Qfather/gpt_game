@@ -1,6 +1,10 @@
 extends Node3D
 signal building_clicked(building)
+# ============================================================
+# 仓储组件
+# ============================================================
 
+@onready var storage: ResourceStorage = $ResourceStorage
 # ============================================================
 # 工作参数
 # ============================================================
@@ -11,6 +15,9 @@ signal building_clicked(building)
 
 @export var idle_radius: float = 2.5
 
+# 当前工作建筑生产的资源类型。
+@export var production_resource_type: ResourceType.Type = ResourceType.Type.WOOD
+
 # ============================================================
 # 当前工人
 # ============================================================
@@ -18,15 +25,6 @@ signal building_clicked(building)
 var workers: Array[Node] = []
 
 
-# ============================================================
-# 本地库存
-# ============================================================
-
-# 伐木场最多临时储存多少木材
-@export var storage_capacity: int = 20
-
-# 当前储存的木材
-var stored_wood: int = 0
 # ============================================================
 # 当前工人数
 # ============================================================
@@ -170,37 +168,96 @@ func _ready():
 # 本地库存
 # ============================================================
 
-# 还剩多少空间
+# 还剩多少木材空间
 func get_free_storage() -> int:
-	return storage_capacity - stored_wood
 
-
-# 库存是否已满
-func is_storage_full() -> bool:
-	return stored_wood >= storage_capacity
-
-
-# 存入木材
-# 返回实际成功存进去的数量
-func deposit_wood(amount: int) -> int:
-
-	var accepted = min(
-		amount,
-		get_free_storage()
+	return int(
+		storage.get_free_space(
+			production_resource_type
+		)
 	)
 
-	stored_wood += accepted
+
+# ============================================================
+# 木材库存是否已满
+# ============================================================
+
+func is_storage_full() -> bool:
+
+	return storage.is_full(
+		production_resource_type
+	)
+
+
+# ============================================================
+# 通用资源接口
+# ============================================================
+
+func deposit_resource(
+	resource_type: ResourceType.Type,
+	amount: float
+) -> float:
+
+	if resource_type != production_resource_type:
+		return 0.0
+
+	return storage.add(resource_type, amount)
+
+
+func take_resource(
+	resource_type: ResourceType.Type,
+	amount: float
+) -> float:
+
+	if resource_type != production_resource_type:
+		return 0.0
+
+	return storage.take(resource_type, amount)
+
+
+func has_resource(resource_type: ResourceType.Type) -> bool:
+
+	return not storage.is_empty(resource_type)
+
+
+func get_resource_amount(resource_type: ResourceType.Type) -> float:
+
+	return storage.get_amount(resource_type)
+
+
+func get_resource_capacity(resource_type: ResourceType.Type) -> float:
+
+	return storage.get_capacity(resource_type)
+
+
+# ============================================================
+# 存入木材
+# ============================================================
+#
+# 旧接口暂时保留给 Villager 使用。
+# 实际已经通过 ResourceStorage 存储。
+#
+# ============================================================
+
+func deposit_wood(amount: int) -> int:
+
+	var accepted: float = deposit_resource(
+		ResourceType.Type.WOOD,
+		float(amount)
+	)
 
 	print(
 		"🪵 伐木场收到木材：",
-		accepted,
+		int(accepted),
 		"  当前库存：",
-		stored_wood,
+		int(get_resource_amount(ResourceType.Type.WOOD)),
 		"/",
-		storage_capacity
+		int(get_resource_capacity(ResourceType.Type.WOOD))
 	)
 
-	return accepted
+	return int(accepted)
+
+
 # ============================================================
 # 从本地库存取出木材
 # ============================================================
@@ -210,36 +267,30 @@ func take_wood(amount: int) -> int:
 	if amount <= 0:
 		return 0
 
-
-	var taken = min(
-		amount,
-		stored_wood
+	var taken: float = take_resource(
+		ResourceType.Type.WOOD,
+		float(amount)
 	)
-
-
-	stored_wood -= taken
-
 
 	print(
 		"📦 从伐木场取出木材：",
-		taken,
+		int(taken),
 		"  剩余库存：",
-		stored_wood,
+		int(get_resource_amount(ResourceType.Type.WOOD)),
 		"/",
-		storage_capacity
+		int(get_resource_capacity(ResourceType.Type.WOOD))
 	)
 
+	return int(taken)
 
-	return taken
+
 # ============================================================
 # 当前是否有木材可以运输
 # ============================================================
 
 func has_stored_wood() -> bool:
 
-	return stored_wood > 0
-
-
+	return has_resource(ResourceType.Type.WOOD)
 #测试移除农民	
 # ============================================================
 # 测试移除农民
@@ -278,19 +329,24 @@ func _input(event):
 # UI 通用接口
 # ============================================================
 
-# 当前库存
 func get_storage_amount() -> int:
-	return stored_wood
+
+	return int(
+		get_resource_amount(production_resource_type)
+	)
 
 
-# 最大库存
 func get_storage_capacity() -> int:
-	return storage_capacity
 
+	return int(
+		get_resource_capacity(production_resource_type)
+	)
 
 # 最大工人数
 func get_max_worker_count() -> int:
+
 	return max_workers
+
 # ============================================================
 # 点击建筑
 # ============================================================

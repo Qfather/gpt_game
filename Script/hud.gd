@@ -1,38 +1,93 @@
 extends CanvasLayer
 
 
-@onready var wood_label: Label = $PanelContainer/VBoxContainer/WoodLabel
+# ============================================================
+# UI
+# ============================================================
 
+@onready var wood_label: Label = (
+	$PanelContainer/VBoxContainer/WoodLabel
+)
+
+
+# ============================================================
+# 当前据点
+# ============================================================
+
+var current_base: Node = null
+
+
+# ============================================================
+# 初始化
+# ============================================================
 
 func _ready():
 
+	# Base 与 HUD 是同级节点，HUD 可能先于 Base 完成 _ready。
+	# 等一帧，确保 Base 的 ResourceStorage 已经初始化。
+	await get_tree().process_frame
+
 	# 找到据点
-	var bases = get_tree().get_nodes_in_group("bases")
+	var bases: Array[Node] = get_tree().get_nodes_in_group("bases")
 
-	if not bases.is_empty():
+	if bases.is_empty():
 
-		var base = bases[0]
-
-		# 连接据点的木材变化信号
-		base.wood_changed.connect(update_wood)
-
-		# 初始化显示
-		update_wood(base.wood)
-
-	else:
-
-		update_wood(0)
+		update_wood(0.0)
 
 		print("HUD：没有找到 Base")
+
+		return
+
+
+	current_base = bases[0]
+
+
+	# ========================================================
+	# 连接新的通用资源变化信号
+	# ========================================================
+
+	current_base.resource_changed.connect(
+		_on_resource_changed
+	)
+
+
+	# ========================================================
+	# 初始化木材显示
+	# ========================================================
+
+	var wood_amount: float = current_base.get_resource(
+		ResourceType.Type.WOOD
+	)
+
+	update_wood(wood_amount)
+
+
+# ============================================================
+# 资源变化
+# ============================================================
+
+func _on_resource_changed(
+	resource_type: ResourceType.Type,
+	new_amount: float
+):
+
+	match resource_type:
+
+		ResourceType.Type.WOOD:
+
+			update_wood(new_amount)
 
 
 # ============================================================
 # 更新木材
 # ============================================================
 
-func update_wood(amount: int):
+func update_wood(amount: float):
 
-	wood_label.text = "木材：" + str(amount)
+	wood_label.text = (
+		"木材："
+		+ str(int(amount))
+	)
 
 
 # ============================================================

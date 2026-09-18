@@ -38,14 +38,23 @@ func refresh():
 	# 库存
 	# --------------------------------------------------------
 
-	var storage_amount = current_building.get_storage_amount()
-	var storage_capacity = current_building.get_storage_capacity()
+	var resource_type: Variant = current_building.get("production_resource_type")
+	var storage_amount: float
+	var storage_capacity: float
+
+	if resource_type != null and current_building.has_method("get_resource_amount"):
+		storage_amount = current_building.get_resource_amount(resource_type)
+		storage_capacity = current_building.get_resource_capacity(resource_type)
+	else:
+		# 兼容尚未迁移到通用接口的资源建筑。
+		storage_amount = float(current_building.get_storage_amount())
+		storage_capacity = float(current_building.get_storage_capacity())
 
 	storage_label.text = (
 		"库存："
-		+ str(storage_amount)
+		+ str(int(storage_amount))
 		+ " / "
-		+ str(storage_capacity)
+		+ str(int(storage_capacity))
 	)
 
 
