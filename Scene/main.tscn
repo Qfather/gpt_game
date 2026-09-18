@@ -1,0 +1,103 @@
+[gd_scene format=3 uid="uid://blrxesgh30kg5"]
+
+[ext_resource type="Script" uid="uid://cuiy6ilnk6s7c" path="res://Script/main.gd" id="1_ow1sv"]
+[ext_resource type="PackedScene" uid="uid://ds5iuq38leawb" path="res://Scene/base.tscn" id="1_r34rm"]
+[ext_resource type="PackedScene" uid="uid://ck5uqtqyntnas" path="res://Scene/villager.tscn" id="1_sblpm"]
+[ext_resource type="PackedScene" uid="uid://bjhgmbhk67241" path="res://Scene/tree.tscn" id="2_r34rm"]
+[ext_resource type="PackedScene" uid="uid://cq8kxaoi8luhl" path="res://Scene/hud.tscn" id="4_2wwxx"]
+[ext_resource type="PackedScene" uid="uid://cmc4xaoufvd7x" path="res://Scene/lumber_camp.tscn" id="5_3amdw"]
+[ext_resource type="PackedScene" uid="uid://hblm4xs2qdre" path="res://Scene/resource_building_panel.tscn" id="6_1xcnr"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sblpm"]
+sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
+ground_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
+
+[sub_resource type="Sky" id="Sky_r34rm"]
+sky_material = SubResource("ProceduralSkyMaterial_sblpm")
+
+[sub_resource type="Environment" id="Environment_2wwxx"]
+background_mode = 2
+sky = SubResource("Sky_r34rm")
+glow_enabled = true
+
+[sub_resource type="NavigationMesh" id="NavigationMesh_t2dwb"]
+vertices = PackedVector3Array(-14.5, 0.3, -14.5, -14.5, 0.3, 14.5, 14.5, 0.3, 14.5, 14.5, 0.3, -14.5)
+polygons = [PackedInt32Array(3, 2, 0), PackedInt32Array(0, 2, 1)]
+geometry_parsed_geometry_type = 0
+
+[sub_resource type="BoxMesh" id="BoxMesh_eictv"]
+size = Vector3(30, 0.2, 30)
+
+[node name="Main" type="Node3D" unique_id=1839008769]
+script = ExtResource("1_ow1sv")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1486133278]
+environment = SubResource("Environment_2wwxx")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=159197342]
+transform = Transform3D(-0.8660254, -0.43301278, 0.25, 0, 0.49999997, 0.86602545, -0.50000006, 0.75, -0.43301266, 0, 0, 0)
+shadow_enabled = true
+
+[node name="NavigationRegion3D" type="NavigationRegion3D" parent="." unique_id=1436073479]
+navigation_mesh = SubResource("NavigationMesh_t2dwb")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="NavigationRegion3D" unique_id=1792445261]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)
+mesh = SubResource("BoxMesh_eictv")
+
+[node name="Villager" parent="." unique_id=1280470496 instance=ExtResource("1_sblpm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.4819183, 0, -7.8615894)
+
+[node name="Villager2" parent="." unique_id=868835237 instance=ExtResource("1_sblpm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.394434, 0, -3.0560637)
+
+[node name="Villager3" parent="." unique_id=1698941055 instance=ExtResource("1_sblpm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.609398, 9.536743e-07, -3.1319094)
+
+[node name="Villager4" parent="." unique_id=762992999 instance=ExtResource("1_sblpm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.27463, 9.536743e-07, -8.967838)
+
+[node name="Villager5" parent="." unique_id=837132624 instance=ExtResource("1_sblpm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.86508, 9.536743e-07, -9.646027)
+
+[node name="Tree" parent="." unique_id=180976486 instance=ExtResource("2_r34rm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14.01927, 0, -14.323225)
+
+[node name="Tree2" parent="." unique_id=382483837 instance=ExtResource("2_r34rm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.677527, -1.9073486e-06, 4.5724096)
+
+[node name="Tree6" parent="." unique_id=1021123293 instance=ExtResource("2_r34rm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6539464, -1.9073486e-06, 6.2536173)
+
+[node name="Tree7" parent="." unique_id=1724616144 instance=ExtResource("2_r34rm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.1934466, -1.9073486e-06, 13.012198)
+
+[node name="Tree8" parent="." unique_id=1253166678 instance=ExtResource("2_r34rm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.1140761, 0, 13.180861)
+
+[node name="Tree9" parent="." unique_id=704050567 instance=ExtResource("2_r34rm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.28048944, -1.9073486e-06, 8.422127)
+
+[node name="Tree5" parent="." unique_id=1394300909 instance=ExtResource("2_r34rm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.521143, -1.9073486e-06, 8.393125)
+
+[node name="Tree3" parent="." unique_id=452480633 instance=ExtResource("2_r34rm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.6131, -1.9073486e-06, 4.623762)
+
+[node name="Tree4" parent="." unique_id=1128567775 instance=ExtResource("2_r34rm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.446763, -1.9073486e-06, 10.794338)
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=138434750]
+transform = Transform3D(0.97904545, -0.1170032, 0.16667397, 0, 0.8184666, 0.5745541, -0.20364176, -0.56251454, 0.801316, 5.2121606, 8.801366, 15.693283)
+
+[node name="HUD" parent="." unique_id=1924675286 instance=ExtResource("4_2wwxx")]
+
+[node name="Base" parent="." unique_id=513460057 instance=ExtResource("1_r34rm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.3549633, 0, -8.618622)
+
+[node name="LumberCamp" parent="." unique_id=1441559658 instance=ExtResource("5_3amdw")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0951574, 0, 9.42311)
+
+[node name="UI" type="CanvasLayer" parent="." unique_id=1347447447]
+
+[node name="ResourceBuildingPanel" parent="UI" unique_id=1705630249 instance=ExtResource("6_1xcnr")]

@@ -1,0 +1,22 @@
+[gd_scene format=3 uid="uid://cmc4xaoufvd7x"]
+
+[ext_resource type="Script" uid="uid://bl4ds33574bn2" path="res://Script/lumber_camp.gd" id="1_d43ua"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_t2dwb"]
+size = Vector3(2, 1, 2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_t2dwb"]
+size = Vector3(2, 1, 2)
+
+[node name="LumberCamp" type="Node3D" unique_id=1441559658 groups=["resource_buildings"]]
+script = ExtResource("1_d43ua")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=202710442]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+mesh = SubResource("BoxMesh_t2dwb")
+
+[node name="ClickArea" type="Area3D" parent="." unique_id=1031481418]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ClickArea" unique_id=1767119099]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("BoxShape3D_t2dwb")

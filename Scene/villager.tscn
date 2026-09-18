@@ -1,0 +1,26 @@
+[gd_scene format=3 uid="uid://ck5uqtqyntnas"]
+
+[ext_resource type="Script" uid="uid://bu13103ayg7uo" path="res://Script/villager.gd" id="1_eictv"]
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_t2dwb"]
+radius = 0.3
+height = 1.6
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_t2dwb"]
+radius = 0.3
+height = 1.6
+
+[node name="Villager" type="CharacterBody3D" unique_id=1280470496 groups=["villagers"]]
+script = ExtResource("1_eictv")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=167959248]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+mesh = SubResource("CapsuleMesh_t2dwb")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1590689228]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+shape = SubResource("CapsuleShape3D_t2dwb")
+
+[node name="NavigationAgent3D" type="NavigationAgent3D" parent="." unique_id=602910608]
+path_desired_distance = 0.5
+target_desired_distance = 1.5

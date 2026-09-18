@@ -1,0 +1,33 @@
+[gd_scene format=3 uid="uid://snmcm2ts2b6m"]
+
+[ext_resource type="Script" uid="uid://7vx0r1x3riqp" path="res://UI/building_panel_base.gd" id="1_iail7"]
+
+[node name="BuildingPanelBase" type="PanelContainer" unique_id=1705630249]
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -624.0
+offset_top = -151.0
+offset_right = -304.0
+offset_bottom = 129.0
+grow_horizontal = 0
+grow_vertical = 2
+script = ExtResource("1_iail7")
+
+[node name="Vbox" type="VBoxContainer" parent="." unique_id=224631774]
+layout_mode = 2
+
+[node name="BuildingName" type="Label" parent="Vbox" unique_id=798406903]
+unique_name_in_owner = true
+layout_mode = 2
+text = "建筑名称"
+
+[node name="Content" type="VBoxContainer" parent="Vbox" unique_id=911553784]
+layout_mode = 2
+
+[node name="CloseButton" type="Button" parent="Vbox" unique_id=54370899]
+unique_name_in_owner = true
+layout_mode = 2
+text = "关闭"

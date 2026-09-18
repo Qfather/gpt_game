@@ -1,0 +1,42 @@
+[gd_scene format=3 uid="uid://cq8kxaoi8luhl"]
+
+[ext_resource type="Script" uid="uid://dsvx88aiiacqp" path="res://Script/hud.gd" id="1_cevek"]
+
+[node name="HUD" type="CanvasLayer" unique_id=1924675286]
+process_mode = 3
+script = ExtResource("1_cevek")
+
+[node name="PanelContainer" type="PanelContainer" parent="." unique_id=1546218474]
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer" unique_id=372903933]
+layout_mode = 2
+
+[node name="WoodLabel" type="Label" parent="PanelContainer/VBoxContainer" unique_id=1611337460]
+layout_mode = 2
+text = "木材：0"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer" unique_id=879828698]
+layout_mode = 2
+
+[node name="PauseButton" type="Button" parent="PanelContainer/VBoxContainer/HBoxContainer" unique_id=739921254]
+layout_mode = 2
+text = "暂停"
+
+[node name="Speed1Button" type="Button" parent="PanelContainer/VBoxContainer/HBoxContainer" unique_id=2024194387]
+layout_mode = 2
+text = "1X"
+
+[node name="Speed2Button" type="Button" parent="PanelContainer/VBoxContainer/HBoxContainer" unique_id=1717469573]
+layout_mode = 2
+text = "2X"
+
+[node name="Speed3Button" type="Button" parent="PanelContainer/VBoxContainer/HBoxContainer" unique_id=325766837]
+layout_mode = 2
+text = "3X"
+
+[connection signal="pressed" from="PanelContainer/VBoxContainer/HBoxContainer/PauseButton" to="." method="_on_pause_button_pressed"]
+[connection signal="pressed" from="PanelContainer/VBoxContainer/HBoxContainer/Speed1Button" to="." method="_on_speed_1_button_pressed"]
+[connection signal="pressed" from="PanelContainer/VBoxContainer/HBoxContainer/Speed2Button" to="." method="_on_speed_2_button_pressed"]
+[connection signal="pressed" from="PanelContainer/VBoxContainer/HBoxContainer/Speed3Button" to="." method="_on_speed_3_button_pressed"]
