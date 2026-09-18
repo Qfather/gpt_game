@@ -43,13 +43,12 @@ var category_filter_group: ButtonGroup
 # ============================================================
 
 var editor_panel: VBoxContainer
+var editor_scroll: ScrollContainer
 
 var name_edit: LineEdit
 var description_edit: TextEdit
 
-var icon_preview: TextureRect
-var icon_path_edit: LineEdit
-var icon_select_button: Button
+var icon_preview: Button
 var icon_dialog: EditorFileDialog
 
 var type_option: OptionButton
@@ -59,6 +58,14 @@ var category_option: OptionButton
 var weight_spin: SpinBox
 
 var save_button: Button
+
+# ============================================================
+# 等级效果编辑区
+# ============================================================
+
+var levels_container: VBoxContainer
+var add_level_button: Button
+var level_editor_rows: Array = []
 
 
 # ============================================================
@@ -160,6 +167,20 @@ func _create_main_panel():
 
 
 	# --------------------------------------------------------
+	# 保存修改
+	# 固定在顶部工具栏，放在“刷新”左边
+	# --------------------------------------------------------
+
+	save_button = Button.new()
+	save_button.text = "保存修改"
+	save_button.disabled = true
+	save_button.pressed.connect(
+		_on_save_pressed
+	)
+	toolbar.add_child(save_button)
+
+
+	# --------------------------------------------------------
 	# 刷新
 	# --------------------------------------------------------
 
@@ -252,12 +273,12 @@ func _create_main_panel():
 	# 右侧编辑区域
 	# ========================================================
 
-	var scroll = ScrollContainer.new()
+	editor_scroll = ScrollContainer.new()
 
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	editor_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	editor_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
-	body.add_child(scroll)
+	body.add_child(editor_scroll)
 
 
 	editor_panel = VBoxContainer.new()
@@ -266,7 +287,7 @@ func _create_main_panel():
 
 	editor_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	scroll.add_child(editor_panel)
+	editor_scroll.add_child(editor_panel)
 
 
 	_create_basic_editor()
@@ -423,113 +444,60 @@ func _create_basic_editor():
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
 
-	save_button = Button.new()
-	save_button.text = "保存修改"
-	save_button.disabled = true
-	save_button.custom_minimum_size = Vector2(110, 34)
-	save_button.pressed.connect(
-		_on_save_pressed
-	)
-	header.add_child(save_button)
-
 	editor_panel.add_child(
 		HSeparator.new()
 	)
 
 
 	# ========================================================
-	# 名称
+	# 图标 + 名称 + 描述
 	# ========================================================
 
-	var name_label = Label.new()
+	var basic_info_row = HBoxContainer.new()
 
-	name_label.text = "标签名称"
+	basic_info_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	editor_panel.add_child(name_label)
+	editor_panel.add_child(basic_info_row)
+
+
+	icon_preview = Button.new()
+
+	icon_preview.custom_minimum_size = Vector2(
+		96,
+		96
+	)
+
+	icon_preview.flat = true
+	icon_preview.expand_icon = true
+	icon_preview.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	icon_preview.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	icon_preview.tooltip_text = "点击选择标签图标"
+	icon_preview.text = "?"
+	icon_preview.pressed.connect(_on_icon_select_pressed)
+
+	basic_info_row.add_child(icon_preview)
+
+
+	var info_column = VBoxContainer.new()
+
+	info_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+	basic_info_row.add_child(info_column)
 
 
 	name_edit = LineEdit.new()
-
-	name_edit.placeholder_text = "例如：飞毛腿"
-
-	editor_panel.add_child(name_edit)
-
-
-	# ========================================================
-	# 描述
-	# ========================================================
-
-	var description_label = Label.new()
-
-	description_label.text = "标签描述"
-
-	editor_panel.add_child(description_label)
+	name_edit.placeholder_text = "标签名称，例如：飞毛腿"
+	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info_column.add_child(name_edit)
 
 
 	description_edit = TextEdit.new()
-
 	description_edit.custom_minimum_size.y = 75
-
-	description_edit.placeholder_text = "填写这个标签的说明……"
-
-	editor_panel.add_child(description_edit)
-
-
-	# ========================================================
-	# ICON
-	# ========================================================
-
-	var icon_label = Label.new()
-
-	icon_label.text = "标签图标"
-
-	editor_panel.add_child(icon_label)
-
-
-	var icon_row = HBoxContainer.new()
-
-	editor_panel.add_child(icon_row)
-
-
-	icon_preview = TextureRect.new()
-
-	icon_preview.custom_minimum_size = Vector2(
-		64,
-		64
-	)
-
-	icon_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-
-	icon_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-
-	icon_row.add_child(icon_preview)
-
-
-	var icon_controls = VBoxContainer.new()
-
-	icon_controls.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-	icon_row.add_child(icon_controls)
-
-
-	icon_path_edit = LineEdit.new()
-
-	icon_path_edit.editable = false
-
-	icon_path_edit.placeholder_text = "尚未选择图标"
-
-	icon_controls.add_child(icon_path_edit)
-
-
-	icon_select_button = Button.new()
-
-	icon_select_button.text = "选择图标"
-
-	icon_select_button.pressed.connect(
-		_on_icon_select_pressed
-	)
-
-	icon_controls.add_child(icon_select_button)
+	description_edit.placeholder_text = "标签描述，例如：移动速度提高 10%"
+	description_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	description_edit.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	info_column.add_child(description_edit)
 
 
 	# ========================================================
@@ -702,6 +670,340 @@ func _create_basic_editor():
 	editor_panel.add_child(weight_help)
 
 
+	# ========================================================
+	# 等级效果
+	# ========================================================
+
+	editor_panel.add_child(HSeparator.new())
+
+	var levels_header = HBoxContainer.new()
+	levels_header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	editor_panel.add_child(levels_header)
+
+	var levels_title = Label.new()
+	levels_title.text = "等级效果"
+	levels_title.add_theme_font_size_override("font_size", 18)
+	levels_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	levels_header.add_child(levels_title)
+
+	add_level_button = Button.new()
+	add_level_button.text = "+ 添加等级"
+	add_level_button.disabled = true
+	add_level_button.pressed.connect(_on_add_level_pressed)
+	levels_header.add_child(add_level_button)
+
+	levels_container = VBoxContainer.new()
+	levels_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	editor_panel.add_child(levels_container)
+
+
+
+
+# ============================================================
+# 等级效果编辑器
+# ============================================================
+
+func _clear_levels_editor():
+
+	if levels_container == null:
+		return
+
+	for child in levels_container.get_children():
+		child.queue_free()
+
+	level_editor_rows.clear()
+
+
+func _load_levels_editor():
+
+	_clear_levels_editor()
+
+	if current_trait_data == null:
+		if add_level_button != null:
+			add_level_button.disabled = true
+		return
+
+	add_level_button.disabled = false
+
+	var sorted_levels: Array = []
+	for level_data in current_trait_data.levels:
+		if level_data != null:
+			sorted_levels.append(level_data)
+
+	sorted_levels.sort_custom(
+		func(a, b):
+			return int(a.level) < int(b.level)
+	)
+
+	for level_data in sorted_levels:
+		_create_level_editor(level_data)
+
+
+func _create_level_editor(level_data: TraitLevelData):
+
+	var panel = PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	levels_container.add_child(panel)
+
+	var column = VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_child(column)
+
+	var header = HBoxContainer.new()
+	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.add_child(header)
+
+	var level_label = Label.new()
+	level_label.text = "Lv."
+	header.add_child(level_label)
+
+	var level_spin = SpinBox.new()
+	level_spin.min_value = 1
+	level_spin.max_value = 10
+	level_spin.step = 1
+	level_spin.value = level_data.level
+	level_spin.custom_minimum_size.x = 80
+	header.add_child(level_spin)
+
+	var spacer = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(spacer)
+
+	var add_modifier_button = Button.new()
+	add_modifier_button.text = "+ 添加属性效果"
+	header.add_child(add_modifier_button)
+
+	var delete_level_button = Button.new()
+	delete_level_button.text = "删除等级"
+	header.add_child(delete_level_button)
+
+	var modifiers_container = VBoxContainer.new()
+	modifiers_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.add_child(modifiers_container)
+
+	var level_row = {
+		"panel": panel,
+		"level_data": level_data,
+		"level_spin": level_spin,
+		"modifiers_container": modifiers_container,
+		"modifier_rows": []
+	}
+	level_editor_rows.append(level_row)
+
+	add_modifier_button.pressed.connect(
+		_on_add_modifier_pressed.bind(level_row)
+	)
+	delete_level_button.pressed.connect(
+		_on_delete_level_pressed.bind(level_row)
+	)
+
+	for modifier in level_data.modifiers:
+		if modifier != null:
+			_create_modifier_editor(level_row, modifier)
+
+
+func _create_modifier_editor(level_row: Dictionary, modifier: StatModifier):
+
+	var row = HBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	level_row["modifiers_container"].add_child(row)
+
+	var stat_option = OptionButton.new()
+	stat_option.custom_minimum_size.x = 150
+	stat_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	stat_option.add_item("最大生命", StatModifier.StatType.MAX_HEALTH)
+	stat_option.add_item("生命恢复速度", StatModifier.StatType.HEALTH_REGEN)
+	stat_option.add_item("移动速度", StatModifier.StatType.MOVE_SPEED)
+	stat_option.add_item("食物消耗", StatModifier.StatType.FOOD_CONSUMPTION)
+	stat_option.add_item("工作效率", StatModifier.StatType.WORK_SPEED)
+	stat_option.add_item("采集速度", StatModifier.StatType.GATHER_SPEED)
+	stat_option.add_item("攻击力", StatModifier.StatType.ATTACK_DAMAGE)
+	stat_option.add_item("攻击速度", StatModifier.StatType.ATTACK_SPEED)
+
+	_select_option_by_id(stat_option, modifier.stat)
+	row.add_child(stat_option)
+
+	var modifier_option = OptionButton.new()
+	modifier_option.custom_minimum_size.x = 110
+	modifier_option.add_item("固定值", StatModifier.ModifierType.ADD)
+	modifier_option.add_item("百分比", StatModifier.ModifierType.PERCENT)
+	_select_option_by_id(modifier_option, modifier.modifier_type)
+	row.add_child(modifier_option)
+
+	var value_spin = SpinBox.new()
+	value_spin.min_value = -10000.0
+	value_spin.max_value = 10000.0
+	value_spin.step = 0.1
+	value_spin.value = modifier.value
+	value_spin.custom_minimum_size.x = 120
+	row.add_child(value_spin)
+
+	var delete_button = Button.new()
+	delete_button.text = "删除"
+	row.add_child(delete_button)
+
+	var modifier_row = {
+		"row": row,
+		"stat_option": stat_option,
+		"modifier_option": modifier_option,
+		"value_spin": value_spin
+	}
+	level_row["modifier_rows"].append(modifier_row)
+
+	delete_button.pressed.connect(
+		_on_delete_modifier_pressed.bind(level_row, modifier_row)
+	)
+
+
+func _on_add_level_pressed():
+
+	print("➕ 点击添加等级")
+
+	if current_trait_data == null:
+		push_warning("请先选择一个标签")
+		return
+
+	var used_levels: Array[int] = []
+
+	for level_row in level_editor_rows:
+		used_levels.append(int(level_row["level_spin"].value))
+
+	var new_level_number = 1
+
+	while new_level_number in used_levels:
+		new_level_number += 1
+
+	if new_level_number > 10:
+		push_warning("最多支持 10 个等级")
+		return
+
+	# TraitLevelData 自己已经有：
+	# @export var modifiers: Array[StatModifier] = []
+	# 这里不要再用普通 [] 给强类型数组赋值。
+	var level_data := TraitLevelData.new()
+	level_data.level = new_level_number
+
+	# 这里只创建界面。
+	# 真正的数据统一在“保存修改”时由 _write_levels_from_editor() 写回，
+	# 避免编辑器 UI 和 Resource 同时修改导致状态不同步。
+	_create_level_editor(level_data)
+
+	print("✅ 已添加等级：Lv.", new_level_number)
+
+	call_deferred("_ensure_last_level_visible")
+
+
+func _on_delete_level_pressed(level_row: Dictionary):
+
+	var panel = level_row["panel"]
+	var level_data = level_row["level_data"]
+
+	level_editor_rows.erase(level_row)
+	if current_trait_data != null:
+		current_trait_data.levels.erase(level_data)
+
+	if is_instance_valid(panel):
+		panel.queue_free()
+
+
+func _scroll_to_levels_bottom():
+
+	if editor_scroll == null:
+		return
+
+	editor_scroll.scroll_vertical = int(
+		editor_scroll.get_v_scroll_bar().max_value
+	)
+
+
+func _ensure_last_level_visible():
+
+	if editor_scroll == null or levels_container == null:
+		return
+
+	var children = levels_container.get_children()
+	if children.is_empty():
+		return
+
+	editor_scroll.ensure_control_visible(children.back())
+	_scroll_to_levels_bottom()
+
+
+func _on_add_modifier_pressed(level_row: Dictionary):
+
+	var modifier = StatModifier.new()
+	modifier.stat = StatModifier.StatType.MOVE_SPEED
+	modifier.modifier_type = StatModifier.ModifierType.PERCENT
+	modifier.value = 0.0
+
+	_create_modifier_editor(level_row, modifier)
+
+
+func _on_delete_modifier_pressed(
+	level_row: Dictionary,
+	modifier_row: Dictionary
+):
+
+	level_row["modifier_rows"].erase(modifier_row)
+
+	var row = modifier_row["row"]
+
+	if is_instance_valid(row):
+		row.queue_free()
+
+
+func _write_levels_from_editor() -> bool:
+
+	if current_trait_data == null:
+		return false
+
+	var new_levels: Array[TraitLevelData] = []
+	var used_levels: Dictionary = {}
+
+	for level_row in level_editor_rows:
+
+		var level_number = int(level_row["level_spin"].value)
+
+		if used_levels.has(level_number):
+			push_warning("等级 Lv.%d 重复，请修改后再保存" % level_number)
+			return false
+
+		used_levels[level_number] = true
+
+		var level_data = TraitLevelData.new()
+		level_data.level = level_number
+
+		var modifiers: Array[StatModifier] = []
+
+		for modifier_row in level_row["modifier_rows"]:
+
+			var modifier = StatModifier.new()
+
+			modifier.stat = (
+				modifier_row["stat_option"].get_selected_id()
+			)
+
+			modifier.modifier_type = (
+				modifier_row["modifier_option"].get_selected_id()
+			)
+
+			modifier.value = (
+				modifier_row["value_spin"].value
+			)
+
+			modifiers.append(modifier)
+
+		level_data.modifiers = modifiers
+		new_levels.append(level_data)
+
+	new_levels.sort_custom(
+		func(a, b):
+			return int(a.level) < int(b.level)
+	)
+
+	current_trait_data.levels = new_levels
+	return true
 
 
 # ============================================================
@@ -976,20 +1278,8 @@ func _load_trait_into_editor(trait_data):
 	# ICON
 	# ========================================================
 
-	icon_preview.texture = (
-		current_trait_data.icon
-	)
-
-
-	if current_trait_data.icon != null:
-
-		icon_path_edit.text = (
-			current_trait_data.icon.resource_path
-		)
-
-	else:
-
-		icon_path_edit.text = ""
+	icon_preview.icon = current_trait_data.icon
+	icon_preview.text = "" if current_trait_data.icon != null else "?"
 
 
 	# ========================================================
@@ -1021,6 +1311,13 @@ func _load_trait_into_editor(trait_data):
 	weight_spin.value = (
 		current_trait_data.weight
 	)
+
+
+	# ========================================================
+	# 等级效果
+	# ========================================================
+
+	_load_levels_editor()
 
 
 	save_button.disabled = false
@@ -1123,6 +1420,14 @@ func _on_save_pressed():
 
 
 	# ========================================================
+	# 等级效果
+	# ========================================================
+
+	if not _write_levels_from_editor():
+		return
+
+
+	# ========================================================
 	# 保存 Resource
 	# ========================================================
 
@@ -1216,9 +1521,8 @@ func _on_icon_file_selected(path):
 
 	current_trait_data.icon = texture
 
-	icon_preview.texture = texture
-
-	icon_path_edit.text = path
+	icon_preview.icon = texture
+	icon_preview.text = ""
 
 
 # ============================================================
@@ -1321,7 +1625,6 @@ func _delete_trait(trait_data):
 
 	current_trait_data = null
 
-
 	_clear_editor()
 
 
@@ -1340,11 +1643,15 @@ func _clear_editor():
 
 	description_edit.text = ""
 
-	icon_preview.texture = null
-
-	icon_path_edit.text = ""
+	icon_preview.icon = null
+	icon_preview.text = "?"
 
 	weight_spin.value = 0.0
+
+	_clear_levels_editor()
+
+	if add_level_button != null:
+		add_level_button.disabled = true
 
 	save_button.disabled = true
 
