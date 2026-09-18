@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://hblm4xs2qdre"]
 
-[ext_resource type="PackedScene" uid="uid://snmcm2ts2b6m" path="res://UI/building_panel_base.tscn" id="1_626jk"]
-[ext_resource type="Script" uid="uid://ct6bj10coe3ac" path="res://UI/resource_building_panel.gd" id="2_0bbh6"]
+[ext_resource type="PackedScene" uid="uid://snmcm2ts2b6m" path="res://UI/building_panel/building_panel_base.tscn" id="1_626jk"]
+[ext_resource type="Script" uid="uid://ct6bj10coe3ac" path="res://UI/building_panel/resource_building_panel.gd" id="2_0bbh6"]
 
 [node name="ResourceBuildingPanel" unique_id=1705630249 instance=ExtResource("1_626jk")]
 script = ExtResource("2_0bbh6")

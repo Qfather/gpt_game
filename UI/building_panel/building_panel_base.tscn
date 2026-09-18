@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://snmcm2ts2b6m"]
 
-[ext_resource type="Script" uid="uid://7vx0r1x3riqp" path="res://UI/building_panel_base.gd" id="1_iail7"]
+[ext_resource type="Script" uid="uid://7vx0r1x3riqp" path="res://UI/building_panel/building_panel_base.gd" id="1_iail7"]
 
 [node name="BuildingPanelBase" type="PanelContainer" unique_id=1705630249]
 anchors_preset = 6

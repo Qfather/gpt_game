@@ -1,0 +1,62 @@
+[gd_scene format=3 uid="uid://c0ignntbqytf3"]
+
+[ext_resource type="Script" uid="uid://c2556yaq52olh" path="res://UI/unit_panel/villager_panel.gd" id="1_8u23j"]
+
+[node name="VillagerPanel" type="Control" unique_id=1018035071]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_8u23j")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=773400638]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer" unique_id=1332718360]
+layout_mode = 2
+
+[node name="Header" type="HBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=1728969609]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/Header" unique_id=790947964]
+layout_mode = 2
+
+[node name="Control" type="Control" parent="MarginContainer/VBoxContainer/Header" unique_id=1376499294]
+layout_mode = 2
+
+[node name="Button" type="Button" parent="MarginContainer/VBoxContainer/Header" unique_id=2092054875]
+layout_mode = 2
+
+[node name="HSeparator" type="HSeparator" parent="MarginContainer/VBoxContainer" unique_id=1849100148]
+layout_mode = 2
+
+[node name="HealthLabel" type="Label" parent="MarginContainer/VBoxContainer" unique_id=187996507]
+layout_mode = 2
+
+[node name="MoveSpeedLabel" type="Label" parent="MarginContainer/VBoxContainer" unique_id=1884447393]
+layout_mode = 2
+
+[node name="FoodLabel" type="Label" parent="MarginContainer/VBoxContainer" unique_id=1590903934]
+layout_mode = 2
+
+[node name="WorkSpeedLabel" type="Label" parent="MarginContainer/VBoxContainer" unique_id=430344490]
+layout_mode = 2
+
+[node name="GatherSpeedLabel" type="Label" parent="MarginContainer/VBoxContainer" unique_id=1251220533]
+layout_mode = 2
+
+[node name="JobLabel" type="Label" parent="MarginContainer/VBoxContainer" unique_id=1253258979]
+layout_mode = 2
+
+[node name="HSeparator2" type="HSeparator" parent="MarginContainer/VBoxContainer" unique_id=193159785]
+layout_mode = 2
+
+[node name="TraitTitle" type="Label" parent="MarginContainer/VBoxContainer" unique_id=965636878]
+layout_mode = 2
+
+[node name="TraitContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=175475595]
+layout_mode = 2

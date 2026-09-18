@@ -4,7 +4,9 @@
 [ext_resource type="PackedScene" uid="uid://ds5iuq38leawb" path="res://Scene/base.tscn" id="1_r34rm"]
 [ext_resource type="PackedScene" uid="uid://ck5uqtqyntnas" path="res://Scene/villager.tscn" id="1_sblpm"]
 [ext_resource type="PackedScene" uid="uid://bjhgmbhk67241" path="res://Scene/tree.tscn" id="2_r34rm"]
+[ext_resource type="Script" uid="uid://vjowyu6mphb3" path="res://Script/unit/unit_trait.gd" id="3_c2iwn"]
 [ext_resource type="PackedScene" uid="uid://cq8kxaoi8luhl" path="res://Scene/hud.tscn" id="4_2wwxx"]
+[ext_resource type="Resource" uid="uid://2h2r32me2ws" path="res://data/traits/swift_feet.tres" id="4_3pt4j"]
 [ext_resource type="PackedScene" uid="uid://cmc4xaoufvd7x" path="res://Scene/lumber_camp.tscn" id="5_3amdw"]
 [ext_resource type="PackedScene" uid="uid://hblm4xs2qdre" path="res://Scene/resource_building_panel.tscn" id="6_1xcnr"]
 
@@ -28,6 +30,12 @@ geometry_parsed_geometry_type = 0
 [sub_resource type="BoxMesh" id="BoxMesh_eictv"]
 size = Vector3(30, 0.2, 30)
 
+[sub_resource type="Resource" id="Resource_eictv"]
+resource_local_to_scene = true
+script = ExtResource("3_c2iwn")
+trait_data = ExtResource("4_3pt4j")
+metadata/_custom_type_script = "uid://vjowyu6mphb3"
+
 [node name="Main" type="Node3D" unique_id=1839008769]
 script = ExtResource("1_ow1sv")
 
@@ -47,6 +55,7 @@ mesh = SubResource("BoxMesh_eictv")
 
 [node name="Villager" parent="." unique_id=1280470496 instance=ExtResource("1_sblpm")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.4819183, 0, -7.8615894)
+traits = Array[ExtResource("3_c2iwn")]([SubResource("Resource_eictv")])
 
 [node name="Villager2" parent="." unique_id=868835237 instance=ExtResource("1_sblpm")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.394434, 0, -3.0560637)

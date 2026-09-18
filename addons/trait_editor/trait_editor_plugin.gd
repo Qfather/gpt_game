@@ -45,8 +45,14 @@ var category_filter_group: ButtonGroup
 var editor_panel: VBoxContainer
 var editor_scroll: ScrollContainer
 
+var id_edit: LineEdit
 var name_edit: LineEdit
 var description_edit: TextEdit
+
+var new_trait_dialog: Window
+var new_trait_id_edit: LineEdit
+var new_trait_name_edit: LineEdit
+var new_trait_error_label: Label
 
 var icon_preview: Button
 var icon_dialog: EditorFileDialog
@@ -96,6 +102,10 @@ func _exit_tree():
 	if icon_dialog != null:
 		icon_dialog.queue_free()
 		icon_dialog = null
+
+	if new_trait_dialog != null:
+		new_trait_dialog.queue_free()
+		new_trait_dialog = null
 
 	if main_panel != null:
 
@@ -467,7 +477,8 @@ func _create_basic_editor():
 		96
 	)
 
-	icon_preview.flat = true
+	# 保留普通 Button 的主题边框，使 ICON 边缘更清晰。
+	icon_preview.flat = false
 	icon_preview.expand_icon = true
 	icon_preview.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	icon_preview.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -486,6 +497,15 @@ func _create_basic_editor():
 	basic_info_row.add_child(info_column)
 
 
+	# 永久 ID：创建后只读。
+	id_edit = LineEdit.new()
+	id_edit.placeholder_text = "标签 ID"
+	id_edit.editable = false
+	id_edit.tooltip_text = "永久 ID，由新建标签时确定，创建后不可修改"
+	id_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info_column.add_child(id_edit)
+
+
 	name_edit = LineEdit.new()
 	name_edit.placeholder_text = "标签名称，例如：飞毛腿"
 	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -493,7 +513,7 @@ func _create_basic_editor():
 
 
 	description_edit = TextEdit.new()
-	description_edit.custom_minimum_size.y = 75
+	description_edit.custom_minimum_size.y = 50
 	description_edit.placeholder_text = "标签描述，例如：移动速度提高 10%"
 	description_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	description_edit.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1143,79 +1163,221 @@ func _sort_trait_by_name(a, b):
 
 func _on_new_trait_pressed():
 
-	var trait_data = TraitData.new()
+	print("➕ 点击新建标签")
 
-	trait_data.trait_name = "新标签"
+	# 懒加载：即使插件启动阶段没有成功创建弹窗，
+	# 点击按钮时也会重新创建，避免“按钮有反应但没有窗口”。
+	if new_trait_dialog == null or not is_instance_valid(new_trait_dialog):
+		_create_new_trait_dialog()
 
+	new_trait_id_edit.text = ""
+	new_trait_name_edit.text = ""
+	new_trait_error_label.text = ""
 
-	var number = 1
-
-	var file_path = (
-		TRAIT_FOLDER
-		+ "trait_"
-		+ str(number)
-		+ ".tres"
-	)
-
-
-	while ResourceLoader.exists(
-		file_path
-	):
-
-		number += 1
-
-		file_path = (
-			TRAIT_FOLDER
-			+ "trait_"
-			+ str(number)
-			+ ".tres"
-		)
+	new_trait_dialog.popup_centered(Vector2i(460, 300))
+	new_trait_id_edit.grab_focus()
 
 
-	var error = ResourceSaver.save(
-		trait_data,
-		file_path
-	)
+# ============================================================
+# 新建 Trait 弹窗
+# ============================================================
 
+func _create_new_trait_dialog():
 
-	if error != OK:
-
-		push_error(
-			"Trait 创建失败："
-			+ str(error)
-		)
-
+	if new_trait_dialog != null and is_instance_valid(new_trait_dialog):
 		return
 
+	# 不再使用 ConfirmationDialog 的内部布局。
+	# 直接使用 Window + 自己的 VBox/HBox，避免编辑器版本差异。
+	new_trait_dialog = Window.new()
+	new_trait_dialog.title = "新建标签"
+	new_trait_dialog.size = Vector2i(460, 300)
+	new_trait_dialog.min_size = Vector2i(460, 300)
+	new_trait_dialog.transient = true
+	new_trait_dialog.exclusive = true
+	new_trait_dialog.unresizable = true
 
-	print(
-		"✅ 创建 Trait：",
-		file_path
+	var margin = MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 18)
+	margin.add_theme_constant_override("margin_right", 18)
+	margin.add_theme_constant_override("margin_top", 18)
+	margin.add_theme_constant_override("margin_bottom", 18)
+	new_trait_dialog.add_child(margin)
+
+	var content = VBoxContainer.new()
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_child(content)
+
+	var id_label = Label.new()
+	id_label.text = "标签 ID"
+	content.add_child(id_label)
+
+	new_trait_id_edit = LineEdit.new()
+	new_trait_id_edit.placeholder_text = "例如：swift_feet"
+	new_trait_id_edit.tooltip_text = "仅允许英文小写字母、数字和下划线"
+	content.add_child(new_trait_id_edit)
+
+	var id_help = Label.new()
+	id_help.text = "仅允许 a-z、0-9、_；创建后 ID 与文件名保持不变。"
+	content.add_child(id_help)
+
+	var name_label = Label.new()
+	name_label.text = "标签名称"
+	content.add_child(name_label)
+
+	new_trait_name_edit = LineEdit.new()
+	new_trait_name_edit.placeholder_text = "例如：飞毛腿"
+	content.add_child(new_trait_name_edit)
+
+	new_trait_error_label = Label.new()
+	new_trait_error_label.text = ""
+	content.add_child(new_trait_error_label)
+
+	var spacer = Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_child(spacer)
+
+	var buttons = HBoxContainer.new()
+	buttons.alignment = BoxContainer.ALIGNMENT_END
+	content.add_child(buttons)
+
+	var cancel_button = Button.new()
+	cancel_button.text = "取消"
+	cancel_button.pressed.connect(
+		func():
+			new_trait_dialog.hide()
+	)
+	buttons.add_child(cancel_button)
+
+	var create_button = Button.new()
+	create_button.text = "创建"
+	create_button.pressed.connect(_on_new_trait_confirmed)
+	buttons.add_child(create_button)
+
+	# 回车也可以创建。
+	new_trait_id_edit.text_submitted.connect(
+		func(_text):
+			_on_new_trait_confirmed()
+	)
+	new_trait_name_edit.text_submitted.connect(
+		func(_text):
+			_on_new_trait_confirmed()
 	)
 
+	get_editor_interface().get_base_control().add_child(new_trait_dialog)
+
+	# Window 的右上角 X 默认只发出 close_requested，
+	# 不会自动 hide/free，所以显式把它接成“取消”。
+	new_trait_dialog.close_requested.connect(
+		func():
+			new_trait_dialog.hide()
+	)
+
+	print("✅ 新建标签弹窗创建完成")
+
+
+
+func _normalize_trait_id(value: String) -> String:
+
+	var result = value.strip_edges().to_lower()
+	result = result.replace(" ", "_")
+	return result
+
+
+func _is_valid_trait_id(value: String) -> bool:
+
+	if value.is_empty():
+		return false
+
+	for i in range(value.length()):
+		var code = value.unicode_at(i)
+		var is_lower = code >= 97 and code <= 122
+		var is_digit = code >= 48 and code <= 57
+		var is_underscore = code == 95
+
+		if not is_lower and not is_digit and not is_underscore:
+			return false
+
+	return true
+
+
+func _trait_id_exists(trait_id: String) -> bool:
+
+	for trait_data in trait_resources:
+		if trait_data == null:
+			continue
+
+		if str(trait_data.trait_id) == trait_id:
+			return true
+
+	return false
+
+
+func _on_new_trait_confirmed():
+
+	var trait_id = _normalize_trait_id(new_trait_id_edit.text)
+	var trait_name = new_trait_name_edit.text.strip_edges()
+
+	if trait_id.is_empty():
+		_show_new_trait_error("标签 ID 不能为空")
+		return
+
+	if not _is_valid_trait_id(trait_id):
+		_show_new_trait_error("ID 只能使用英文小写字母、数字和下划线")
+		return
+
+	if trait_name.is_empty():
+		_show_new_trait_error("标签名称不能为空")
+		return
+
+	var file_path = TRAIT_FOLDER + trait_id + ".tres"
+
+	if ResourceLoader.exists(file_path):
+		_show_new_trait_error("文件已存在：" + trait_id + ".tres")
+		return
+
+	if _trait_id_exists(trait_id):
+		_show_new_trait_error("标签 ID 已存在：" + trait_id)
+		return
+
+	var trait_data = TraitData.new()
+	trait_data.trait_id = trait_id
+	trait_data.trait_name = trait_name
+
+	var error = ResourceSaver.save(trait_data, file_path)
+
+	if error != OK:
+		_show_new_trait_error("Trait 创建失败，错误代码：" + str(error))
+		return
+
+	print("✅ 创建 Trait：", file_path)
+
+	# 创建成功后立即关闭新建窗口。
+	if new_trait_dialog != null and is_instance_valid(new_trait_dialog):
+		new_trait_dialog.hide()
 
 	get_editor_interface().get_resource_filesystem().scan()
-
 	_refresh_trait_list()
 
-
-	# --------------------------------------------------------
-	# 自动选中新标签
-	# --------------------------------------------------------
-
 	for i in range(trait_list.item_count):
-
 		var resource_data = trait_list.get_item_metadata(i)
 
 		if resource_data == null:
 			continue
 
 		if resource_data.resource_path == file_path:
-
 			trait_list.select(i)
 			trait_list.ensure_current_is_visible()
 			_load_trait_into_editor(resource_data)
 			break
+
+
+func _show_new_trait_error(message: String):
+
+	new_trait_error_label.text = message
+
 
 
 # ============================================================
@@ -1263,6 +1425,10 @@ func _load_trait_into_editor(trait_data):
 	# ========================================================
 	# 基础信息
 	# ========================================================
+
+	id_edit.text = str(
+		current_trait_data.trait_id
+	)
 
 	name_edit.text = str(
 		current_trait_data.trait_name
@@ -1639,6 +1805,7 @@ func _delete_trait(trait_data):
 
 func _clear_editor():
 
+	id_edit.text = ""
 	name_edit.text = ""
 
 	description_edit.text = ""

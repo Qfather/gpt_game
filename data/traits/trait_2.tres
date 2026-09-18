@@ -1,8 +1,0 @@
-[gd_resource type="Resource" script_class="TraitData" format=3 uid="uid://bcexlufpjmrja"]
-
-[ext_resource type="Script" uid="uid://2fkm0m0oilvi" path="res://Script/trait/trait_level_data.gd" id="1_tiwo4"]
-[ext_resource type="Script" uid="uid://b2ilqqawkrpyb" path="res://Script/trait/trait_data.gd" id="2_id2np"]
-
-[resource]
-script = ExtResource("2_id2np")
-trait_name = "新标签"
