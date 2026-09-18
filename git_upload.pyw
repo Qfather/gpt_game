@@ -20,7 +20,7 @@ AUTO_CLOSE = False
 # Git 命令
 # ============================================================
 
-def run_git(args):
+def run_git(args, timeout=60):
     """
     执行 Git 命令。
     返回：
@@ -30,17 +30,46 @@ def run_git(args):
     # pyw 双击启动时，将工作目录固定到脚本所在目录
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
-    result = subprocess.run(
-        ["git"] + args,
-        cwd=script_dir,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        creationflags=subprocess.CREATE_NO_WINDOW
-    )
+    try:
+        result = subprocess.run(
+            ["git"] + args,
+            cwd=script_dir,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        )
+    except FileNotFoundError:
+        return 1, "", "找不到 git 命令，请先安装 Git 并加入 PATH。"
+    except subprocess.TimeoutExpired:
+        return 1, "", f"Git 命令执行超过 {timeout} 秒，可能是网络连接或认证等待超时。"
 
     return result.returncode, result.stdout.strip(), result.stderr.strip()
+
+
+def get_git_value(args):
+    code, out, err = run_git(args)
+    if code != 0:
+        return None, err or out
+    return out, ""
+
+
+def format_git_error(out, err):
+    text = (out + "\n" + err).strip()
+    lower_text = text.lower()
+
+    if "couldn't connect" in lower_text or "failed to connect" in lower_text:
+        return text + "\n\n请检查网络、代理或防火墙是否允许访问 github.com。"
+
+    if "authentication failed" in lower_text or "invalid username or password" in lower_text:
+        return text + "\n\nGitHub 登录凭据无效，请重新登录或更新 Token。"
+
+    if "rejected" in lower_text or "non-fast-forward" in lower_text:
+        return text + "\n\n远程仓库有本地没有的提交。请先手动执行 git pull --rebase，确认无冲突后再上传。"
+
+    return text
 
 
 # ============================================================
@@ -64,6 +93,27 @@ def main():
         messagebox.showerror(
             "Git 上传失败",
             "当前目录不是 Git 仓库：\n\n" + script_dir
+        )
+        return
+
+    branch, err = get_git_value(["branch", "--show-current"])
+
+    if not branch:
+        messagebox.showerror(
+            "Git 上传失败",
+            "当前处于 detached HEAD 状态，无法自动确定上传分支。\n\n"
+            + (err or "请先切换到 main 等正常分支。")
+        )
+        return
+
+    remote, err = get_git_value(["remote", "get-url", "origin"])
+
+    if not remote:
+        messagebox.showerror(
+            "Git 上传失败",
+            "没有配置 origin 远程仓库。\n\n"
+            "请先执行：\n"
+            "git remote add origin <GitHub 仓库地址>"
         )
         return
 
@@ -145,20 +195,26 @@ def main():
     # git push
     # --------------------------------------------------------
 
-    code, out, err = run_git(["push"])
+    # 显式指定远程、分支并设置 upstream，避免首次上传时没有跟踪分支。
+    code, out, err = run_git([
+        "push",
+        "--set-upstream",
+        "origin",
+        branch
+    ], timeout=90)
 
     if code != 0:
 
         messagebox.showerror(
             "git push 失败",
             "Commit 已经创建成功，但 Push 失败。\n\n"
-            "可能原因：\n"
-            "• 远程仓库存在新的提交\n"
-            "• 网络连接失败\n"
-            "• GitHub 登录/Token失效\n"
-            "• 当前分支没有设置 upstream\n\n"
+            "远程仓库：\n"
+            + remote
+            + "\n当前分支："
+            + branch
+            + "\n\n"
             "Git 返回信息：\n\n"
-            + (out + "\n" + err).strip()
+            + format_git_error(out, err)
         )
 
         return
