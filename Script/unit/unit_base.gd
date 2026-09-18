@@ -16,8 +16,19 @@ var health: float = 100.0
 
 @export_category("移动 / 生存")
 
+# 基础移动速度
 @export var base_move_speed: float = 3.0
+
+# 每次回据点吃饭时消耗多少食物
 @export var base_food_consumption: float = 5.0
+
+# 连续工作多久后需要回据点吃饭休息
+# 单位：秒
+@export var base_work_duration: float = 120.0
+
+# 每次吃饭后需要休息多久
+# 单位：秒
+@export var base_rest_duration: float = 20.0
 
 
 @export_category("工作")
@@ -68,6 +79,11 @@ func get_base_stat(stat: StatModifier.StatType) -> float:
 
 		StatModifier.StatType.FOOD_CONSUMPTION:
 			return base_food_consumption
+		StatModifier.StatType.WORK_DURATION:
+			return base_work_duration
+
+		StatModifier.StatType.REST_DURATION:
+			return base_rest_duration
 
 		StatModifier.StatType.WORK_SPEED:
 			return base_work_speed
@@ -170,6 +186,20 @@ func get_move_speed() -> float:
 func get_food_consumption() -> float:
 	return get_stat(StatModifier.StatType.FOOD_CONSUMPTION)
 
+# ============================================================
+# 获取最终工作周期
+# ============================================================
+
+func get_work_duration() -> float:
+	return get_stat(StatModifier.StatType.WORK_DURATION)
+
+
+# ============================================================
+# 获取最终休息时间
+# ============================================================
+
+func get_rest_duration() -> float:
+	return get_stat(StatModifier.StatType.REST_DURATION)
 
 func get_work_speed() -> float:
 	return get_stat(StatModifier.StatType.WORK_SPEED)
