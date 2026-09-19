@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" uid="uid://cmc4xaoufvd7x" path="res://Scene/building/game/lumber_camp.tscn" id="5_3amdw"]
 [ext_resource type="PackedScene" uid="uid://hblm4xs2qdre" path="res://Scene/ui/resource_building_panel.tscn" id="6_1xcnr"]
 [ext_resource type="PackedScene" uid="uid://b35h0wuf0qn8a" path="res://Scene/resource/stone.tscn" id="10_3pt4j"]
+[ext_resource type="PackedScene" uid="uid://bp03yo24lthb4" path="res://Scene/building/game/quarry.tscn" id="11_7y4ci"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sblpm"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -31,7 +32,7 @@ geometry_parsed_geometry_type = 0
 [sub_resource type="BoxMesh" id="BoxMesh_eictv"]
 size = Vector3(30, 0.2, 30)
 
-[sub_resource type="Resource" id="Resource_3pt4j"]
+[sub_resource type="Resource" id="Resource_7y4ci"]
 resource_local_to_scene = true
 script = ExtResource("3_c2iwn")
 trait_data = ExtResource("4_3pt4j")
@@ -56,7 +57,7 @@ mesh = SubResource("BoxMesh_eictv")
 
 [node name="Villager" parent="." unique_id=1280470496 instance=ExtResource("1_sblpm")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.4819183, 0, -7.8615894)
-traits = Array[ExtResource("3_c2iwn")]([SubResource("Resource_3pt4j")])
+traits = Array[ExtResource("3_c2iwn")]([SubResource("Resource_7y4ci")])
 
 [node name="Villager2" parent="." unique_id=868835237 instance=ExtResource("1_sblpm")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.394434, 0, -3.0560637)
@@ -118,5 +119,11 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.699587, 0, 6.2776823)
 [node name="Stone2" parent="." unique_id=389346972 instance=ExtResource("10_3pt4j")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9.2209835, 0, 0.25632954)
 
+[node name="Stone4" parent="." unique_id=733834534 instance=ExtResource("10_3pt4j")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.6401768, 0, -10.816457)
+
 [node name="Stone3" parent="." unique_id=1043233641 instance=ExtResource("10_3pt4j")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.954482, 0, 6.2588034)
+
+[node name="quarry" parent="." unique_id=1787768537 instance=ExtResource("11_7y4ci")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12.111956, 0, 2.7658768)

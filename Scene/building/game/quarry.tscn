@@ -1,13 +1,34 @@
-[gd_scene format=3 uid="uid://cnmemy1tuystt"]
+[gd_scene format=3 uid="uid://bp03yo24lthb4"]
 
 [ext_resource type="Script" uid="uid://ui4gjj7r02dw" path="res://Script/building/game/quarry.gd" id="1_j7tq1"]
 [ext_resource type="Script" uid="uid://c8iasvdn8ygnl" path="res://Script/resource/ResourceStorage.gd" id="2_j7tq1"]
 
-[node name="Quarry" type="Node3D" unique_id=83062817]
-script = ExtResource("1_j7tq1")
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_l73x2"]
+albedo_color = Color(0.34901962, 0.28627452, 0.34901962, 1)
 
-[node name="ResourceStorage" type="Node" parent="." unique_id=1910500186]
+[sub_resource type="BoxMesh" id="BoxMesh_t2dwb"]
+material = SubResource("StandardMaterial3D_l73x2")
+size = Vector3(2, 1, 2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_t2dwb"]
+size = Vector3(2, 1, 2)
+
+[node name="quarry" type="Node3D" unique_id=1441559658 groups=["resource_buildings"]]
+script = ExtResource("1_j7tq1")
+production_resource_type = 1
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=202710442]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+mesh = SubResource("BoxMesh_t2dwb")
+
+[node name="ClickArea" type="Area3D" parent="." unique_id=1031481418]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ClickArea" unique_id=1767119099]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("BoxShape3D_t2dwb")
+
+[node name="ResourceStorage" type="Node" parent="." unique_id=1680789278]
 script = ExtResource("2_j7tq1")
 wood_capacity = 0.0
-stone_capacity = 20.0
+stone_capacity = 30.0
 food_capacity = 0.0

@@ -52,16 +52,9 @@ enum Job {
 
 func get_job_resource_type() -> Variant:
 
-	match job:
+	if workplace is ResourceBuildingBase:
 
-		Job.LUMBERJACK:
-			return ResourceType.Type.WOOD
-
-		Job.MINER:
-			return ResourceType.Type.STONE
-
-		Job.NONE:
-			return null
+		return workplace.production_resource_type
 
 	return null
 var job: Job = Job.NONE
@@ -682,22 +675,26 @@ func deposit_to_base():
 	is_transporting = false
 
 
-	match job:
+	# ========================================================
+	# 资源工人继续下一轮工作
+	# ========================================================
 
-		Job.LUMBERJACK:
+	if workplace is ResourceBuildingBase:
 
-			state = State.FIND_RESOURCE
+		state = State.FIND_RESOURCE
 
-
-		Job.MINER:
-
-			state = State.FIND_RESOURCE
+		return
 
 
-		Job.NONE:
+	# ========================================================
+	# 无职业居民恢复空闲
+	# ========================================================
 
-			return_to_idle()
+	if job == Job.NONE:
 
+		return_to_idle()
+
+		return
 # ============================================================
 # 通用导航移动
 # ============================================================
@@ -743,48 +740,81 @@ func move_along_navigation():
 # 分配工作
 # ============================================================
 
-func assign_job(new_job: Job, new_workplace: Node3D = null):
+func assign_job(
+	new_job: Job,
+	new_workplace: Node3D = null
+) -> void:
 
 	job = new_job
 	workplace = new_workplace
 
 
-	match job:
+	# ========================================================
+	# 失去工作
+	# ========================================================
 
-		Job.NONE:
+	if job == Job.NONE:
 
-			print("👨 村民失去工作")
-			# 如果当前有目标树，先解除预约
-			if is_instance_valid(target_resource):
+		print("👨 村民失去工作")
 
-				if target_resource.has_method("release"):
-					target_resource.release(self)
+		# 如果当前预约了资源，解除预约
+		if is_instance_valid(target_resource):
 
-			workplace = null
-			target_resource = null
+			if target_resource.has_method("release"):
+				target_resource.release(self)
 
-			return_to_idle()
+		workplace = null
+		target_resource = null
 
+		return_to_idle()
 
-		Job.LUMBERJACK:
-
-			if workplace == null:
-
-				print("❌ 伐木工没有工作建筑")
-
-				job = Job.NONE
-				return_to_idle()
-
-				return
+		return
 
 
-			print(
-				"🪓 村民成为伐木工，工作地点：",
-				workplace.name
-			)
+	# ========================================================
+	# 工作地点检查
+	# ========================================================
 
-			state = State.FIND_RESOURCE
+	if workplace == null:
 
+		print("❌ 村民获得职业，但没有工作建筑")
+
+		job = Job.NONE
+		target_resource = null
+
+		return_to_idle()
+
+		return
+
+
+	# ========================================================
+	# 资源采集职业
+	# ========================================================
+
+	if workplace is ResourceBuildingBase:
+
+		print(
+			"⛏️ 村民开始资源采集工作：",
+			workplace.name,
+			" | 职业：",
+			job,
+			" | 资源：",
+			workplace.production_resource_type
+		)
+
+		state = State.FIND_RESOURCE
+
+		return
+
+
+	# ========================================================
+	# 未实现的其他职业
+	# ========================================================
+
+	print(
+		"⚠️ 当前职业暂时没有对应的工作逻辑：",
+		job
+	)
 # ============================================================
 # 是否空闲
 # ============================================================
