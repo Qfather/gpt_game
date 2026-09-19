@@ -9,8 +9,7 @@
 [ext_resource type="Script" uid="uid://bl6icvg1k0815" path="res://Script/resource/ResourceManager.gd" id="12_mxd2g"]
 [ext_resource type="Script" uid="uid://bli0u0op8xduv" path="res://Script/build_grid.gd" id="13_build_grid"]
 [ext_resource type="Script" uid="uid://derqyaunvu2d1" path="res://Script/building_ghost.gd" id="14_building_ghost"]
-[ext_resource type="Resource" path="res://data/buildings/LumberCampData.tres" id="15_lumber_camp_data"]
-[ext_resource type="Script" path="res://Script/task_manager.gd" id="16_task_manager"]
+[ext_resource type="Script" uid="uid://chlns8i87yc4m" path="res://Script/task_manager.gd" id="16_task_manager"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sblpm"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -99,9 +98,8 @@ run_debug_test = true
 
 [node name="BuildingGhost" type="Node3D" parent="Systems" unique_id=1973523495]
 script = ExtResource("14_building_ghost")
-building_data = ExtResource("15_lumber_camp_data")
 
-[node name="TaskManager" type="Node" parent="Systems"]
+[node name="TaskManager" type="Node" parent="Systems" unique_id=208927853]
 script = ExtResource("16_task_manager")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="Systems" unique_id=1486133278]

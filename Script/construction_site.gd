@@ -1,5 +1,5 @@
 class_name ConstructionSite
-extends Node3D
+extends BuildingBase
 
 enum State {
 	WAITING_RESOURCES,
@@ -23,7 +23,12 @@ var delivered_resources: Dictionary = {}
 var reserved_resources: Dictionary = {}
 var construction_progress: float = 0.0
 var builders: Array[Node] = []
+var delivery_workers: Array[Node] = []
+var construction_workers: Array[Node] = []
+var waiting_workers: Array[Node] = []
 var state: State = State.WAITING_RESOURCES
+var next_delivery_worker: Node = null
+var construction_worker_limit: int = 1
 
 var site_mesh: MeshInstance3D
 var site_material: StandardMaterial3D
@@ -43,15 +48,50 @@ func setup(
 	required_resources = building_data.construction_cost.duplicate(true)
 	delivered_resources = {}
 	reserved_resources = {}
+	delivery_workers = []
+	construction_workers = []
+	waiting_workers = []
+	next_delivery_worker = null
+	construction_worker_limit = maxi(building_data.max_construction_workers, 1)
 	_refresh_state()
 
 
 func _ready() -> void:
 
+	_create_click_area()
+	super._ready()
 	add_to_group("construction_sites")
 	_create_site_visual()
 	_print_status()
 	call_deferred("_request_delivery_task")
+	call_deferred("_register_with_main")
+
+
+func _create_click_area() -> void:
+	if get_node_or_null("ClickArea") != null:
+		return
+
+	var click_area_node: Area3D = Area3D.new()
+	click_area_node.name = "ClickArea"
+	add_child(click_area_node)
+	click_area = click_area_node
+
+	var collision: CollisionShape3D = CollisionShape3D.new()
+	var shape: BoxShape3D = BoxShape3D.new()
+	var rotated_size: Vector2i = Vector2i(
+		building_data.grid_size.y,
+		building_data.grid_size.x
+	) if posmod(rotation_step, 2) == 1 else building_data.grid_size
+	shape.size = Vector3(float(rotated_size.x), 1.0, float(rotated_size.y))
+	collision.shape = shape
+	collision.position.y = 0.5
+	click_area_node.add_child(collision)
+
+
+func _register_with_main() -> void:
+	var main_node: Node = get_tree().current_scene
+	if main_node != null and main_node.has_method("register_building"):
+		main_node.register_building(self)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -114,6 +154,109 @@ func get_max_construction_workers() -> int:
 	return maxi(building_data.max_construction_workers, 1)
 
 
+func get_construction_worker_limit() -> int:
+	return construction_worker_limit
+
+
+func get_worker_count() -> int:
+	var count: int = construction_workers.size()
+	for worker: Node in waiting_workers:
+		if is_instance_valid(worker) and not construction_workers.has(worker):
+			count += 1
+
+	return count
+
+
+func get_max_worker_count() -> int:
+	return get_max_construction_workers()
+
+
+func has_free_slot() -> bool:
+	return get_worker_count() < construction_worker_limit
+
+
+func get_construction_material_text() -> String:
+	var lines: PackedStringArray = []
+	for resource_type: int in required_resources.keys():
+		var resource_name: String = "木材" if resource_type == ResourceType.Type.WOOD else "石材"
+		if resource_type == ResourceType.Type.FOOD:
+			resource_name = "食物"
+		lines.append(
+			"%s：%d / %d" % [
+				resource_name,
+				int(get_delivered_amount(resource_type)),
+				int(get_required_amount(resource_type))
+			]
+		)
+	return "材料：\n" + "\n".join(lines)
+
+
+func request_additional_worker() -> void:
+	if (
+		state != State.WAITING_RESOURCES
+		and state != State.READY_TO_BUILD
+	):
+		return
+	if construction_worker_limit >= get_max_construction_workers():
+		return
+
+	construction_worker_limit += 1
+	var villagers: Array[Node] = get_tree().get_nodes_in_group("villagers")
+	for villager: Node in villagers:
+		if not villager.has_method("is_idle") or not villager.is_idle():
+			continue
+		if construction_workers.has(villager) or waiting_workers.has(villager):
+			continue
+		waiting_workers.append(villager)
+		if villager.has_method("wait_at_construction_site"):
+			villager.wait_at_construction_site(self)
+		break
+
+	if state == State.WAITING_RESOURCES:
+		call_deferred("_request_delivery_task")
+	else:
+		call_deferred("_request_build_tasks")
+
+
+func cancel_one_worker() -> void:
+	if (
+		state != State.WAITING_RESOURCES
+		and state != State.READY_TO_BUILD
+	) or construction_worker_limit <= 0:
+		return
+
+	var managers: Array[Node] = get_tree().get_nodes_in_group("task_manager")
+	if managers.is_empty():
+		return
+
+	var manager: Node = managers[0]
+	var cancelled: bool = false
+	if state == State.WAITING_RESOURCES and manager.has_method("cancel_one_delivery_task"):
+		cancelled = manager.cancel_one_delivery_task(self)
+	elif state == State.READY_TO_BUILD and manager.has_method("cancel_one_build_task"):
+		cancelled = manager.cancel_one_build_task(self)
+
+	if cancelled:
+		construction_worker_limit -= 1
+		return
+
+	if not waiting_workers.is_empty():
+		var worker: Node = waiting_workers.pop_back()
+		if is_instance_valid(worker) and worker.has_method("return_to_idle"):
+			worker.return_to_idle()
+		construction_worker_limit -= 1
+
+
+func register_construction_worker(worker: Node) -> void:
+	if worker != null and not construction_workers.has(worker):
+		construction_workers.append(worker)
+
+
+func remove_construction_worker(worker: Node) -> void:
+	if construction_workers.has(worker):
+		construction_workers.erase(worker)
+
+
 func reserve_resource(
 	resource_type: ResourceType.Type,
 	amount: float
@@ -163,6 +306,10 @@ func receive_delivery(
 
 
 func on_delivery_task_completed(task: GameTask) -> void:
+	if is_instance_valid(task.assigned_worker) and not delivery_workers.has(task.assigned_worker):
+		delivery_workers.append(task.assigned_worker)
+	next_delivery_worker = task.assigned_worker
+
 	var resource_type: int = int(task.data.get("resource_type", -1))
 	var amount: float = float(task.data.get("amount", 0.0))
 	release_reserved_resource(resource_type, amount)
@@ -170,10 +317,24 @@ func on_delivery_task_completed(task: GameTask) -> void:
 
 
 func on_delivery_task_released(task: GameTask) -> void:
+	remove_construction_worker(task.assigned_worker)
+	if next_delivery_worker == task.assigned_worker:
+		next_delivery_worker = null
+
 	var resource_type: int = int(task.data.get("resource_type", -1))
 	var amount: float = float(task.data.get("amount", 0.0))
 	release_reserved_resource(resource_type, amount)
 	call_deferred("_request_delivery_task")
+
+
+func on_delivery_task_failed(task: GameTask) -> void:
+	remove_construction_worker(task.assigned_worker)
+	if next_delivery_worker == task.assigned_worker:
+		next_delivery_worker = null
+
+	var resource_type: int = int(task.data.get("resource_type", -1))
+	var amount: float = float(task.data.get("amount", 0.0))
+	release_reserved_resource(resource_type, amount)
 
 
 func _request_delivery_task() -> void:
@@ -186,7 +347,47 @@ func _request_delivery_task() -> void:
 
 	var manager: Node = managers[0]
 	if manager.has_method("create_construction_delivery_tasks"):
-		manager.create_construction_delivery_tasks(self)
+		manager.create_construction_delivery_tasks(self, next_delivery_worker)
+	next_delivery_worker = null
+
+
+func _request_build_tasks() -> void:
+	if state != State.READY_TO_BUILD:
+		return
+
+	var managers: Array[Node] = get_tree().get_nodes_in_group("task_manager")
+	if managers.is_empty():
+		return
+
+	var manager: Node = managers[0]
+	if manager.has_method("create_construction_build_tasks"):
+		manager.create_construction_build_tasks(self, delivery_workers)
+
+
+func add_builder(worker: Node) -> bool:
+	if worker == null or builders.has(worker):
+		return false
+	if builders.size() >= get_max_construction_workers():
+		return false
+
+	builders.append(worker)
+	print("ConstructionSite 加入施工人员：", worker)
+	return true
+
+
+func remove_builder(worker: Node) -> void:
+	if builders.has(worker):
+		builders.erase(worker)
+		print("ConstructionSite 施工人员离开：", worker)
+
+
+func on_build_task_released(task: GameTask) -> void:
+	remove_builder(task.assigned_worker)
+	call_deferred("_request_build_tasks")
+
+
+func on_build_task_completed(task: GameTask) -> void:
+	remove_builder(task.assigned_worker)
 
 
 func debug_deliver_resource(
@@ -246,6 +447,8 @@ func _refresh_state() -> void:
 	state = next_state
 	state_changed.emit(state)
 	print("ConstructionSite 状态：", _state_name())
+	if state == State.READY_TO_BUILD:
+		call_deferred("_request_build_tasks")
 
 
 func _all_resources_delivered() -> bool:

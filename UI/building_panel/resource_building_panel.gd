@@ -7,6 +7,7 @@ extends BuildingPanelBase
 # ============================================================
 
 @onready var storage_label: Label = %StorageLabel
+@onready var material_label: Label = %MaterialLabel
 @onready var worker_label: Label = %WorkerLabel
 @onready var hire_button: Button = %HireButton
 @onready var fire_button: Button = %FireButton
@@ -32,6 +33,25 @@ func refresh():
 
 	if current_building == null:
 		return
+
+	if current_building.has_method("get_construction_material_text"):
+		storage_label.hide()
+		material_label.show()
+		material_label.text = current_building.get_construction_material_text()
+		worker_label.text = (
+			"施工居民："
+			+ str(current_building.get_worker_count())
+			+ " / "
+			+ str(current_building.get_max_worker_count())
+		)
+		hire_button.text = "增加居民"
+		fire_button.text = "取消居民"
+		return
+
+	storage_label.show()
+	material_label.hide()
+	hire_button.text = "招募"
+	fire_button.text = "解雇"
 
 
 	# --------------------------------------------------------
@@ -82,6 +102,11 @@ func _on_hire_pressed():
 	if current_building == null:
 		return
 
+	if current_building.has_method("request_additional_worker"):
+		current_building.request_additional_worker()
+		refresh()
+		return
+
 	# 岗位已经满了
 	if not current_building.has_free_slot():
 		print("❌ 当前建筑岗位已满")
@@ -120,6 +145,11 @@ func _on_hire_pressed():
 func _on_fire_pressed():
 
 	if current_building == null:
+		return
+
+	if current_building.has_method("cancel_one_worker"):
+		current_building.cancel_one_worker()
+		refresh()
 		return
 
 

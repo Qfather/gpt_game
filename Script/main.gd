@@ -36,15 +36,48 @@ func _ready():
 
 		print("🏭 找到建筑：", building.name)
 
-		if building.has_signal("building_clicked"):
-
-			print("🔗 连接建筑点击信号：", building.name)
-
-			building.building_clicked.connect(
-				_on_resource_building_clicked
-			)
+		register_building(building)
 
 	print("========== Main连接结束 ==========")
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not (
+		event is InputEventKey
+		and event.pressed
+		and not event.echo
+		and event.keycode == KEY_H
+	):
+		return
+
+	var bases: Array[Node] = get_tree().get_nodes_in_group("bases")
+	if bases.is_empty():
+		return
+
+	var base: Node = bases[0]
+	if not base.has_method("add_resource") or not base.has_method("get_resource"):
+		return
+
+	var added_amount: float = base.add_resource(
+		ResourceType.Type.WOOD,
+		10.0
+	)
+	print(
+		"快捷测试：增加木材 ",
+		added_amount,
+		"，据点当前木材：",
+		base.get_resource(ResourceType.Type.WOOD)
+	)
+	get_viewport().set_input_as_handled()
+
+
+func register_building(building: Node) -> void:
+	if building == null or not building.has_signal("building_clicked"):
+		return
+
+	if not building.building_clicked.is_connected(_on_resource_building_clicked):
+		print("🔗 连接建筑点击信号：", building.name)
+		building.building_clicked.connect(_on_resource_building_clicked)
 
 
 func _spawn_initial_villagers() -> void:

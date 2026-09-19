@@ -43,7 +43,11 @@ enum State {
 
 	FIND_TASK_SOURCE,
 	MOVE_TO_TASK_SOURCE,
-	MOVE_TO_TASK_SITE
+	MOVE_TO_TASK_SITE,
+	WAIT_TASK_RESOURCE,
+	WAIT_CONSTRUCTION_SITE,
+	MOVE_TO_BUILD_SITE,
+	BUILDING
 }
 
 var state: State = State.IDLE
@@ -71,6 +75,7 @@ var is_transporting: bool = false
 var current_task: Object = null
 var task_source: ResourceStorage = null
 var task_site: Node3D = null
+var task_resource_wait_timer: float = 0.0
 
 # 当前目标树
 var target_resource: ResourceBase = null
@@ -129,7 +134,7 @@ func start():
 
 func _physics_process(delta):
 
-	if state == State.IDLE and current_task != null:
+	if (state == State.IDLE or state == State.WAIT_CONSTRUCTION_SITE) and current_task != null:
 		_start_current_task()
 
 	match state:
@@ -170,11 +175,37 @@ func _physics_process(delta):
 		State.MOVE_TO_TASK_SITE:
 			move_to_task_site()
 
+		State.WAIT_TASK_RESOURCE:
+			wait_for_task_resource(delta)
+
+		State.WAIT_CONSTRUCTION_SITE:
+			velocity = Vector3.ZERO
+
+		State.MOVE_TO_BUILD_SITE:
+			move_to_build_site()
+
+		State.BUILDING:
+			velocity = Vector3.ZERO
+
 
 func _start_current_task() -> void:
 
 	var task: GameTask = current_task as GameTask
-	if task == null or task.type != GameTask.TaskType.DELIVER_CONSTRUCTION_RESOURCE:
+	if task == null:
+		return
+
+	if task.type == GameTask.TaskType.BUILD:
+		task.state = GameTask.State.IN_PROGRESS
+		task_site = task.target as Node3D
+		if task_site == null:
+			_release_current_task()
+			return
+		navigation_agent.target_position = task_site.global_position
+		state = State.MOVE_TO_BUILD_SITE
+		print("Villager 前往施工：", task.id, " target=", task_site.name)
+		return
+
+	if task.type != GameTask.TaskType.DELIVER_CONSTRUCTION_RESOURCE:
 		return
 
 	task.state = GameTask.State.IN_PROGRESS
@@ -213,7 +244,10 @@ func find_task_source() -> void:
 			nearest_distance = distance
 
 	if nearest == null:
-		_release_current_task()
+		task_resource_wait_timer = 0.0
+		if task_site != null:
+			navigation_agent.target_position = task_site.global_position
+		state = State.WAIT_TASK_RESOURCE
 		return
 
 	task_source = nearest
@@ -245,7 +279,10 @@ func move_to_task_source() -> void:
 	var requested_amount: float = float(task.data.get("amount", 0.0))
 	var taken_amount: float = task_source.take(resource_type, minf(requested_amount, carry_capacity))
 	if taken_amount <= 0.0:
-		_release_current_task()
+		task_source = null
+		task_resource_wait_timer = 0.0
+		navigation_agent.target_position = task_site.global_position
+		state = State.WAIT_TASK_RESOURCE
 		return
 
 	carried_resource_type = resource_type
@@ -257,13 +294,35 @@ func move_to_task_source() -> void:
 	state = State.MOVE_TO_TASK_SITE
 
 
+func wait_for_task_resource(delta: float) -> void:
+
+	task_resource_wait_timer += delta
+	if task_resource_wait_timer < 1.0:
+		if task_site != null and global_position.distance_to(task_site.global_position) > 2.0:
+			move_along_navigation()
+		return
+
+	task_resource_wait_timer = 0.0
+	find_task_source()
+
+
+func wait_at_construction_site(site: Node3D) -> void:
+	task_site = site
+	navigation_agent.target_position = site.global_position
+	state = State.WAIT_CONSTRUCTION_SITE
+
+
 func move_to_task_site() -> void:
 
 	if not is_instance_valid(task_site):
 		_release_current_task()
 		return
 
-	if not navigation_agent.is_navigation_finished():
+	var reached_site: bool = (
+		navigation_agent.is_navigation_finished()
+		or global_position.distance_to(task_site.global_position) <= 2.0
+	)
+	if not reached_site:
 		move_along_navigation()
 		return
 
@@ -292,12 +351,39 @@ func move_to_task_site() -> void:
 	print("Villager 完成搬运任务：", task.id, " delivered=", delivered_amount)
 
 
+func move_to_build_site() -> void:
+
+	if not is_instance_valid(task_site):
+		_release_current_task()
+		return
+
+	var reached_site: bool = (
+		navigation_agent.is_navigation_finished()
+		or global_position.distance_to(task_site.global_position) <= 2.0
+	)
+	if not reached_site:
+		move_along_navigation()
+		return
+
+	var task: GameTask = current_task as GameTask
+	if task == null or not task_site.has_method("add_builder"):
+		_release_current_task()
+		return
+
+	if not task_site.add_builder(self):
+		_release_current_task()
+		return
+
+	state = State.BUILDING
+	print("Villager 已加入施工：", task.id)
+
+
 func _release_current_task() -> void:
 
 	var task: GameTask = current_task as GameTask
 	var managers: Array[Node] = get_tree().get_nodes_in_group("task_manager")
-	if task != null and not managers.is_empty() and managers[0].has_method("release_task"):
-		managers[0].release_task(task)
+	if task != null and not managers.is_empty() and managers[0].has_method("fail_task"):
+		managers[0].fail_task(task)
 	else:
 		clear_current_task()
 
@@ -1036,7 +1122,11 @@ func return_to_idle():
 # ============================================================
 func move_to_idle_area():
 
-	if navigation_agent.is_navigation_finished():
+	var reached_idle_position: bool = (
+		navigation_agent.is_navigation_finished()
+		or global_position.distance_to(navigation_agent.target_position) <= 0.8
+	)
+	if reached_idle_position:
 
 		velocity = Vector3.ZERO
 		state = State.IDLE
@@ -1497,6 +1587,30 @@ func set_current_task(task: Object) -> void:
 func clear_current_task() -> void:
 
 	current_task = null
+	if state == State.BUILDING:
+		task_site = null
+		state = State.IDLE
+
+
+func return_carried_resource_to_base() -> void:
+	if carried_amount <= 0.0:
+		print("📦 取消任务时居民没有携带资源")
+		return
+
+	if target_base == null:
+		find_base()
+	if target_base == null or not target_base.has_method("add_resource"):
+		print("⚠️ 取消任务时找不到据点，无法退回资源：", carried_amount)
+		return
+
+	var returned_amount: float = target_base.add_resource(
+		carried_resource_type,
+		carried_amount
+	)
+	carried_amount -= returned_amount
+	if returned_amount > 0.0:
+		carried_resource_changed.emit()
+		print("📦 任务取消，资源退回据点：", returned_amount)
 
 
 # ============================================================

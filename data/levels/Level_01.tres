@@ -4,6 +4,6 @@
 
 [resource]
 script = ExtResource("1_level_config")
-initial_wood = 20.0
-initial_stone = 20.0
+initial_wood = 10.0
+initial_stone = 10.0
 initial_villagers = 3
