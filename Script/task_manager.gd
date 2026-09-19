@@ -13,6 +13,19 @@ var debug_task: GameTask
 func _ready() -> void:
 
 	add_to_group("task_manager")
+	for storage_node: Node in get_tree().get_nodes_in_group("resource_storages"):
+		if storage_node.has_signal("resource_changed"):
+			storage_node.resource_changed.connect(_on_resource_changed)
+
+
+func _on_resource_changed(
+	_resource_type: ResourceType.Type,
+	_new_amount: float
+) -> void:
+
+	for villager: Node in get_tree().get_nodes_in_group("villagers"):
+		if villager.has_method("wake_delivery_task"):
+			villager.wake_delivery_task()
 
 
 func _process(_delta: float) -> void:
@@ -303,6 +316,19 @@ func cancel_one_delivery_task(site: Node) -> bool:
 			return cancel_task(task)
 
 	return false
+
+
+func cancel_tasks_for_target(target: Node) -> void:
+	var target_tasks: Array[GameTask] = []
+	for task_variant in tasks.values():
+		var task: GameTask = task_variant as GameTask
+		if task == null or task.target != target:
+			continue
+		if task.state == GameTask.State.AVAILABLE or task.state == GameTask.State.CLAIMED or task.state == GameTask.State.IN_PROGRESS:
+			target_tasks.append(task)
+
+	for task: GameTask in target_tasks:
+		cancel_task(task)
 
 
 func release_task(task: GameTask) -> bool:

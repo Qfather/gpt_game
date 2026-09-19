@@ -38,6 +38,8 @@ func refresh():
 		storage_label.hide()
 		material_label.show()
 		material_label.text = current_building.get_construction_material_text()
+		if current_building.has_method("get_construction_progress_text"):
+			material_label.text += "\n" + current_building.get_construction_progress_text()
 		worker_label.text = (
 			"施工居民："
 			+ str(current_building.get_worker_count())
@@ -176,7 +178,9 @@ func _process(_delta):
 		return
 
 	# 没有正在查看的建筑
-	if current_building == null:
+	if current_building == null or not is_instance_valid(current_building):
+		current_building = null
+		hide()
 		return
 
 	refresh()

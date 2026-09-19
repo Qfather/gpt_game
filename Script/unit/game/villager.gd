@@ -200,7 +200,7 @@ func _start_current_task() -> void:
 		if task_site == null:
 			_release_current_task()
 			return
-		navigation_agent.target_position = task_site.global_position
+		_set_task_site_navigation_target()
 		state = State.MOVE_TO_BUILD_SITE
 		print("Villager 前往施工：", task.id, " target=", task_site.name)
 		return
@@ -246,7 +246,7 @@ func find_task_source() -> void:
 	if nearest == null:
 		task_resource_wait_timer = 0.0
 		if task_site != null:
-			navigation_agent.target_position = task_site.global_position
+			_set_task_site_navigation_target()
 		state = State.WAIT_TASK_RESOURCE
 		return
 
@@ -281,7 +281,7 @@ func move_to_task_source() -> void:
 	if taken_amount <= 0.0:
 		task_source = null
 		task_resource_wait_timer = 0.0
-		navigation_agent.target_position = task_site.global_position
+		_set_task_site_navigation_target()
 		state = State.WAIT_TASK_RESOURCE
 		return
 
@@ -290,7 +290,7 @@ func move_to_task_source() -> void:
 	carried_resource_changed.emit()
 	print("Villager 取出资源：", resource_type, " amount=", taken_amount)
 
-	navigation_agent.target_position = task_site.global_position
+	_set_task_site_navigation_target()
 	state = State.MOVE_TO_TASK_SITE
 
 
@@ -298,7 +298,7 @@ func wait_for_task_resource(delta: float) -> void:
 
 	task_resource_wait_timer += delta
 	if task_resource_wait_timer < 1.0:
-		if task_site != null and global_position.distance_to(task_site.global_position) > 2.0:
+		if task_site != null and not _has_reached_task_site_navigation_target():
 			move_along_navigation()
 		return
 
@@ -308,8 +308,48 @@ func wait_for_task_resource(delta: float) -> void:
 
 func wait_at_construction_site(site: Node3D) -> void:
 	task_site = site
-	navigation_agent.target_position = site.global_position
+	_set_task_site_navigation_target()
 	state = State.WAIT_CONSTRUCTION_SITE
+
+
+func _set_task_site_navigation_target() -> void:
+	if not is_instance_valid(task_site):
+		return
+
+	var target_position: Vector3 = task_site.global_position
+	if task_site.has_method("get_worker_target_position"):
+		var worker_target: Variant = task_site.call("get_worker_target_position", self)
+		if worker_target is Vector3:
+			target_position = worker_target
+
+	var navigation_map: RID = navigation_agent.get_navigation_map()
+	if navigation_map.is_valid():
+		navigation_agent.target_position = NavigationServer3D.map_get_closest_point(
+			navigation_map,
+			target_position
+		)
+	else:
+		navigation_agent.target_position = target_position
+
+
+func _has_reached_task_site_navigation_target() -> bool:
+	if navigation_agent.is_navigation_finished():
+		return true
+
+	var target_delta: Vector3 = navigation_agent.target_position - global_position
+	target_delta.y = 0.0
+	return target_delta.length() <= navigation_agent.target_desired_distance + 0.5
+
+
+func wake_delivery_task() -> void:
+	var task: GameTask = current_task as GameTask
+	if task == null or task.type != GameTask.TaskType.DELIVER_CONSTRUCTION_RESOURCE:
+		return
+	if state != State.WAIT_TASK_RESOURCE and state != State.WAIT_CONSTRUCTION_SITE:
+		return
+
+	task_resource_wait_timer = 0.0
+	state = State.FIND_TASK_SOURCE
 
 
 func move_to_task_site() -> void:
@@ -318,10 +358,7 @@ func move_to_task_site() -> void:
 		_release_current_task()
 		return
 
-	var reached_site: bool = (
-		navigation_agent.is_navigation_finished()
-		or global_position.distance_to(task_site.global_position) <= 2.0
-	)
+	var reached_site: bool = _has_reached_task_site_navigation_target()
 	if not reached_site:
 		move_along_navigation()
 		return
@@ -357,10 +394,7 @@ func move_to_build_site() -> void:
 		_release_current_task()
 		return
 
-	var reached_site: bool = (
-		navigation_agent.is_navigation_finished()
-		or global_position.distance_to(task_site.global_position) <= 2.0
-	)
+	var reached_site: bool = _has_reached_task_site_navigation_target()
 	if not reached_site:
 		move_along_navigation()
 		return

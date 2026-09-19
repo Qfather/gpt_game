@@ -12,6 +12,8 @@ const VILLAGER_SCENE: PackedScene = preload("res://Scene/unit/villager.tscn")
 
 @onready var resource_building_panel: ResourceBuildingPanel = \
 	$UI/ResourceBuildingPanel
+@onready var hud: GameHUD = $UI/HUD
+@onready var building_ghost: BuildingGhost = $Systems/BuildingGhost
 @onready var villagers_container: Node = $Villagers
 
 
@@ -23,6 +25,8 @@ func _ready():
 
 	_apply_level_config()
 	_spawn_initial_villagers()
+	if hud.has_method("connect_building_ghost"):
+		hud.connect_building_ghost(building_ghost)
 
 	print("========== Main启动 ==========")
 

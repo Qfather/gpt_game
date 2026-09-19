@@ -1,4 +1,14 @@
+class_name GameHUD
 extends CanvasLayer
+
+signal build_requested(building_data: BuildingData)
+
+const LUMBER_CAMP_DATA: BuildingData = preload(
+	"res://data/buildings/LumberCampData.tres"
+)
+const QUARRY_DATA: BuildingData = preload(
+	"res://data/buildings/QuarryData.tres"
+)
 
 
 # ============================================================
@@ -40,6 +50,11 @@ func _ready() -> void:
 		update_resource_display
 	)
 	update_resource_display()
+
+
+func connect_building_ghost(ghost: BuildingGhost) -> void:
+	if ghost != null and not build_requested.is_connected(ghost.select_building):
+		build_requested.connect(ghost.select_building)
 
 
 # ============================================================
@@ -130,3 +145,11 @@ func _on_speed_2_button_pressed() -> void:
 func _on_speed_3_button_pressed() -> void:
 
 	speed_3()
+
+
+func _on_lumber_camp_button_pressed() -> void:
+	build_requested.emit(LUMBER_CAMP_DATA)
+
+
+func _on_quarry_button_pressed() -> void:
+	build_requested.emit(QUARRY_DATA)

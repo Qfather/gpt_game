@@ -9,7 +9,7 @@ const CONSTRUCTION_SITE_SCENE: PackedScene = preload(
 @export var building_data: BuildingData = preload(
 	"res://data/buildings/LumberCampData.tres"
 )
-@export var start_preview: bool = true
+@export var start_preview: bool = false
 
 var rotation_step: int = 0
 var mirrored: bool = false
@@ -25,6 +25,23 @@ var base_preview_scale: Vector3 = Vector3.ONE
 func _ready() -> void:
 
 	build_grid = get_parent().get_node("BuildGrid") as BuildGrid
+	visible = false
+	_create_preview_mesh()
+	if start_preview:
+		_update_preview()
+
+
+func select_building(data: BuildingData) -> void:
+	if data == null:
+		return
+
+	building_data = data
+	rotation_step = 0
+	mirrored = false
+	start_preview = true
+	if is_instance_valid(preview_model):
+		preview_model.free()
+	preview_model = null
 	_create_preview_mesh()
 	_update_preview()
 
@@ -162,7 +179,7 @@ func _update_preview() -> void:
 
 	global_position = first_cell_center + Vector3(
 		float(rotated_size.x - 1) * build_grid.cell_size * 0.5,
-		0.5,
+		0.0,
 		float(rotated_size.y - 1) * build_grid.cell_size * 0.5
 	)
 
