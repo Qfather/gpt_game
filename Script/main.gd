@@ -46,6 +46,9 @@ func _ready():
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not DevMode.DEV_MODE:
+		return
+
 	if not (
 		event is InputEventKey
 		and event.pressed

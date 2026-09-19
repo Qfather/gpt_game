@@ -94,7 +94,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.3549633, 0, -8.618622)
 
 [node name="BuildGrid" type="Node3D" parent="Systems" unique_id=1370628468]
 script = ExtResource("13_build_grid")
-run_debug_test = true
 
 [node name="BuildingGhost" type="Node3D" parent="Systems" unique_id=1973523495]
 script = ExtResource("14_building_ghost")

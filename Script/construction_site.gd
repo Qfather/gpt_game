@@ -144,6 +144,7 @@ func _complete_construction() -> void:
 		main_node.register_building(building)
 
 	print("ConstructionSite 完工，生成建筑：", building.name)
+	_request_task_dispatch()
 	queue_free()
 
 
@@ -185,6 +186,8 @@ func _register_with_main() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not DevMode.DEV_MODE:
+		return
 
 	if (
 		event is InputEventKey
@@ -610,13 +613,29 @@ func _request_delivery_task() -> void:
 		return
 
 	var manager: Node = managers[0]
-	if manager.has_method("create_construction_delivery_tasks"):
+	if manager.has_method("request_dispatch"):
+		manager.request_dispatch()
+	elif manager.has_method("create_construction_delivery_tasks"):
 		manager.create_construction_delivery_tasks(self, next_delivery_worker)
 	next_delivery_worker = null
 
 
 func request_delivery_tasks() -> void:
 	_request_delivery_task()
+
+
+func _create_delivery_tasks_now() -> void:
+	if state != State.WAITING_RESOURCES or delivery_replenishment_blocked:
+		return
+
+	var managers: Array[Node] = get_tree().get_nodes_in_group("task_manager")
+	if managers.is_empty():
+		return
+
+	var manager: Node = managers[0]
+	if manager.has_method("create_construction_delivery_tasks"):
+		manager.create_construction_delivery_tasks(self, next_delivery_worker)
+	next_delivery_worker = null
 
 
 func _request_build_tasks() -> void:
@@ -630,6 +649,8 @@ func _request_build_tasks() -> void:
 	var manager: Node = managers[0]
 	if manager.has_method("create_construction_build_tasks"):
 		manager.create_construction_build_tasks(self, delivery_workers)
+	if manager.has_method("request_dispatch"):
+		manager.request_dispatch()
 
 
 func add_builder(worker: Node) -> bool:
@@ -724,6 +745,13 @@ func _refresh_state() -> void:
 	print("ConstructionSite 状态：", _state_name())
 	if state == State.READY_TO_BUILD:
 		call_deferred("_request_build_tasks")
+	_request_task_dispatch()
+
+
+func _request_task_dispatch() -> void:
+	var managers: Array[Node] = get_tree().get_nodes_in_group("task_manager")
+	if not managers.is_empty() and managers[0].has_method("request_dispatch"):
+		managers[0].request_dispatch()
 
 
 func _all_resources_delivered() -> bool:

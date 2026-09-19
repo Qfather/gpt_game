@@ -1,6 +1,6 @@
 # 时间裂缝 --- ROADMAP
 
-> 更新日期：2026-09-18\
+> 更新日期：2026-09-19\
 > 用途：记录开发顺序、未来玩法和支线想法。\
 > 当前实际完成状态以 `README.md` 为准。
 
@@ -24,83 +24,60 @@
 → 胜利 / 失败
 ```
 
-# 2. 当前开发章节：STONE + Quarry
+# 2. 当前开发章节：Villager UnitPanel 最小版
 
-通用资源系统已经完成第一轮重构，WOOD 闭环运行正常。
-
-现在使用第二种资源验证架构。
+STONE + Quarry 与建造系统第一轮已经完成。当前下一步先制作居民信息面板，
+用于观察居民状态，并为 FOOD、疲劳和 Trait 展示提供调试入口。
 
 目标：
 
 ``` text
-Stone ResourceBase
-resource_type = STONE
-        ↓
-Quarry
-production_resource_type = STONE
-        ↓
-Miner
-        ↓
-采集 Stone
-        ↓
-Quarry ResourceStorage
-        ↓
-运输
-        ↓
-Base ResourceStorage
-        ↓
-HUD 显示 Stone
+点击居民
+→ 名称 / 编号
+→ Job / State / CurrentTask / Workplace
+→ HP / 移动速度 / 工作速度
+→ 携带资源 / Trait
 ```
 
-本章节重点：
+本章节暂时不开发：
 
--   尽量复用 LumberCamp 结构
--   不复制一整套矿工状态机
--   Villager 通过 `get_job_resource_type()` 决定采集资源
--   Quarry 使用同一个 `ResourceStorage`
--   Quarry 尽量复用 `ResourceBuildingPanel`
--   验证 WOOD / STONE 可以同时运行
--   验证两个资源互不串仓
--   验证满仓时资源不会消失
-
-本章节暂时不做：
-
+-   FOOD
+-   疲劳、吃饭、休息
 -   Warehouse
--   搬运工职业
--   仓库路线
--   仓库优先级
--   复杂矿石种类
--   工具耐久
--   矿脉刷新系统
+-   程序化地图
 
 # 3. 第一关主线待办
 
 当前推荐顺序调整为：
 
 ``` text
-[当前] 1. STONE + Quarry，验证第二资源闭环
+[已完成] 1. WOOD + LumberCamp
+             ↓
+[已完成] 2. STONE + Quarry
+             ↓
+[已完成] 3. 建造系统第一轮
+             ↓
+[当前] 4. Villager UnitPanel 最小版
+             ↓
+5. FOOD
           ↓
-2. 建造系统最小版
+6. 工作时长 / 疲劳基础
           ↓
-3. Base / HUD 最小 Food 数据
+7. 居民回据点吃饭
           ↓
-4. Villager：工作 → 吃饭 → 休息 → 继续工作
+8. 休息
           ↓
-5. 点击居民查看 UnitPanel
+9. 恢复原工作
           ↓
-6. 训练建筑
+10. House / 人口上限
           ↓
-7. 居民 → 剑士
+11. 幸福感
           ↓
-8. 敌人
+12. 训练建筑 / 战斗主线
           ↓
-9. 自动战斗
+13. 敌人 / Boss
           ↓
-10. Boss
-          ↓
-11. 胜利 / 失败
-          ↓
-12. 第一关完整试玩
+14. 胜利 / 失败
 ```
 
 顺序可以根据实际试玩调整，但不要让支线长期阻塞第一关闭环。

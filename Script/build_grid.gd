@@ -6,15 +6,13 @@ extends Node3D
 @export var grid_min: Vector2i = Vector2i(-15, -15)
 @export var grid_max: Vector2i = Vector2i(14, 14)
 
-@export_category("临时调试")
-@export var run_debug_test: bool = false
-
 var occupied_cells: Dictionary = {}
+var buildability_rule: Callable
 
 
 func _ready() -> void:
 
-	if run_debug_test:
+	if DevMode.DEV_MODE:
 		_debug_test()
 
 
@@ -51,6 +49,22 @@ func is_area_free(
 	area_size: Vector2i,
 	rotation_step: int = 0
 ) -> bool:
+	return is_area_buildable(grid_position, area_size, rotation_step)
+
+
+func is_cell_buildable(grid_position: Vector2i) -> bool:
+	if not _is_in_bounds(grid_position):
+		return false
+	if buildability_rule.is_valid():
+		return bool(buildability_rule.call(grid_position))
+	return true
+
+
+func is_area_buildable(
+	grid_position: Vector2i,
+	area_size: Vector2i,
+	rotation_step: int = 0
+) -> bool:
 
 	for cell in _get_area_cells(
 		grid_position,
@@ -58,13 +72,17 @@ func is_area_free(
 		rotation_step
 	):
 
-		if not _is_in_bounds(cell):
+		if not is_cell_buildable(cell):
 			return false
 
 		if occupied_cells.has(cell):
 			return false
 
 	return true
+
+
+func set_buildability_rule(rule: Callable) -> void:
+	buildability_rule = rule
 
 
 func occupy_area(

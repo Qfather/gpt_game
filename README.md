@@ -1,8 +1,8 @@
 # 时间裂缝 --- 工程 README
 
-> 更新日期：2026-09-18\
+> 更新日期：2026-09-19\
 > 用途：记录当前工程**已经实际完成的系统、稳定约定和当前开发节点**。\
-> 未来计划、支线想法和开发顺序请查看 `ROADMAP_时间裂缝.md`。
+> 未来计划、支线想法和开发顺序请查看 `ROADMAP.md`。
 
 # 1. 当前核心目标
 
@@ -418,23 +418,20 @@ Trait
 ## 当前下一章节
 
 ``` text
-STONE + Quarry
+Villager UnitPanel 最小版
 ```
 
-目的不是增加复杂玩法，而是用第二种真实资源验证通用资源框架：
+建造系统第一轮和 STONE + Quarry 已完成。下一步先做居民信息面板，
+作为后续 FOOD、疲劳和 Trait 展示的基础：
 
 ``` text
-Stone
-→ Miner
-→ Quarry
-→ Quarry ResourceStorage
-→ Villager 运输
-→ Base ResourceStorage
-→ HUD Stone
+点击居民
+→ 名称 / 职业 / 状态 / 当前任务 / 工作地点
+→ HP / 移动速度 / 工作速度 / 携带资源 / Trait
 ```
 
-如果这一流程可以基本不复制 Villager
-主状态机就跑通，说明通用资源架构验证成功。
+UnitPanel 只负责展示状态，不直接承担任务或资源规则。
+后续 FOOD、疲劳和 Trait 展示都以此面板为基础扩展。
 
 # 9. 开发原则
 
@@ -890,4 +887,42 @@ GPT_Game_建造系统分阶段实施计划.md
 ~~~ text
 GPT_Game 建造系统分阶段实施计划已全部完成。
 后续功能属于计划外扩展，建议从 Warehouse 和建造物流增强开始。
+~~~
+
+## 10.13 建造系统收尾与文档同步
+
+任务文件：
+
+~~~ text
+GPT_Game_建造系统收尾与文档同步任务.md
+~~~
+
+完成内容：
+
+-   TaskManager 移除常规任务调度用的 `_process()` 全量扫描；
+-   新增 `request_dispatch()` 与 `call_deferred()` 同帧合并调度；
+-   新 Task、任务领取/释放/完成/取消/失败、资源库存变化和工地状态变化都会重新请求调度；
+-   缺料居民释放后，ResourceStorage 资源增加会自动唤醒并恢复工地运输；
+-   新增统一 `DevMode.DEV_MODE`，控制 H 增加木材、D 调试投料、T/C/R/F 调试任务和 BuildGrid 网格自检；
+-   BuildGrid 新增 `is_cell_buildable()`、`is_area_buildable()` 和 `set_buildability_rule()`，为未来地形规则注入预留接口；
+-   当前默认地形规则仍是固定测试网格，未开发程序化地图；
+-   更新当前开发节点为 `Villager UnitPanel 最小版`；
+-   更新 `ROADMAP.md`，将 WOOD、STONE、建造系统第一轮标记为已完成；
+-   未创建 CHANGELOG，历史技术记录继续保留在 README。
+
+验证状态：
+
+~~~ text
+Godot 严格解析检查通过。
+git diff --check 通过；README 的换行格式提示不影响内容。
+临时 .tmp 文件已确认未被正式场景引用，本次未删除，以避免误删编辑器/用户备份文件。
+~~~
+
+当前主线：
+
+~~~ text
+Villager UnitPanel 最小版
+→ FOOD
+→ 工作时长 / 疲劳基础
+→ 吃饭 / 休息 / 恢复工作
 ~~~

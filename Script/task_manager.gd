@@ -1,21 +1,25 @@
 class_name TaskManager
 extends Node
 
-@export_category("临时调试")
-@export var enable_debug_input: bool = true
 @export var debug_task_type: int = GameTask.TaskType.BUILD
 
 var tasks: Dictionary = {}
 var next_task_number: int = 1
 var debug_task: GameTask
+var dispatch_queued: bool = false
+var dispatch_running: bool = false
 
 
 func _ready() -> void:
 
 	add_to_group("task_manager")
 	for storage_node: Node in get_tree().get_nodes_in_group("resource_storages"):
-		if storage_node.has_signal("resource_changed"):
+		if (
+			storage_node.has_signal("resource_changed")
+			and not storage_node.resource_changed.is_connected(_on_resource_changed)
+		):
 			storage_node.resource_changed.connect(_on_resource_changed)
+	request_dispatch()
 
 
 func _on_resource_changed(
@@ -27,17 +31,29 @@ func _on_resource_changed(
 		if villager.has_method("wake_delivery_task"):
 			villager.wake_delivery_task()
 
+	request_dispatch()
+
+
+func request_dispatch() -> void:
+	if dispatch_queued or dispatch_running:
+		return
+
+	dispatch_queued = true
+	call_deferred("_run_dispatch")
+
+
+func _run_dispatch() -> void:
+	dispatch_queued = false
+	dispatch_running = true
+
 	for site: Node in get_tree().get_nodes_in_group("construction_sites"):
-		if site.has_method("request_delivery_tasks"):
+		if site.has_method("_create_delivery_tasks_now"):
+			site._create_delivery_tasks_now()
+		elif site.has_method("request_delivery_tasks"):
 			site.request_delivery_tasks()
-
-
-func _process(_delta: float) -> void:
 
 	_dispatch_available_tasks()
-	for site: Node in get_tree().get_nodes_in_group("construction_sites"):
-		if site.has_method("request_delivery_tasks"):
-			site.request_delivery_tasks()
+	dispatch_running = false
 
 
 func _dispatch_available_tasks() -> void:
@@ -58,7 +74,7 @@ func _dispatch_available_tasks() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 
-	if not enable_debug_input:
+	if not DevMode.DEV_MODE:
 		return
 
 	if not (
@@ -102,6 +118,7 @@ func create_task(
 	task.priority = priority
 
 	register_task(task)
+	request_dispatch()
 	return task
 
 
@@ -340,6 +357,7 @@ func claim_task(task: GameTask, worker: Node) -> bool:
 		worker.set_current_task(task)
 
 	_print_task(task, "claimed")
+	request_dispatch()
 	return true
 
 
@@ -416,6 +434,7 @@ func release_task(task: GameTask) -> bool:
 	task.assigned_worker = null
 
 	_print_task(task, "released")
+	request_dispatch()
 	return true
 
 
@@ -448,6 +467,7 @@ func complete_task(task: GameTask) -> bool:
 	task.assigned_worker = null
 
 	_print_task(task, "completed")
+	request_dispatch()
 	return true
 
 
@@ -484,6 +504,7 @@ func cancel_task(task: GameTask, return_worker: bool = true) -> bool:
 	task.assigned_worker = null
 
 	_print_task(task, "cancelled")
+	request_dispatch()
 	return true
 
 
@@ -512,6 +533,7 @@ func fail_task(task: GameTask) -> bool:
 	task.assigned_worker = null
 
 	_print_task(task, "failed")
+	request_dispatch()
 	return true
 
 
@@ -584,6 +606,8 @@ func _debug_complete_task() -> void:
 
 
 func _print_task(task: GameTask, action: String) -> void:
+	if not DevMode.DEV_MODE:
+		return
 
 	print(
 		"TaskManager ",
