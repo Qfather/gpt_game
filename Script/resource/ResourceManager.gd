@@ -48,7 +48,7 @@ func register_villager(villager: Node) -> void:
 
 
 func _on_storage_resource_changed(
-	_resource_type: ResourceType.Type,
+	_resource_id: StringName,
 	_new_amount: float
 ) -> void:
 

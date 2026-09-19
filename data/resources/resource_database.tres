@@ -1,6 +1,15 @@
-[gd_resource type="Resource" script_class="ResourceDatabase" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ResourceDatabase" load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://Script/resource/resource_database.gd" id="1_resource_database"]
+[ext_resource type="Script" path="res://Script/resource/resource_data.gd" id="2_resource_data"]
+[ext_resource type="Resource" path="res://data/resources/wood.tres" id="3_wood"]
+[ext_resource type="Resource" path="res://data/resources/stone.tres" id="4_stone"]
+[ext_resource type="Resource" path="res://data/resources/grain.tres" id="5_grain"]
+[ext_resource type="Resource" path="res://data/resources/meat.tres" id="6_meat"]
+[ext_resource type="Resource" path="res://data/resources/plank.tres" id="7_plank"]
+[ext_resource type="Resource" path="res://data/resources/flour.tres" id="8_flour"]
+[ext_resource type="Resource" path="res://data/resources/bread.tres" id="9_bread"]
 
 [resource]
 script = ExtResource("1_resource_database")
+resources = Array[ExtResource("2_resource_data")]([ExtResource("3_wood"), ExtResource("4_stone"), ExtResource("5_grain"), ExtResource("6_meat"), ExtResource("7_plank"), ExtResource("8_flour"), ExtResource("9_bread")])

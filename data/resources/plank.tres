@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ResourceData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Script/resource/resource_data.gd" id="1_resource_data"]
+
+[resource]
+script = ExtResource("1_resource_data")
+id = &"plank"
+display_name = "木板"
+category = 1
+tier = 2
+tags = Array[StringName]([&"wood", &"processed", &"construction"])

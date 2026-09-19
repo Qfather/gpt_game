@@ -23,7 +23,7 @@ func _ready() -> void:
 
 
 func _on_resource_changed(
-	_resource_type: ResourceType.Type,
+	_resource_id: StringName,
 	_new_amount: float
 ) -> void:
 

@@ -7,7 +7,7 @@ extends Node
 # ============================================================
 
 signal resource_changed(
-	resource_type: ResourceType.Type,
+	resource_id: StringName,
 	new_amount: float
 )
 
@@ -46,27 +46,50 @@ var capacities: Dictionary = {}
 
 
 # ============================================================
+# 资源键兼容转换
+# ============================================================
+
+static func resource_id_from_key(resource_key: Variant) -> StringName:
+	if resource_key is StringName:
+		return resource_key
+
+	if resource_key is String:
+		return StringName(resource_key)
+
+	if resource_key is int:
+		match int(resource_key):
+			ResourceType.Type.WOOD:
+				return &"wood"
+			ResourceType.Type.STONE:
+				return &"stone"
+			ResourceType.Type.FOOD:
+				return &"food"
+
+	return &""
+
+
+# ============================================================
 # 初始化
 # ============================================================
 
-func _ready():
+func _ready() -> void:
 	add_to_group("resource_storages")
 	# --------------------------------------------------------
 	# 设置容量
 	# --------------------------------------------------------
 
 	set_capacity(
-		ResourceType.Type.WOOD,
+		&"wood",
 		wood_capacity
 	)
 
 	set_capacity(
-		ResourceType.Type.STONE,
+		&"stone",
 		stone_capacity
 	)
 
 	set_capacity(
-		ResourceType.Type.FOOD,
+		&"food",
 		food_capacity
 	)
 
@@ -77,19 +100,19 @@ func _ready():
 
 	if starting_wood > 0.0:
 		add(
-			ResourceType.Type.WOOD,
+			&"wood",
 			starting_wood
 		)
 
 	if starting_stone > 0.0:
 		add(
-			ResourceType.Type.STONE,
+			&"stone",
 			starting_stone
 		)
 
 	if starting_food > 0.0:
 		add(
-			ResourceType.Type.FOOD,
+			&"food",
 			starting_food
 		)
 
@@ -99,24 +122,27 @@ func _ready():
 # ============================================================
 
 func set_capacity(
-	resource_type: ResourceType.Type,
+	resource_key: Variant,
 	capacity: float
-):
+) -> void:
+	var resource_id: StringName = resource_id_from_key(resource_key)
+	if resource_id.is_empty():
+		return
 
 	var safe_capacity: float = maxf(
 		capacity,
 		0.0
 	)
 
-	capacities[resource_type] = safe_capacity
+	capacities[resource_id] = safe_capacity
 
 	# 如果降低容量以后资源超过新容量
-	if get_amount(resource_type) > safe_capacity:
+	if get_amount(resource_id) > safe_capacity:
 
-		resources[resource_type] = safe_capacity
+		resources[resource_id] = safe_capacity
 
 		resource_changed.emit(
-			resource_type,
+			resource_id,
 			safe_capacity
 		)
 
@@ -126,12 +152,15 @@ func set_capacity(
 # ============================================================
 
 func get_capacity(
-	resource_type: ResourceType.Type
+	resource_key: Variant
 ) -> float:
+	var resource_id: StringName = resource_id_from_key(resource_key)
+	if resource_id.is_empty():
+		return 0.0
 
 	return float(
 		capacities.get(
-			resource_type,
+			resource_id,
 			0.0
 		)
 	)
@@ -142,12 +171,15 @@ func get_capacity(
 # ============================================================
 
 func get_amount(
-	resource_type: ResourceType.Type
+	resource_key: Variant
 ) -> float:
+	var resource_id: StringName = resource_id_from_key(resource_key)
+	if resource_id.is_empty():
+		return 0.0
 
 	return float(
 		resources.get(
-			resource_type,
+			resource_id,
 			0.0
 		)
 	)
@@ -158,12 +190,12 @@ func get_amount(
 # ============================================================
 
 func get_free_space(
-	resource_type: ResourceType.Type
+	resource_key: Variant
 ) -> float:
 
 	return maxf(
-		get_capacity(resource_type)
-		- get_amount(resource_type),
+		get_capacity(resource_key)
+		- get_amount(resource_key),
 		0.0
 	)
 
@@ -173,10 +205,10 @@ func get_free_space(
 # ============================================================
 
 func is_empty(
-	resource_type: ResourceType.Type
+	resource_key: Variant
 ) -> bool:
 
-	return get_amount(resource_type) <= 0.0
+	return get_amount(resource_key) <= 0.0
 
 
 # ============================================================
@@ -184,15 +216,15 @@ func is_empty(
 # ============================================================
 
 func is_full(
-	resource_type: ResourceType.Type
+	resource_key: Variant
 ) -> bool:
 
-	var capacity: float = get_capacity(resource_type)
+	var capacity: float = get_capacity(resource_key)
 
 	if capacity <= 0.0:
 		return true
 
-	return get_amount(resource_type) >= capacity
+	return get_amount(resource_key) >= capacity
 
 
 # ============================================================
@@ -200,14 +232,14 @@ func is_full(
 # ============================================================
 
 func has(
-	resource_type: ResourceType.Type,
+	resource_key: Variant,
 	amount: float
 ) -> bool:
 
 	if amount <= 0.0:
 		return true
 
-	return get_amount(resource_type) >= amount
+	return get_amount(resource_key) >= amount
 
 
 # ============================================================
@@ -225,14 +257,17 @@ func has(
 # ============================================================
 
 func add(
-	resource_type: ResourceType.Type,
+	resource_key: Variant,
 	amount: float
 ) -> float:
+	var resource_id: StringName = resource_id_from_key(resource_key)
+	if resource_id.is_empty():
+		return 0.0
 
 	if amount <= 0.0:
 		return 0.0
 
-	var free_space: float = get_free_space(resource_type)
+	var free_space: float = get_free_space(resource_id)
 
 	var added_amount: float = minf(
 		amount,
@@ -243,14 +278,14 @@ func add(
 		return 0.0
 
 	var new_amount: float = (
-		get_amount(resource_type)
+		get_amount(resource_id)
 		+ added_amount
 	)
 
-	resources[resource_type] = new_amount
+	resources[resource_id] = new_amount
 
 	resource_changed.emit(
-		resource_type,
+		resource_id,
 		new_amount
 	)
 
@@ -270,14 +305,17 @@ func add(
 # ============================================================
 
 func take(
-	resource_type: ResourceType.Type,
+	resource_key: Variant,
 	amount: float
 ) -> float:
+	var resource_id: StringName = resource_id_from_key(resource_key)
+	if resource_id.is_empty():
+		return 0.0
 
 	if amount <= 0.0:
 		return 0.0
 
-	var current_amount: float = get_amount(resource_type)
+	var current_amount: float = get_amount(resource_id)
 
 	var taken_amount: float = minf(
 		amount,
@@ -292,10 +330,10 @@ func take(
 		- taken_amount
 	)
 
-	resources[resource_type] = new_amount
+	resources[resource_id] = new_amount
 
 	resource_changed.emit(
-		resource_type,
+		resource_id,
 		new_amount
 	)
 
@@ -317,25 +355,28 @@ func take(
 # ============================================================
 
 func consume(
-	resource_type: ResourceType.Type,
+	resource_key: Variant,
 	amount: float
 ) -> bool:
+	var resource_id: StringName = resource_id_from_key(resource_key)
+	if resource_id.is_empty():
+		return false
 
 	if amount <= 0.0:
 		return true
 
-	if not has(resource_type, amount):
+	if not has(resource_id, amount):
 		return false
 
 	var new_amount: float = (
-		get_amount(resource_type)
+		get_amount(resource_id)
 		- amount
 	)
 
-	resources[resource_type] = new_amount
+	resources[resource_id] = new_amount
 
 	resource_changed.emit(
-		resource_type,
+		resource_id,
 		new_amount
 	)
 

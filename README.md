@@ -1,1138 +1,214 @@
-# 时间裂缝 --- 工程 README
+# 时间裂缝
 
-> 更新日期：2026-09-19\
-> 用途：记录当前工程**已经实际完成的系统、稳定约定和当前开发节点**。\
-> 未来计划、支线想法和开发顺序请查看 `ROADMAP.md`。
+> Godot 4.7 工程。当前目标是用简化角色、建筑和 UI 跑通第一关完整闭环。
+> 开发顺序与未来玩法见 `ROADMAP.md`，资源迁移细节见 `GPT_Game_资源系统V2_分阶段迁移计划.md`。
 
-# 1. 当前核心目标
+## 当前状态
 
-当前阶段仍以"胶囊角色 + 方块建筑 + 最简单 UI"完成第一关闭环为最高目标：
+已经完成：
 
-``` text
-据点 + 初始居民
-→ 资源生产
-→ 自动采集 / 搬运
-→ 木材 / 石材 / 食物
-→ 建造
-→ 训练战斗职业
-→ 敌人
-→ 自动战斗
-→ Boss
-→ 胜利 / 失败
+- 木材与石材采集、生产建筑、本地仓储和据点运输；
+- 网格建造、Ghost 预览、工地物流、多人施工和正式建筑生成；
+- 居民、建筑、据点和资源节点的统一选择、描边与详情面板；
+- `UnitBase`、Trait 数据、属性 Modifier 和 Trait Editor；
+- 资源系统 V2 阶段 1、阶段 2、阶段 2.5 Resource Editor、阶段 3 ResourceStorage ID 迁移；
+- 多工地调度由“全局顺序锁”改为“顺序优先级”。
+
+当前开发节点：
+
+```text
+资源系统 V2 阶段 3：ResourceStorage 迁移到 Resource ID（代码与自动测试完成，等待用户运行确认）
+下一步：资源系统 V2 阶段 4 ResourceManager 迁移
 ```
 
-当前不追求完整模拟深度和正式美术。
+## 2026-09-19 更新交接
 
-# 2. 当前工程核心架构
+- README 已精简为当前状态、测试、迁移进度和下一步，换电脑后以本文件为准；
+- 完成 Resource Editor 阶段 2.5：资源扫描、筛选、新建、编辑、保存、安全删除和数据库引用保护；
+- Resource Editor 资料头部与 Trait Editor 统一，资源图标为左侧 1:1 方形区域，ID 与显示名称在右侧；
+- Resource Editor 独占新建窗口改为按需创建，解决启用插件时与“项目设置”窗口冲突的问题；
+- 完成 ResourceStorage 阶段 3：内部库存统一使用 `StringName` 资源 ID，旧枚举调用继续兼容；
+- `Base`、`ResourceManager`、`TaskManager` 已同步资源变化信号参数；
+- 新增并通过 `resource_v2_stage3_storage_test.gd`，验证新旧接口共用同一份库存；
+- 当前改动仍在工作区，尚未提交 Git，不要用重置或清理命令覆盖现有修改。
 
-## 2.1 单位
+## 核心系统
 
-当前已有统一单位基类 `UnitBase`。
+### 单位与 Trait
 
-基础属性包含：
-
--   最大生命
--   生命恢复
--   移动速度
--   食物消耗
--   工作速度
--   采集速度
--   攻击力
--   攻击速度
-
-最终属性通过统一接口读取：
-
-``` text
-基础属性
-+ Trait Modifier
-= 当前最终属性
-```
-
-常用接口包括：
-
-``` gdscript
-get_max_health()
-get_health_regen()
-get_move_speed()
-get_food_consumption()
-get_work_speed()
-get_gather_speed()
-get_attack_damage()
-get_attack_speed()
-```
-
-## 2.2 Trait 系统
-
-当前 Trait 底层已经跑通：
-
-``` text
+```text
 TraitData
 → TraitLevelData
 → StatModifier
 → UnitTrait
 → UnitBase.get_stat()
-→ 单位实际行为
+→ 单位实际属性
 ```
 
-已验证示例：
+Trait 使用稳定 `trait_id`；中文名称只负责显示。编辑器插件位于：
 
-``` text
-基础移动速度 3.0
-+ 飞毛腿 10%
-= 最终移动速度 3.3
-```
-
-`TraitData` 已包含稳定 `trait_id`，用于程序、数据库和存档；中文
-`trait_name` 只负责显示。
-
-Trait 当前支持：
-
--   唯一 ID
--   中文名称
--   描述
--   ICON
--   品级
--   正面 / 负面 / 混合
--   分类
--   抽取权重
--   多等级
--   每等级多个 `StatModifier`
-
-显示约定：
-
-``` text
-只有一个等级 → 飞毛腿
-多个等级     → 飞毛腿 Lv.2
-```
-
-同一个 Trait 的所有等级共用 ICON。
-
-## 2.3 Trait Editor
-
-已建立 Godot 编辑器插件：
-
-``` text
+```text
 res://addons/trait_editor/
 ```
 
-当前已经能够：
+### 当前资源运行链
 
--   扫描 Trait 数据目录
--   新建 / 删除 / 刷新 Trait
--   新建 Trait 时输入稳定 ID
--   编辑中文名称、描述、ICON
--   编辑性质、品级、分类、权重
--   添加等级
--   编辑等级 Modifier
--   保存修改
--   点击 Trait 与 Inspector 联动
--   左侧按品级 / 分类筛选
+现有游戏仍使用旧兼容体系：
 
-当前编辑器布局已经稳定，不再作为主线开发重点。
-
-# 3. 通用资源框架
-
-这是近期完成的重要重构。
-
-## 3.1 ResourceType
-
-全工程资源类型统一使用：
-
-``` gdscript
-ResourceType.Type.WOOD
-ResourceType.Type.STONE
-ResourceType.Type.FOOD
+```text
+Resource ID / ResourceType.Type 兼容入口
+→ ResourceStorage（内部统一 Resource ID）
+→ ResourceBase / ResourceBuildingBase
+→ Villager 携带与运输
+→ Base
+→ HUD
 ```
 
-不再在 `ResourceBase` 或其他脚本中重复定义资源枚举。
-
-## 3.2 ResourceStorage
-
-已经建立通用仓储组件 `ResourceStorage`。
-
-支持：
-
-``` gdscript
-get_amount(resource_type)
-get_capacity(resource_type)
-get_free_space(resource_type)
-
-add(resource_type, amount)
-take(resource_type, amount)
-consume(resource_type, amount)
-
-has(resource_type, amount)
-is_empty(resource_type)
-is_full(resource_type)
-```
-
-关键语义：
-
-``` text
-add()     → 返回实际成功存入数量
-take()    → 返回实际成功取出数量
-consume() → 资源完全足够才扣除
-```
-
-容量不足时不允许资源凭空消失。
-
-任何未来需要存储资源的建筑原则上都应优先复用：
-
-``` text
-Building
-└── ResourceStorage
-```
-
-## 3.3 Base
-
-据点已经接入 `ResourceStorage`。
-
-据点不再只保存一个独立 `wood` 变量，而是通过统一资源接口管理：
-
-``` text
-WOOD
-STONE
-FOOD
-```
-
-HUD 已经通过通用 `resource_changed(resource_type, new_amount)`
-信号读取据点资源。
-
-## 3.4 ResourceBase
-
-资源节点统一拥有：
-
-``` gdscript
-resource_type: ResourceType.Type
-```
-
-当前：
-
-``` text
-Tree  → WOOD
-Stone → STONE
-```
-
-资源节点继续负责：
-
--   随机资源数量
--   预约 / 释放
--   gather()
--   资源耗尽后删除
-
-# 4. LumberCamp 与通用物流
-
-伐木场目前是第一个完整资源生产建筑模板。
-
-## 4.1 工作系统
-
-已支持：
-
--   最大岗位
--   当前工人列表
--   招募
--   解雇
--   工作范围
--   无业居民分配
--   点击建筑打开 UI
-
-## 4.2 本地仓储
-
-LumberCamp 已经接入：
-
-``` text
-LumberCamp
-└── ResourceStorage
-```
-
-并拥有：
-
-``` gdscript
-production_resource_type = ResourceType.Type.WOOD
-```
-
-正式资源接口已经通用化：
-
-``` gdscript
-deposit_resource()
-take_resource()
-has_resource()
-get_resource_amount()
-get_resource_capacity()
-```
-
-旧的木材专用接口如果仍存在，只作为兼容层，不再作为未来架构方向。
-
-## 4.3 Villager 通用携带
-
-居民正式携带数据已经改为：
-
-``` gdscript
-carried_resource_type
-carried_amount
-```
-
-不再把"背包"定义成只能携带木材。
-
-空背包判断以：
-
-``` text
-carried_amount <= 0
-```
-
-为准。
-
-不要在卸货后强制把 `carried_resource_type` 重置为
-`WOOD`；资源类型由实际采集 / 取货行为覆盖。
-
-## 4.4 当前完整物流链
-
-``` text
-Tree / ResourceBase
-resource_type = WOOD
-        ↓
-Villager 采集
-        ↓
-carried_resource_type = WOOD
-carried_amount = X
-        ↓
-LumberCamp
-production_resource_type = WOOD
-        ↓
-ResourceStorage
-WOOD = X / Capacity
-        ↓
-Villager 运输
-        ↓
-Base
-        ↓
-ResourceStorage
-WOOD += X
-        ↓
-resource_changed
-        ↓
-HUD
-```
-
-当前伐木闭环已经实际运行正常。
-
-部分入库也已经考虑：
-
-``` text
-居民携带 10
-目标只能存 5
-→ 实际存 5
-→ 居民仍保留 5
-```
-
-# 5. 建筑 UI
-
-已有 `BuildingPanelBase` 作为建筑面板基类。
-
-资源建筑面板 `ResourceBuildingPanel` 已支持：
-
--   建筑名称
--   当前库存 / 容量
--   当前工人 / 最大工人
--   招募
--   解雇
--   关闭
--   打开期间刷新
-
-资源建筑 UI 已开始按照 `production_resource_type` +
-通用仓储接口读取数据。
-
-目标是让 LumberCamp、Quarry 等资源建筑共用同一套
-Panel，而不是每种资源复制一套 UI。
-
-# 6. 已确定但暂未进入主线的居民需求
-
-未来居民基础循环：
-
-``` text
-工作 X 秒
-→ 回据点
-→ 消耗食物
-→ 休息 Y 秒
-→ 继续工作
-```
-
-已经考虑：
-
--   `FOOD_CONSUMPTION`
--   工作持续时间
--   休息时间
-
-第一版没有食物时先等待，不立即实现饿死。
-
-更复杂的挨饿、住房、幸福感、人口上限等放在 ROADMAP 支线。
-
-# 7. Trait 后续表现扩展
-
-除了数值 Modifier，未来 Trait 还可以影响单位视觉表现。
-
-已记录支线方向：
-
-``` text
-Trait
-→ UnitVisualModifier（未来）
-→ 模型 / Visual Scale
-→ 碰撞体尺寸同步
-```
-
-例如：
-
-``` text
-高大 → 模型更高大 + 碰撞体同步
-矮小 → 模型更小 + 碰撞体同步
-```
-
-设计原则：
-
--   Trait 不直接散落修改 `Villager.scale`
--   视觉节点和物理碰撞应区分处理
--   体型变化后碰撞体必须同步，避免模型与碰撞范围不一致
--   后续还可扩展颜色、附件、特效等表现
-
-当前不实现。
-
-# 8. 当前开发节点
-
-已经完成：
-
-``` text
-伐木生产闭环
-→ 建筑 UI
-→ UnitBase
-→ TraitData / TraitLevelData / StatModifier
-→ Trait Editor
-→ Trait 实际属性计算
-→ ResourceType
-→ ResourceStorage
-→ Base 通用仓储
-→ LumberCamp 通用仓储
-→ Villager 通用资源携带
-→ 通用资源运输
-```
-
-## 当前下一章节
-
-``` text
-FOOD
-```
-
-建造系统第一轮、STONE + Quarry 和 Villager UnitPanel 最小版已经完成。
-下一步进入 FOOD 需求循环：
-
-``` text
-工作
-→ 工作时长 / 疲劳基础
-→ 回据点吃饭
-→ 休息
-→ 恢复原工作
-```
-
-UnitPanel 只负责展示状态，不直接承担任务或资源规则。
-居民面板继续作为 FOOD、疲劳和 Trait 的状态观察入口。
-
-# 9. 开发原则
-
-1.  先闭环，再深度。
-2.  先胶囊方块，再正式美术。
-3.  通用底层可以提前做好，但不提前实现大量未来玩法。
-4.  UI 不直接承担游戏规则。
-5.  Trait、职业、资源类型保持职责分离。
-6.  新资源优先通过配置扩展，而不是复制整套代码。
-7.  Godot 当前严格类型检查，避免 Variant 推断 Warning-as-error。
-8.  多文件联动重构优先让客户端 GPT 直接读取完整工程修改。
-9.  开发一段时间后重新上传完整工程复查 README / ROADMAP。
-
-# 10. 阶段实施与修改记录
-
-## 10.1 ResourceManager + HUD 事件驱动改造
-
-修改文件：
-
-~~~ text
-Script/resource/ResourceManager.gd
-Script/unit/game/villager.gd
-Script/ui/hud.gd
-~~~
-
-## 10.11 建造系统阶段 10：施工完成生成正式建筑
-
-修改文件：
-
-~~~ text
-Script/construction_site.gd
-Script/task_manager.gd
-UI/building_panel/resource_building_panel.gd
-~~~
-
-完成内容：
-
--   施工进度达到当前 BuildingData.construction_time 后，工地进入完成状态；
--   按原网格位置、旋转和镜像生成 BuildingData.building_scene；
--   完工时取消并清理工地相关任务；
--   释放施工居民并清理 ConstructionSite；
--   正式建筑自动注册到 Main 的建筑点击和面板系统；
--   工地面板在工地被替换后自动隐藏；
--   非资源型建筑完工清理施工任务时，施工居民返回据点公共待命区；资源型建筑按下一条规则直接接管施工居民；
--   资源型建筑完工时，施工居民直接转入正式建筑的工人列表，自动成为伐木工或矿工并开始工作；
--   曾将居民到达工地的中心距离放宽到 3 米用于排查；后续已由按居民分配外围站位的方案取代；
--   工地导航目标会投影到导航网格最近可行走点，避免目标落在不可行走区域；
--   修正手动取消运输居民后自动补位的问题：取消会释放预约并暂停自动补任务，只有点击增加居民才恢复补位；
--   修正最后一名已完成运输居民无法取消的问题：无活动运输任务时也会从运输/施工候选列表移除，并返回据点待命；
--   工地按居民分配外围站位，搬运和施工不再共同争抢建筑中心点，避免先到居民阻挡最后一名携带木材的居民；
--   修正建筑落地高度：移除 Ghost 放置时额外的 0.5 米抬高，使工地、Ghost 和正式建筑都以地面为根节点基准；
--   将居民外围站位距离从占地最大边长一半加 1 米调整为加 0.5 米，保持分散并缩短与建筑的距离；
--   居民站位改为读取建筑场景 MeshInstance3D 的水平包围盒，在模型边缘外扩 0.35 米后随机生成并缓存站位；
--   居民站位改为将模型外围分成多个区段，每名居民在不同区段内随机取点，避免居民集中在同一条边；
--   资源不足时不再让居民长期停在工地等待：搬运任务释放预约后，居民返回据点公共待命区，可被其他建筑运输任务领取；
--   资源补充时由 TaskManager 通知缺料工地重新创建运输任务；
--   当工地只剩一趟材料运输且据点有资源时，仅派对应数量居民去据点，其余已分配居民直接前往工地等待；据点完全无资源时则全部返回公共待命区；
--   增加所有工地的施工队优先级：伐木场、采石场等按放置顺序占用居民，前一个工地完成材料阶段后才轮到后一个，避免同一批居民被不同建筑同时抢走；
--   据点没有对应材料时不再创建空运输任务；工地完成材料阶段后由 TaskManager 持续唤醒后续工地，确保施工队顺序能够正确切换；
--   兼容当前 Godot 版本：改用手动变换包围盒 8 个顶点，避免调用不存在的 AABB.transformed()；
--   建造入口改为屏幕下方建造菜单：进入游戏不再默认开启伐木场 Ghost，点击“伐木场”或“采石场”后才进入预览，再点击地面确认放置；
--   修正 Ghost 初始化可见性：即使创建了预览模型，未选择建筑时也保持隐藏，避免启动场景中心出现伐木场 Ghost；
-
-测试状态：
-
-~~~ text
-代码与场景引用静态检查通过。
-已完成并验证材料运输、多人施工、正式建筑生成、建筑点击面板，
-以及 LumberCamp / Quarry 原有资源建筑逻辑。
-~~~
-
-完成内容：
-
--   ResourceManager 新增 resources_changed 信号；
--   ResourceStorage 和 Villager 携带资源变化统一触发 deferred 刷新；
--   Villager 新增 carried_resource_changed；
--   HUD 删除资源相关 _process() 每帧扫描；
--   全局资源总量保持为所有 Storage + 居民携带资源；
--   动态生成居民通过 register_villager() 接入 ResourceManager。
-
-状态：
-
-~~~ text
-静态检查通过。
-HUD 事件驱动逻辑已完成。
-~~~
-
-## 10.2 建造系统阶段 1：LevelConfig
-
-新建文件：
-
-~~~ text
-Script/level_config.gd
-data/levels/Level_01.tres
-~~~
-
-修改文件：
-
-~~~ text
-Script/main.gd
-Scene/main.tscn
-Script/building/game/lumber_camp.gd
-Script/resource/ResourceManager.gd
-~~~
-
-完成内容：
-
--   LevelConfig 支持初始木材、石头和居民数量；
--   Main 根据 Level_01.tres 给 Base 注入初始资源；
--   根据 initial_villagers 在 Base 附近动态生成居民；
--   移除 Main.tscn 中手工摆放的 5 个居民；
--   移除 LumberCamp 启动时自动把空闲居民设置为伐木工的临时逻辑；
--   动态居民保持 Job.NONE，并注册到 ResourceManager。
-
-测试结果：
-
-~~~ text
-已通过。
-居民数量、初始资源和原有采集流程验证正常。
-~~~
-
-## 10.3 建造系统阶段 2：BuildingData
-
-新建文件：
-
-~~~ text
-Script/building_data.gd
-data/buildings/LumberCampData.tres
-data/buildings/QuarryData.tres
-~~~
-
-完成内容：
-
--   建立通用 BuildingData Resource；
--   支持建筑 ID、显示名称、建筑场景、占地、成本、施工时间、最大施工人数；
--   支持旋转和镜像配置；
--   LumberCamp 与 Quarry 蓝图数据已建立，场景引用正确。
-
-测试结果：
-
-~~~ text
-已通过。
-两个 .tres 可在 Inspector 编辑，原有建筑运行正常。
-~~~
-
-## 10.4 建造系统阶段 3：BuildGrid
-
-新建文件：
-
-~~~ text
-Script/build_grid.gd
-~~~
-
-修改文件：
-
-~~~ text
-Scene/main.tscn
-~~~
-
-完成内容：
-
--   主场景新增 Systems/BuildGrid；
--   实现世界坐标与网格坐标互转；
--   实现网格边界检查；
--   实现区域占用、释放和重复占用检测；
--   支持 3×2 旋转为 2×3；
--   当前使用 1 米单元、30×30 平地网格；
--   保留 Inspector 可开启的临时调试测试。
-
-测试结果：
-
-~~~ text
-已通过。
-坐标转换、3×2 旋转、占用、冲突检测和释放均正常。
-~~~
-
-当前阶段：
-
-~~~ text
-阶段 3 已完成。
-下一阶段：BuildingGhost。
-等待用户确认后开始。
-~~~
-## 10.5 建造系统阶段 4：BuildingGhost
-
-新建文件：
-
-~~~ text
-Script/building_ghost.gd
-~~~
-
-修改文件：
-
-~~~ text
-Scene/main.tscn
-~~~
-
-完成内容：
-
--   主场景新增 Systems/BuildingGhost；
--   默认加载 LumberCampData 作为当前蓝图；从 building_scene 提取静态 MeshInstance3D，使用半透明材质作为 Ghost 预览。
--   鼠标位置投射到地面并吸附 BuildGrid；
--   R 键按 90 度旋转；
--   M 键切换镜像；
--   合法位置显示绿色半透明预览；
--   非法位置显示红色半透明预览；
--   左键确认时只打印 BuildingData、网格坐标、旋转和镜像状态；
--   右键或 Esc 取消预览；
--   本阶段未生成正式建筑、未创建 ConstructionSite、未接入施工物流；主场景测试时暂时只保留 Base，移除 LumberCamp 和 Quarry 实例，相关场景与蓝图数据保留。
-
-测试结果：
-
-~~~ text
-已通过。
-Ghost 模型变换、半透明显示、网格吸附、旋转、镜像、合法性反馈、确认和取消均正常。
-点击确认只打印参数并隐藏 Ghost，未生成正式建筑。
-~~~
-修复记录：
-
--   修复 Main.tscn 中 BuildingGhost 与 LumberCampData 的 ExtResource 声明缺失问题。
--   修复 BuildingGhost 鼠标世界坐标从 Variant 推断导致的 Warning-as-error。
--   Ghost 改为递归保留建筑场景各级 Node3D Transform，只复制静态模型并叠加透明材质。
-## 10.6 建造系统阶段 5：ConstructionSite
-
-新建文件：
-
-~~~ text
-Script/construction_site.gd
-Scene/building/construction_site.tscn
-~~~
-
-修改文件：
-
-~~~ text
-Script/building_ghost.gd
-~~~
-
-完成内容：
-
--   Ghost 合法确认后生成 ConstructionSite，不生成正式建筑；
--   工地保存 BuildingData、网格坐标、rotation_step 和 mirrored；
--   工地状态支持 WAITING_RESOURCES、READY_TO_BUILD、BUILDING、COMPLETED、CANCELLED；
--   保存 required_resources、delivered_resources、reserved_resources、construction_progress 和 builders；
--   still_needed 按 required - delivered - reserved 计算；
--   工地使用临时橙色标记；
--   D 键按 debug_delivery_amount 投入材料，用于验证部分材料和全部材料；
--   工地投入材料暂不进入 ResourceManager 全局库存；
--   工地占用 BuildGrid，暂不接入居民搬运和施工任务。
-
-测试结果：
-
-~~~ text
-已通过。
-工地生成、required_resources、delivered_resources、reserved_resources、
-still_needed，以及 WAITING_RESOURCES → READY_TO_BUILD 状态转换均正常。
-~~~
-## 10.7 建造系统阶段 6：GameTask + TaskManager
-
-新建文件：
-
-~~~ text
-Script/game_task.gd
-Script/task_manager.gd
-~~~
-
-修改文件：
-
-~~~ text
-Script/unit/game/villager.gd
-Scene/main.tscn
-~~~
-
-完成内容：
-
--   建立 GameTask 数据对象；
--   支持 DELIVER_CONSTRUCTION_RESOURCE 和 BUILD 两类任务；
--   支持 AVAILABLE、CLAIMED、IN_PROGRESS、COMPLETED、CANCELLED 状态；
--   TaskManager 支持创建、注册、查找、领取、释放、完成和取消；
--   Villager 新增 can_take_task()；
--   Job.NONE 且 current_task 为空的居民才具备公共任务资格；
--   TaskManager 不控制移动、不计算施工速度、不修改资源；
--   主场景加入 TaskManager；
--   临时调试按键：T 创建、C 领取、R 释放、F 完成。
-
-测试状态：
-
-~~~ text
-任务对象、TaskManager 的创建/领取/释放/完成接口已接入阶段 7 的真实搬运流程。
-阶段 6 的独立调试按键仍保留；最终领取、释放、完成行为随阶段 7 一并验证。
-~~~
-
-## 10.8 建造系统阶段 7：施工材料自动搬运
-
-修改文件：
-
-~~~ text
-Script/construction_site.gd
-Script/unit/game/villager.gd
-Script/task_manager.gd
-~~~
-
-完成内容：
-
--   ConstructionSite 进入 WAITING_RESOURCES 后自动创建施工材料搬运任务；
--   按建筑的 max_construction_workers 并行预约搬运任务；每个任务最多预约 5 个单位，避免多个居民重复领取同一批材料；
--   LumberCamp 的 max_construction_workers 为 3：20 木材先分配给 3 名居民各搬 5 个，完成一趟后只补足剩余的第 4 趟；
--   修正工地状态判断：预约中的材料不计入已交付，必须实际 delivered_resources 达到需求后才进入 READY_TO_BUILD；
--   空闲居民自动领取任务，寻找拥有对应资源的 ResourceStorage；
--   居民从 Base 取出材料后，先保留在自身携带量中，交付工地时才扣除据点库存并增加工地 delivered_resources；
--   交付完成后 TaskManager 标记任务完成，工地自动请求下一批材料；
--   搬运任务找不到资源或目标失效时释放任务和预约；
--   阶段 6 的任务状态测试与阶段 7 的真实搬运流程合并验证；
--   保留 D 键临时投入材料功能，但阶段 7 测试不使用该调试入口。
-
-测试状态：
-
-~~~ text
-已通过。
-放置 LumberCamp Ghost 后，工地自动创建搬运任务，最多 3 名居民并行领取；
-总需求 20 木材按每次 5 个单位分批搬运，TaskManager 的创建、领取和完成流程正常。
-工地材料状态与 READY_TO_BUILD 状态转换正常。
-~~~
-
-## 10.9 建造系统阶段 8：施工任务
-
-修改文件：
-
-~~~ text
-Script/construction_site.gd
-Script/task_manager.gd
-Script/unit/game/villager.gd
-Script/main.gd
-UI/building_panel/resource_building_panel.gd
-Scene/ui/resource_building_panel.tscn
-~~~
-
-完成内容：
-
--   材料全部交付后，ConstructionSite 自动发布 BUILD 任务；
--   运输阶段实际参与搬运的居民会被记录为施工候选人；
--   没有玩家取消任务时，施工仍优先由原运输居民承担，不从其他空闲居民中重新抢人；
--   建筑施工人数不超过 BuildingData.max_construction_workers；
--   居民领取 BUILD 任务后前往工地并加入 builders；
--   施工任务释放或取消时，工地移除对应施工人员并释放名额；
--   本阶段暂不计算施工速度，不生成正式建筑。
--   ConstructionSite 继承 BuildingBase，生成后拥有点击区域并动态注册到建筑面板；
--   建筑面板对工地显示材料已交付量/需求量，并提供增加居民、取消居民按钮；
--   增加或取消施工居民只调整施工名额，不改变材料运输人员连续性；
--   修正工地面板人数统计：运输任务中已领取/执行任务的居民也计入工地分配人数；
--   材料运输阶段同样可以取消居民或恢复居民名额，取消后不会自动补回；
--   修正取消/释放任务后的居民状态：居民会离开工地并返回据点附近待命；
--   修正任务执行失败后的重复领取循环：失败任务直接结束并释放居民，不再每帧重新领取同一任务；
--   修正搬运任务取消/释放时的资源回收：居民身上的材料会退回 Base，避免取消后材料滞留导致后续任务失败；
--   修正工地和待命点的到达判断：居民接近目标距离时即可触发交货、加入施工或结束返回移动，避免导航代理停在目标附近不触发状态切换；
--   资源不足时保留居民的搬运任务：居民前往工地等待，不再因暂时没有资源而失败退出，资源补充后继续搬运；
--   将工地分配居民与单个搬运任务分离：资源不足时居民仍可登记在工地等待，增加居民后可恢复到最大名额；
--   接入 ResourceStorage 资源变化唤醒：Base 增加木材后，等待中的搬运居民立即重新寻找资源，不需要重新任命；
--   增加阶段 8 测试快捷键：运行时按 `H` 给 Base 增加 10 木材，用于验证等待居民自动恢复搬运；
-
-测试状态：
-
-~~~ text
-代码与场景引用静态检查通过。
-已通过。
-点击已放置工地可以查看材料已交付量/需求量和施工居民数量；
-增加/取消居民可以调整施工名额；资源不足时居民在工地等待，按 H 增加木材后会自动恢复搬运。
-~~~
-
-## 10.10 建造系统阶段 9：线性多人施工
-
-修改文件：
-
-~~~ text
-Script/construction_site.gd
-UI/building_panel/resource_building_panel.gd
-~~~
-
-完成内容：
-
--   ConstructionSite 开始记录施工进度；
--   施工效率按实际施工人数线性计算：1 人 1 倍、2 人 2 倍、3 人 3 倍；
--   施工人数仍受建筑最大施工人数限制；
--   建筑面板显示施工进度；
--   本阶段不生成正式建筑，不处理完工替换。
-
-测试状态：
-
-~~~ text
-代码与场景引用静态检查通过。
-已通过。
-已验证 1、2、3 名施工居民分别按 1 倍、2 倍、3 倍效率施工。
-~~~
-
-## 10.12 建造系统分阶段计划总体验收
-
-计划文件：
-
-~~~ text
-GPT_Game_建造系统分阶段实施计划.md
-~~~
-
-完成状态：
-
-~~~ text
-阶段 1 至阶段 10：全部完成
-~~~
-
-阶段总结：
-
--   阶段 1：LevelConfig、初始资源和居民数量配置化，居民根据配置在 Base 附近动态生成；
--   阶段 2：BuildingData、伐木场数据和采石场数据建立，建筑参数从场景脚本中分离；
--   阶段 3：BuildGrid 完成世界坐标、网格坐标、旋转占地、占用和释放；
--   阶段 4：BuildingGhost 支持实际建筑模型预览、网格吸附、旋转、镜像和非法位置检查；
--   阶段 5：ConstructionSite 保存建筑成本、已交付材料、运输预约、施工状态和施工进度；
--   阶段 6：GameTask 和 TaskManager 支持运输、施工、领取、释放、完成、取消和失败；
--   阶段 7：居民自动从合法 ResourceStorage 搬运材料，支持预约、分批运输、资源回收和资源变化唤醒；
--   阶段 8：工地支持施工居民 UI、增加/取消居民、施工名额和运输居民连续分配；
--   阶段 9：施工效率按人数线性计算，1 人、2 人、3 人分别为 1 倍、2 倍、3 倍；
--   阶段 10：施工完成后生成正式建筑，保留位置、旋转和镜像，并完成正式建筑注册；资源型建筑会直接接管施工居民，自动成为伐木工或矿工；
-
-最终建造流程：
-
-~~~ text
-点击下方伐木场/采石场按钮
-→ 显示对应建筑 Ghost
-→ 网格吸附并点击地面
-→ 生成 ConstructionSite
-→ 按建筑放置顺序分配施工队
-→ 有材料时运输居民取货，其他已分配居民前往工地等待
-→ 无材料时释放任务，居民返回公共待命区
-→ 材料全部交付
-→ 居民施工
+当前可运行资源为 `WOOD / STONE / FOOD`。Tree 产出木材，Stone 产出石材。
+
+### 建造系统
+
+```text
+底部建造菜单
+→ BuildingGhost
+→ BuildGrid
+→ ConstructionSite
+→ TaskManager 派发运输
+→ 居民搬运材料
+→ 多人施工
 → 生成正式建筑
-→ 伐木场施工居民转为伐木工，采石场施工居民转为矿工
-~~~
+```
 
-已验证内容：
+工地按放置顺序获得任务优先级，但不会全局锁死后续工地。较早工地无法推进时，空闲居民可以处理后续工地。
 
--   建筑 Ghost 不再在游戏启动时默认显示；
--   伐木场和采石场通过屏幕下方建造菜单选择；
--   多居民分批运输不会重复预约或超额运输；
--   资源不足时居民不会永久停在工地；
--   多个建筑按放置顺序分配施工队，不会互相抢同一批居民；
--   取消居民会释放任务和预约，并优先让居民继续领取其他任务；
--   建筑模型会自动计算外围站位，居民站位随机且分散；
--   正式建筑落地高度正确，支持替换为自定义建筑模型；
--   伐木场和采石场完工后会直接进入对应资源采集工作；
--   README 已持续记录各阶段修改和测试结果；
--   Godot 严格解析检查通过。
+资源型建筑完工后，施工居民会直接成为该建筑工人。
 
-计划结论：
+### 对象详情 UI
 
-~~~ text
-GPT_Game 建造系统分阶段实施计划已全部完成。
-后续功能属于计划外扩展，建议从 Warehouse 和建造物流增强开始。
-~~~
+```text
+居民        → VillagerPanel
+资源建筑    → ResourceBuildingPanel
+Base        → ResourceBuildingPanel
+Tree/Stone  → ResourceNodePanel
+```
 
-## 10.13 建造系统收尾与文档同步
+对象选择互斥，统一使用黄色描边；面板统一播放滑入和收回动画。
 
-任务文件：
+## 资源系统 V2
 
-~~~ text
-GPT_Game_建造系统收尾与文档同步任务.md
-~~~
+### 已完成
 
-完成内容：
+- `ResourceData`：稳定 ID、显示名称、Category、Tier、Tags、图标、堆叠上限；
+- `FoodProperties`：营养、品质、多样性分组；
+- `ResourceDatabase`：注册、查询、索引、重复与无效 ID 检查；
+- 正式数据库：`res://data/resources/resource_database.tres`；
+- 首批 7 种资源定义；
+- Resource Editor：扫描筛选、新建、编辑、保存和安全删除资源定义；
+- Resource Editor 使用与 Trait Editor 一致的资料头部：1:1 方形图标位于资源 ID 和显示名称左侧；
+- Resource Editor 的独占弹窗按需创建，启用插件时不会与“项目设置”窗口冲突。
 
--   TaskManager 移除常规任务调度用的 `_process()` 全量扫描；
--   新增 `request_dispatch()` 与 `call_deferred()` 同帧合并调度；
--   新 Task、任务领取/释放/完成/取消/失败、资源库存变化和工地状态变化都会重新请求调度；
--   缺料居民释放后，ResourceStorage 资源增加会自动唤醒并恢复工地运输；
--   新增统一 `DevMode.DEV_MODE`，控制 H 增加木材、D 调试投料、T/C/R/F 调试任务和 BuildGrid 网格自检；
--   BuildGrid 新增 `is_cell_buildable()`、`is_area_buildable()` 和 `set_buildability_rule()`，为未来地形规则注入预留接口；
--   当前默认地形规则仍是固定测试网格，未开发程序化地图；
--   更新当前开发节点为 `Villager UnitPanel 最小版`；
--   更新 `ROADMAP.md`，将 WOOD、STONE、建造系统第一轮标记为已完成；
--   未创建 CHANGELOG，历史技术记录继续保留在 README。
+| Tier | 资源 |
+|---|---|
+| T1 | wood、stone、grain、meat |
+| T2 | plank、flour |
+| T3 | bread |
 
-验证状态：
+食物与加工品目前只证明数据结构能够表达多分类、多层级和食物属性，尚无生产来源或生产建筑。工程暂无对应资源图标，因此图标暂为空。
 
-~~~ text
-Godot 严格解析检查通过。
-git diff --check 通过；README 的换行格式提示不影响内容。
-临时 .tmp 文件已确认未被正式场景引用，本次未删除，以避免误删编辑器/用户备份文件。
-~~~
+### 阶段 3 已完成，等待实际运行确认
 
-当前主线：
+- `ResourceStorage` 内部库存和容量统一使用 `StringName` 资源 ID；
+- `WOOD / STONE / FOOD` 旧枚举、`String` 和 `StringName` 调用共用同一份库存；
+- 资源变化信号传递资源 ID，`Base`、`ResourceManager`、`TaskManager` 已同步兼容；
+- 阶段 3 自动测试通过，未迁移居民、建筑和 HUD 的上层资源参数。
 
-~~~ text
-FOOD
-→ 工作时长 / 疲劳基础
-→ 吃饭 / 休息 / 恢复工作
-~~~
+### 尚未迁移
 
-## 10.14 Villager UnitPanel 最小版
+- `ResourceManager` 的查询参数仍保留旧枚举入口；
+- 居民携带与资源建筑；
+- `BuildingData / ConstructionSite / TaskManager` 的资源参数；
+- HUD、Base 面板和资源节点面板；
+- 旧 `ResourceType` 的全面移除，目前只保留兼容映射。
 
-任务文件：
+因此，V2 的 grain、meat、plank、flour、bread 暂时不会出现在游戏运行画面中。
 
-~~~ text
-GPT_Game_Villager_UnitPanel阶段任务.md
-~~~
+### 下一步
 
-完成内容：
+阶段 4 将 `ResourceManager`、居民携带和资源建筑的运行参数迁移到稳定 Resource ID：
 
--   复用现有 `UnitPanelBase` 和 `VillagerPanel`，未创建第二套单位面板；
--   修正居民面板场景根节点，使其与 `UnitPanelBase` 的 `PanelContainer` 类型一致；
--   接入主场景，点击居民打开同一个 `VillagerPanel`，点击其他居民时切换目标；
--   显示居民名称/编号、职业、状态、当前任务、工作地点、生命、移动速度、食物消耗、工作效率和采集效率；
--   显示当前携带资源和携带上限；
--   读取已有 Trait 数据并显示 Trait 名称与等级，不新增 Trait 效果；
--   面板可见时实时刷新，能够观察居民领取任务、搬运、施工和工作状态变化；
--   建筑点击与居民点击通过 Main 的统一选择入口互斥切换；
--   点击 UI 外部的世界空白区域会关闭对象详情面板，UI 按钮不会被误判为空地点击；
--   建造 Ghost 放置模式优先处理输入，不会被普通选择清除逻辑打断；
--   修正对象点击与世界空地关闭的输入时序：对象面板延迟到当前点击事件完成后打开，避免被空地关闭逻辑立即隐藏；
--   修正 Main 在 `_unhandled_input()` 中提前消费左键导致 3D 物理拾取被阻断的问题；空地关闭现在等待本次拾取结束后再判断是否点中建筑或居民；
--   Tree、Stone 等 `ResourceBase` 节点增加统一点击信号，并接入 Main 的对象选择流程；
--   新增 `ResourceNodePanel`，实时显示资源名称、类型、剩余数量和预约状态；
--   `ResourceNodePanel` 改为继承现有 `BuildingPanelBase`，与建筑详情面板统一尺寸、标题栏、内容区、关闭按钮和滑入动画；
--   修正详情面板重复打开时部分直接出现的问题：立即关闭会统一复位到屏幕右侧，建筑、Base、居民和资源面板每次打开都播放相同滑入动画；
--   对象详情面板关闭行为统一改为向右收回动画；关闭按钮、点击空地和切换到另一类对象时不再瞬间隐藏；
--   建筑、居民和资源节点选中时统一显示黄色外扩轮廓，切换对象或点击空地时恢复原材质；
--   三类对象详情面板统一互斥，关闭按钮会同时清除当前描边高亮；
--   Base 改为继承 `BuildingBase` 并增加独立点击区域；点击 Base 使用现有建筑面板显示 WOOD、STONE、FOOD 库存，同时隐藏招募/解雇控件；
--   未新增 FOOD、疲劳、吃饭、休息或 Trait 效果。
+- `WOOD → &"wood"`；
+- `STONE → &"stone"`；
+- `FOOD → &"food"`；
+- 新旧接口共用同一份库存，不建立平行库存。
 
-验证状态：
+阶段 2.5 不迁移运行逻辑，也未开发 Recipe Editor 或生产建筑。
 
-~~~ text
-Godot 严格解析检查通过。
-无界面运行检查通过，未发现新脚本错误。
-用户实际运行验证通过：居民、建筑、Base、Tree 和 Stone 均可点击并打开对应面板；
-对象切换、空地关闭、统一黄色描边以及面板滑入/收回动画均正常。
-~~~
+换电脑后开始阶段 4 前，先运行阶段 3 测试并检查主场景；确认没有解析错误后，再迁移
+`ResourceManager` 的总量查询，保持 `ResourceType.Type` 兼容入口，不建立第二份库存。
 
-当前对象选择与详情 UI 状态：
+## 操作
 
-~~~ text
-点击居民        → VillagerPanel + 居民描边
-点击资源建筑    → ResourceBuildingPanel + 建筑描边
-点击 Base       → ResourceBuildingPanel + WOOD/STONE/FOOD 库存 + Base 描边
-点击 Tree/Stone → ResourceNodePanel + 剩余数量/预约状态 + 资源描边
-点击其他对象    → 原面板收回，新面板滑入
-点击世界空地    → 当前面板收回并清除描边
-~~~
+### 建造
 
-下一阶段说明：
+- 点击底部“伐木场”或“采石场”进入放置模式；
+- 鼠标左键确认；
+- 鼠标右键或 `Esc` 取消；
+- `R` 旋转；
+- `M` 镜像。
 
-~~~ text
-ROADMAP 当前指向 FOOD，但工程内尚无 FOOD 阶段任务文档。
-收到明确任务文档或实现范围后再开始，不提前开发疲劳、吃饭或休息逻辑。
-~~~
+### 对象选择
 
-## 10.15 资源系统 V2 分阶段迁移计划修订
+- 点击居民、建筑、Base、Tree 或 Stone 打开对应详情；
+- 点击世界空地关闭面板并清除描边。
 
-计划文件：
+### 开发模式
 
-~~~ text
-GPT_Game_资源系统V2_分阶段迁移计划.md
-~~~
+`Script/dev_mode.gd` 当前为开启状态。调试键包括：
 
-本次仅修订实施计划，尚未开始资源系统 V2 的代码迁移。
+- `H`：给 Base 增加测试木材；
+- `D`：向工地投入测试材料；
+- `T / C / R / F`：任务创建、领取、释放、完成测试。
 
-修订内容：
+发布或正式试玩前应关闭 `DevMode.DEV_MODE`。
 
--   明确 `ResourceData`、`RecipeData` 与未来 `ProductionBuildingBase` 的职责边界；
--   补充 `FOOD → &"food"` 旧数据兼容，不再只覆盖 WOOD / STONE；
--   第一版统一使用 `Dictionary[StringName, float]` 表达资源数量，不在迁移中途引入 `ResourceAmount`；
--   补充现有 ResourceNodePanel、ResourceBuildingPanel、Base、LevelConfig、ResourceBase、TaskManager 和 BuildingData 的迁移检查项；
--   新增阶段 2.5 `Resource Editor`，支持资源定义增删改、稳定 ID 和引用保护；
--   新增阶段 8.5 `Recipe Editor`，与资源编辑器共用插件入口和校验逻辑；
--   明确阶段 1 使用 `.tres` 形式的 ResourceDatabase，不提前增加 Autoload；
--   阶段 9 只有在阶段 1～8.5 全部验证通过后，才能清理旧 `ResourceType` 兼容层。
+## 测试
 
-当前状态：
+现有自动测试：
 
-~~~ text
-计划修订完成。
-资源系统 V2 阶段 1 尚未执行。
-首次实施时只执行阶段 1，完成并由用户验证后再进入阶段 2。
-~~~
+```text
+res://Tests/resource_v2_stage1_test.gd
+res://Tests/resource_v2_stage2_test.gd
+res://Tests/resource_editor_stage2_5_test.gd
+res://Tests/resource_v2_stage3_storage_test.gd
+res://Tests/construction_site_priority_test.gd
+```
 
-## 10.16 资源系统 V2 阶段 1
+当前验证状态：
 
-完成范围：
+- 资源 V2 阶段 1、阶段 2、阶段 2.5 测试通过；
+- 资源 V2 阶段 3 `ResourceStorage` 新旧 ID 兼容测试通过；
+- Resource Editor 已通过 Godot 编辑器插件加载测试并扫描到 7 个资源；
+- 多工地任务生成与顺序优先级测试通过；
+- Godot 主场景无界面启动通过；
+- 用户实际运行暂未发现问题。
 
-~~~ text
-ResourceData
-FoodProperties
-ResourceDatabase
-~~~
+## 开发约定
 
-完成内容：
+1. 每次实际修改都同步更新本 README，但只保留简洁结论。
+2. UI 不直接承担游戏规则。
+3. 新资源优先通过数据配置扩展，不复制整套代码。
+4. Godot 使用严格类型检查，避免 Variant 推断警告。
+5. 分阶段迁移；用户运行确认后再进入下一阶段。
+6. 不提前开发当前阶段以外的 FOOD 循环、生产建筑、仓库或程序化地图。
 
--   新增 `ResourceData` 数据结构，包含稳定 `StringName` ID、显示名称、分类、Tier、Tags、图标、堆叠上限和可选食物属性；
--   新增 `has_tag()` 与 `is_food()` 查询接口；
--   新增 `FoodProperties`，预留营养值、食物品质和多样性分组；
--   新增 `.tres` 形式的 `ResourceDatabase`，支持注册资源、按 ID 查询、检查 ID、重建索引以及重复/无效 ID 警告；
--   新增正式空数据库 `data/resources/resource_database.tres`；
--   新增阶段 1 独立测试，测试数据仅保存到 `user://` 临时文件并在结束后清理；
--   未创建 wood、stone、food 等正式资源定义，这些内容留到阶段 2；
--   未新增 Autoload，也未把新数据库接入 Main 或现有运行系统。
+## 关键里程碑
 
-保护范围：
-
-~~~ text
-ResourceStorage / ResourceManager 未修改
-ResourceType 旧 enum 未修改
-Villager Carry 未修改
-LumberCamp / Quarry 未修改
-BuildingData / ConstructionSite 未修改
-HUD / LevelConfig 未修改
-~~~
-
-验证结果：
-
-~~~ text
-Godot 4.7.2 项目导入与脚本解析通过。
-正式 resource_database.tres 加载通过。
-ResourceData、Category、Tier、Tags、FoodProperties 测试通过。
-ResourceDatabase 注册、查询、重复 ID、空 ID 和缺失 ID 测试通过。
-ResourceDatabase user:// 临时序列化与重新读取通过。
-主场景无界面启动回归通过，未发现新脚本或解析错误。
-~~~
-
-当前状态：
-
-~~~ text
-资源系统 V2 阶段 1 已完成。
-用户实际运行确认通过。
-暂未进入阶段 2。
-~~~
-
-## 10.17 多工地顺序锁修正
-
-问题：
-
-~~~ text
-较早放置的工地尚未完工时，后续工地即使具备材料，
-也会被工地顺序全局阻止，无法创建和领取运输任务。
-~~~
-
-修正内容：
-
--   移除“前序工地仍有居民或预约就完全阻止后续工地”的全局顺序锁；
--   所有具备资源来源、能够推进的工地都可以创建运输任务；
--   运输与施工任务根据工地放置顺序写入任务优先级；
--   TaskManager 派发前按任务优先级排序，同时可执行时仍优先较早工地；
--   较早工地缺料或没有可执行任务时，空闲居民可以处理后续工地；
--   删除不再使用的 `has_delivery_priority_claim()` 旧锁定接口。
-
-验证结果：
-
-~~~ text
-两个工地都有资源时，两边均能生成运输任务：通过。
-只有一个空闲居民时，较早工地仍优先：通过。
-资源系统 V2 阶段 1 回归测试：通过。
-主场景无界面启动：通过，未发现新脚本或解析错误。
-~~~
-
-实际运行确认：
-
-~~~ text
-先后放置两个工地。
-第一个工地尚未完工，但无法继续推进或已有足够人员时，
-后续具备材料的工地应能获得空闲居民运输。
-用户测试后确认暂时没有发现问题。
-~~~
-
-## 10.18 当前备份检查点
-
-本检查点适合进行一次完整工程备份。
-
-已确认内容：
-
-~~~ text
-建造系统分阶段计划已完成
-Villager UnitPanel 与统一对象详情 UI 正常
-建筑、居民、Base、Tree、Stone 选择描边正常
-详情面板滑入与收回动画正常
-资源系统 V2 实施计划已修订
-资源系统 V2 阶段 1 已完成并通过测试
-多工地调度已由全局顺序锁改为顺序优先级
-用户实际运行暂未发现问题
-~~~
-
-资源系统 V2 当前进度：
-
-~~~ text
-阶段 1：ResourceData + FoodProperties + ResourceDatabase  ✅
-阶段 2：第一批 ResourceData                         ⏸ 未开始
-~~~
-
-本检查点尚未执行：
-
-~~~ text
-现有 WOOD / STONE / FOOD 迁移
-ResourceStorage / ResourceManager V2 迁移
-Resource Editor
-RecipeData / Recipe Editor
-旧 ResourceType 清理
-~~~
+- 建造系统第一轮：完成；
+- Villager UnitPanel 与统一对象详情 UI：完成；
+- 资源系统 V2 计划修订：完成；
+- 资源系统 V2 阶段 1：完成；
+- 多工地顺序锁修正：完成；
+- 资源系统 V2 阶段 2：完成；
+- 资源系统 V2 阶段 2.5 Resource Editor：完成；
+- 资源系统 V2 阶段 3 ResourceStorage ID 迁移：代码与自动测试完成，待用户运行确认；
+- README 精简为当前状态文档：完成。

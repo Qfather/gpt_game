@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="ResourceData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Script/resource/food_properties.gd" id="1_food_properties"]
+[ext_resource type="Script" path="res://Script/resource/resource_data.gd" id="2_resource_data"]
+
+[sub_resource type="Resource" id="FoodProperties_meat"]
+script = ExtResource("1_food_properties")
+nutrition = 8.0
+food_quality = 1.0
+variety_group = &"meat"
+
+[resource]
+script = ExtResource("2_resource_data")
+id = &"meat"
+display_name = "肉类"
+category = 2
+tags = Array[StringName]([&"food", &"meat", &"raw"])
+food_properties = SubResource("FoodProperties_meat")

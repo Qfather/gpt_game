@@ -7,7 +7,7 @@ extends BuildingBase
 
 # 新的通用资源变化信号
 signal resource_changed(
-	resource_type: ResourceType.Type,
+	resource_id: StringName,
 	new_amount: float
 )
 
@@ -59,7 +59,7 @@ func _ready():
 # ============================================================
 
 func get_resource(
-	resource_type: ResourceType.Type
+	resource_key: Variant
 ) -> float:
 
 	if storage == null:
@@ -69,11 +69,11 @@ func get_resource(
 		push_warning("Base：ResourceStorage 尚未初始化")
 		return 0.0
 
-	return storage.get_amount(resource_type)
+	return storage.get_amount(resource_key)
 
 
 func add_resource(
-	resource_type: ResourceType.Type,
+	resource_key: Variant,
 	amount: float
 ) -> float:
 
@@ -81,13 +81,13 @@ func add_resource(
 		return 0.0
 
 	return storage.add(
-		resource_type,
+		resource_key,
 		amount
 	)
 
 
 func has_resource(
-	resource_type: ResourceType.Type,
+	resource_key: Variant,
 	amount: float
 ) -> bool:
 
@@ -95,13 +95,13 @@ func has_resource(
 		return false
 
 	return storage.has(
-		resource_type,
+		resource_key,
 		amount
 	)
 
 
 func take_resource(
-	resource_type: ResourceType.Type,
+	resource_key: Variant,
 	amount: float
 ) -> float:
 
@@ -109,13 +109,13 @@ func take_resource(
 		return 0.0
 
 	return storage.take(
-		resource_type,
+		resource_key,
 		amount
 	)
 
 
 func consume_resource(
-	resource_type: ResourceType.Type,
+	resource_key: Variant,
 	amount: float
 ) -> bool:
 
@@ -123,7 +123,7 @@ func consume_resource(
 		return false
 
 	return storage.consume(
-		resource_type,
+		resource_key,
 		amount
 	)
 
@@ -133,13 +133,13 @@ func consume_resource(
 # ============================================================
 
 func _on_storage_resource_changed(
-	resource_type: ResourceType.Type,
+	resource_id: StringName,
 	new_amount: float
 ):
 
 	# 对外发送新的通用信号
 	resource_changed.emit(
-		resource_type,
+		resource_id,
 		new_amount
 	)
 
@@ -147,7 +147,7 @@ func _on_storage_resource_changed(
 	# 兼容旧木材 UI
 	# --------------------------------------------------------
 
-	if resource_type == ResourceType.Type.WOOD:
+	if resource_id == &"wood":
 
 		wood_changed.emit(
 			int(new_amount)
