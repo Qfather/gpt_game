@@ -1,6 +1,10 @@
 class_name BuildingGhost
 extends Node3D
 
+const CONSTRUCTION_SITE_SCENE: PackedScene = preload(
+	"res://Scene/building/construction_site.tscn"
+)
+
 @export_category("蓝图")
 @export var building_data: BuildingData = preload(
 	"res://data/buildings/LumberCampData.tres"
@@ -215,6 +219,24 @@ func _confirm_preview() -> void:
 	if not is_valid_position:
 		print("BuildingGhost 放置非法：", grid_position)
 		return
+
+	var site: ConstructionSite = (
+		CONSTRUCTION_SITE_SCENE.instantiate()
+		as ConstructionSite
+	)
+	site.setup(
+		building_data,
+		grid_position,
+		rotation_step,
+		mirrored
+	)
+	get_parent().add_child(site)
+	site.global_transform = global_transform
+	build_grid.occupy_area(
+		grid_position,
+		building_data.grid_size,
+		rotation_step
+	)
 
 	print(
 		"BuildingGhost 确认：",

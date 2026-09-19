@@ -39,7 +39,11 @@ enum State {
 	DEPOSIT_TO_WORKPLACE,
 	
 	MOVE_TO_BASE,
-	DEPOSIT_TO_BASE
+	DEPOSIT_TO_BASE,
+
+	FIND_TASK_SOURCE,
+	MOVE_TO_TASK_SOURCE,
+	MOVE_TO_TASK_SITE
 }
 
 var state: State = State.IDLE
@@ -62,6 +66,11 @@ var job: Job = Job.NONE
 var workplace: Node3D = null
 # 当前是否正在执行工作建筑 → Base 的运输任务
 var is_transporting: bool = false
+
+# 当前公共任务
+var current_task: Object = null
+var task_source: ResourceStorage = null
+var task_site: Node3D = null
 
 # 当前目标树
 var target_resource: ResourceBase = null
@@ -120,6 +129,9 @@ func start():
 
 func _physics_process(delta):
 
+	if state == State.IDLE and current_task != null:
+		_start_current_task()
+
 	match state:
 
 		State.IDLE:
@@ -148,6 +160,150 @@ func _physics_process(delta):
 
 		State.DEPOSIT_TO_BASE:
 			deposit_to_base()
+
+		State.FIND_TASK_SOURCE:
+			find_task_source()
+
+		State.MOVE_TO_TASK_SOURCE:
+			move_to_task_source()
+
+		State.MOVE_TO_TASK_SITE:
+			move_to_task_site()
+
+
+func _start_current_task() -> void:
+
+	var task: GameTask = current_task as GameTask
+	if task == null or task.type != GameTask.TaskType.DELIVER_CONSTRUCTION_RESOURCE:
+		return
+
+	task.state = GameTask.State.IN_PROGRESS
+	task_site = task.target as Node3D
+	if task_site == null:
+		_release_current_task()
+		return
+
+	state = State.FIND_TASK_SOURCE
+	print("Villager 开始搬运任务：", task.id, " target=", task_site.name)
+
+
+func find_task_source() -> void:
+
+	var task: GameTask = current_task as GameTask
+	if task == null:
+		state = State.IDLE
+		return
+
+	var resource_type: int = int(task.data.get("resource_type", -1))
+	var nearest: ResourceStorage = null
+	var nearest_distance: float = INF
+
+	for storage_node: Node in get_tree().get_nodes_in_group("resource_storages"):
+		var storage: ResourceStorage = storage_node as ResourceStorage
+		if storage == null or storage.get_amount(resource_type) <= 0.0:
+			continue
+
+		var storage_parent: Node3D = storage.get_parent() as Node3D
+		if storage_parent == null:
+			continue
+
+		var distance: float = global_position.distance_to(storage_parent.global_position)
+		if distance < nearest_distance:
+			nearest = storage
+			nearest_distance = distance
+
+	if nearest == null:
+		_release_current_task()
+		return
+
+	task_source = nearest
+	var source_parent: Node3D = task_source.get_parent() as Node3D
+	if source_parent == null:
+		_release_current_task()
+		return
+
+	navigation_agent.target_position = source_parent.global_position
+	state = State.MOVE_TO_TASK_SOURCE
+
+
+func move_to_task_source() -> void:
+
+	if not is_instance_valid(task_source):
+		_release_current_task()
+		return
+
+	if not navigation_agent.is_navigation_finished():
+		move_along_navigation()
+		return
+
+	var task: GameTask = current_task as GameTask
+	if task == null or task_site == null:
+		_release_current_task()
+		return
+
+	var resource_type: int = int(task.data.get("resource_type", -1))
+	var requested_amount: float = float(task.data.get("amount", 0.0))
+	var taken_amount: float = task_source.take(resource_type, minf(requested_amount, carry_capacity))
+	if taken_amount <= 0.0:
+		_release_current_task()
+		return
+
+	carried_resource_type = resource_type
+	carried_amount += taken_amount
+	carried_resource_changed.emit()
+	print("Villager 取出资源：", resource_type, " amount=", taken_amount)
+
+	navigation_agent.target_position = task_site.global_position
+	state = State.MOVE_TO_TASK_SITE
+
+
+func move_to_task_site() -> void:
+
+	if not is_instance_valid(task_site):
+		_release_current_task()
+		return
+
+	if not navigation_agent.is_navigation_finished():
+		move_along_navigation()
+		return
+
+	var task: GameTask = current_task as GameTask
+	if task == null:
+		state = State.IDLE
+		return
+
+	var delivered_amount: float = task_site.receive_delivery(
+		carried_resource_type,
+		carried_amount
+	)
+	carried_amount -= delivered_amount
+	if delivered_amount > 0.0:
+		carried_resource_changed.emit()
+
+	var managers: Array[Node] = get_tree().get_nodes_in_group("task_manager")
+	if not managers.is_empty() and managers[0].has_method("complete_task"):
+		managers[0].complete_task(task)
+	else:
+		clear_current_task()
+
+	task_source = null
+	task_site = null
+	state = State.IDLE
+	print("Villager 完成搬运任务：", task.id, " delivered=", delivered_amount)
+
+
+func _release_current_task() -> void:
+
+	var task: GameTask = current_task as GameTask
+	var managers: Array[Node] = get_tree().get_nodes_in_group("task_manager")
+	if task != null and not managers.is_empty() and managers[0].has_method("release_task"):
+		managers[0].release_task(task)
+	else:
+		clear_current_task()
+
+	task_source = null
+	task_site = null
+	state = State.IDLE
 
 # ============================================================
 # 找据点
@@ -828,7 +984,7 @@ func assign_job(
 
 func is_idle() -> bool:
 	#没有职业，并且也没有处于离职处理中，才算真正空闲。
-	return job == Job.NONE and not is_quitting_job
+	return job == Job.NONE and current_task == null and not is_quitting_job
 # ============================================================
 # @feature 根据职业返回正确的待命地点
 # ============================================================
@@ -1320,6 +1476,29 @@ func finish_quit_job():
 	target_resource = null
 
 	return_to_idle()
+# ============================================================
+# 公共任务资格
+# ============================================================
+
+func can_take_task(_task: Object) -> bool:
+
+	return (
+		job == Job.NONE
+		and current_task == null
+		and not is_quitting_job
+	)
+
+
+func set_current_task(task: Object) -> void:
+
+	current_task = task
+
+
+func clear_current_task() -> void:
+
+	current_task = null
+
+
 # ============================================================
 # 当前携带资源查询
 # ============================================================

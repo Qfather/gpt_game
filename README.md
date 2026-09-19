@@ -599,14 +599,115 @@ Scene/main.tscn
 -   右键或 Esc 取消预览；
 -   本阶段未生成正式建筑、未创建 ConstructionSite、未接入施工物流；主场景测试时暂时只保留 Base，移除 LumberCamp 和 Quarry 实例，相关场景与蓝图数据保留。
 
-测试状态：
+测试结果：
 
 ~~~ text
-代码与场景引用静态检查通过。
-等待用户运行主场景测试 Ghost 交互。
+已通过。
+Ghost 模型变换、半透明显示、网格吸附、旋转、镜像、合法性反馈、确认和取消均正常。
+点击确认只打印参数并隐藏 Ghost，未生成正式建筑。
 ~~~
 修复记录：
 
 -   修复 Main.tscn 中 BuildingGhost 与 LumberCampData 的 ExtResource 声明缺失问题。
 -   修复 BuildingGhost 鼠标世界坐标从 Variant 推断导致的 Warning-as-error。
 -   Ghost 改为递归保留建筑场景各级 Node3D Transform，只复制静态模型并叠加透明材质。
+## 10.6 建造系统阶段 5：ConstructionSite
+
+新建文件：
+
+~~~ text
+Script/construction_site.gd
+Scene/building/construction_site.tscn
+~~~
+
+修改文件：
+
+~~~ text
+Script/building_ghost.gd
+~~~
+
+完成内容：
+
+-   Ghost 合法确认后生成 ConstructionSite，不生成正式建筑；
+-   工地保存 BuildingData、网格坐标、rotation_step 和 mirrored；
+-   工地状态支持 WAITING_RESOURCES、READY_TO_BUILD、BUILDING、COMPLETED、CANCELLED；
+-   保存 required_resources、delivered_resources、reserved_resources、construction_progress 和 builders；
+-   still_needed 按 required - delivered - reserved 计算；
+-   工地使用临时橙色标记；
+-   D 键按 debug_delivery_amount 投入材料，用于验证部分材料和全部材料；
+-   工地投入材料暂不进入 ResourceManager 全局库存；
+-   工地占用 BuildGrid，暂不接入居民搬运和施工任务。
+
+测试结果：
+
+~~~ text
+已通过。
+工地生成、required_resources、delivered_resources、reserved_resources、
+still_needed，以及 WAITING_RESOURCES → READY_TO_BUILD 状态转换均正常。
+~~~
+## 10.7 建造系统阶段 6：GameTask + TaskManager
+
+新建文件：
+
+~~~ text
+Script/game_task.gd
+Script/task_manager.gd
+~~~
+
+修改文件：
+
+~~~ text
+Script/unit/game/villager.gd
+Scene/main.tscn
+~~~
+
+完成内容：
+
+-   建立 GameTask 数据对象；
+-   支持 DELIVER_CONSTRUCTION_RESOURCE 和 BUILD 两类任务；
+-   支持 AVAILABLE、CLAIMED、IN_PROGRESS、COMPLETED、CANCELLED 状态；
+-   TaskManager 支持创建、注册、查找、领取、释放、完成和取消；
+-   Villager 新增 can_take_task()；
+-   Job.NONE 且 current_task 为空的居民才具备公共任务资格；
+-   TaskManager 不控制移动、不计算施工速度、不修改资源；
+-   主场景加入 TaskManager；
+-   临时调试按键：T 创建、C 领取、R 释放、F 完成。
+
+测试状态：
+
+~~~ text
+任务对象、TaskManager 的创建/领取/释放/完成接口已接入阶段 7 的真实搬运流程。
+阶段 6 的独立调试按键仍保留；最终领取、释放、完成行为随阶段 7 一并验证。
+~~~
+
+## 10.8 建造系统阶段 7：施工材料自动搬运
+
+修改文件：
+
+~~~ text
+Script/construction_site.gd
+Script/unit/game/villager.gd
+Script/task_manager.gd
+~~~
+
+完成内容：
+
+-   ConstructionSite 进入 WAITING_RESOURCES 后自动创建施工材料搬运任务；
+-   按建筑的 max_construction_workers 并行预约搬运任务；每个任务最多预约 5 个单位，避免多个居民重复领取同一批材料；
+-   LumberCamp 的 max_construction_workers 为 3：20 木材先分配给 3 名居民各搬 5 个，完成一趟后只补足剩余的第 4 趟；
+-   修正工地状态判断：预约中的材料不计入已交付，必须实际 delivered_resources 达到需求后才进入 READY_TO_BUILD；
+-   空闲居民自动领取任务，寻找拥有对应资源的 ResourceStorage；
+-   居民从 Base 取出材料后，先保留在自身携带量中，交付工地时才扣除据点库存并增加工地 delivered_resources；
+-   交付完成后 TaskManager 标记任务完成，工地自动请求下一批材料；
+-   搬运任务找不到资源或目标失效时释放任务和预约；
+-   阶段 6 的任务状态测试与阶段 7 的真实搬运流程合并验证；
+-   保留 D 键临时投入材料功能，但阶段 7 测试不使用该调试入口。
+
+测试状态：
+
+~~~ text
+已通过。
+放置 LumberCamp Ghost 后，工地自动创建搬运任务，最多 3 名居民并行领取；
+总需求 20 木材按每次 5 个单位分批搬运，TaskManager 的创建、领取和完成流程正常。
+工地材料状态与 READY_TO_BUILD 状态转换正常。
+~~~
