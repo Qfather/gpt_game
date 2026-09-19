@@ -5,88 +5,83 @@ extends CanvasLayer
 # UI
 # ============================================================
 
-@onready var wood_label: Label = (
-	$PanelContainer/VBoxContainer/WoodLabel
-)
+@onready var wood_label: Label = %WoodLabel
+@onready var stone_label: Label = %StoneLabel
 
 
 # ============================================================
-# 当前据点
+# ResourceManager
 # ============================================================
 
-var current_base: Node = null
+var resource_manager: ResourceManager = null
 
 
 # ============================================================
 # 初始化
 # ============================================================
 
-func _ready():
+func _ready() -> void:
 
-	# Base 与 HUD 是同级节点，HUD 可能先于 Base 完成 _ready。
-	# 等一帧，确保 Base 的 ResourceStorage 已经初始化。
 	await get_tree().process_frame
 
-	# 找到据点
-	var bases: Array[Node] = get_tree().get_nodes_in_group("bases")
+	resource_manager = get_tree().get_first_node_in_group(
+		"resource_manager"
+	) as ResourceManager
 
-	if bases.is_empty():
+	if resource_manager == null:
 
-		update_wood(0.0)
+		push_warning("HUD：没有找到 ResourceManager")
 
-		print("HUD：没有找到 Base")
+		update_resource_display()
+
+		return
+
+	update_resource_display()
+
+
+# ============================================================
+# 实时刷新资源
+#
+# 当前属于第一版验证方案。
+# 后面再改成 Signal 驱动。
+# ============================================================
+
+func _process(_delta: float) -> void:
+
+	update_resource_display()
+
+
+# ============================================================
+# 更新资源显示
+# ============================================================
+
+func update_resource_display() -> void:
+
+	if resource_manager == null:
+
+		wood_label.text = "木材：0"
+		stone_label.text = "石头：0"
 
 		return
 
 
-	current_base = bases[0]
-
-
-	# ========================================================
-	# 连接新的通用资源变化信号
-	# ========================================================
-
-	current_base.resource_changed.connect(
-		_on_resource_changed
-	)
-
-
-	# ========================================================
-	# 初始化木材显示
-	# ========================================================
-
-	var wood_amount: float = current_base.get_resource(
+	var wood_amount: float = resource_manager.get_total(
 		ResourceType.Type.WOOD
 	)
 
-	update_wood(wood_amount)
+	var stone_amount: float = resource_manager.get_total(
+		ResourceType.Type.STONE
+	)
 
-
-# ============================================================
-# 资源变化
-# ============================================================
-
-func _on_resource_changed(
-	resource_type: ResourceType.Type,
-	new_amount: float
-):
-
-	match resource_type:
-
-		ResourceType.Type.WOOD:
-
-			update_wood(new_amount)
-
-
-# ============================================================
-# 更新木材
-# ============================================================
-
-func update_wood(amount: float):
 
 	wood_label.text = (
 		"木材："
-		+ str(int(amount))
+		+ str(int(wood_amount))
+	)
+
+	stone_label.text = (
+		"石头："
+		+ str(int(stone_amount))
 	)
 
 
@@ -94,29 +89,26 @@ func update_wood(amount: float):
 # 时间控制
 # ============================================================
 
-func pause_game():
+func pause_game() -> void:
 
 	get_tree().paused = true
 
 
-func speed_1():
+func speed_1() -> void:
 
 	get_tree().paused = false
-
 	Engine.time_scale = 1.0
 
 
-func speed_2():
+func speed_2() -> void:
 
 	get_tree().paused = false
-
 	Engine.time_scale = 2.0
 
 
-func speed_3():
+func speed_3() -> void:
 
 	get_tree().paused = false
-
 	Engine.time_scale = 3.0
 
 
@@ -124,21 +116,21 @@ func speed_3():
 # Button Signals
 # ============================================================
 
-func _on_pause_button_pressed():
+func _on_pause_button_pressed() -> void:
 
 	pause_game()
 
 
-func _on_speed_1_button_pressed():
+func _on_speed_1_button_pressed() -> void:
 
 	speed_1()
 
 
-func _on_speed_2_button_pressed():
+func _on_speed_2_button_pressed() -> void:
 
 	speed_2()
 
 
-func _on_speed_3_button_pressed():
+func _on_speed_3_button_pressed() -> void:
 
 	speed_3()

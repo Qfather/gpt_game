@@ -1308,3 +1308,15 @@ func finish_quit_job():
 	target_resource = null
 
 	return_to_idle()
+# ============================================================
+# 当前携带资源查询
+# ============================================================
+
+func get_carried_amount() -> float:
+
+	return carried_amount
+
+
+func get_carried_resource_type() -> ResourceType.Type:
+
+	return carried_resource_type
