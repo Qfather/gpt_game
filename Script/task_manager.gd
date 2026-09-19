@@ -58,18 +58,29 @@ func _run_dispatch() -> void:
 
 func _dispatch_available_tasks() -> void:
 
-	var villagers = get_tree().get_nodes_in_group("villagers")
+	var villagers: Array[Node] = get_tree().get_nodes_in_group("villagers")
+	var available_tasks: Array[GameTask] = []
 
 	for task_variant in tasks.values():
-
 		var task: GameTask = task_variant as GameTask
-		if task == null or task.state != GameTask.State.AVAILABLE:
-			continue
+		if task != null and task.state == GameTask.State.AVAILABLE:
+			available_tasks.append(task)
+
+	available_tasks.sort_custom(_sort_task_priority)
+
+	for task: GameTask in available_tasks:
 
 		for villager: Node in villagers:
 
 			if claim_task(task, villager):
 				break
+
+
+func _sort_task_priority(a: GameTask, b: GameTask) -> bool:
+	if a.priority != b.priority:
+		return a.priority > b.priority
+
+	return str(a.id).naturalnocasecmp_to(str(b.id)) < 0
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -171,7 +182,8 @@ func create_construction_delivery_task(
 	var task := create_task(
 		GameTask.TaskType.DELIVER_CONSTRUCTION_RESOURCE,
 		site,
-		site
+		site,
+		_get_construction_task_priority(site)
 	)
 	task.data = {
 		"resource_type": resource_type,
@@ -188,8 +200,6 @@ func create_construction_delivery_tasks(
 ) -> void:
 
 	if site == null or not site.has_method("get_max_construction_workers"):
-		return
-	if _has_earlier_site_priority(site):
 		return
 
 	var max_workers: int = site.get_max_construction_workers()
@@ -232,25 +242,11 @@ func create_construction_delivery_tasks(
 		site.release_waiting_workers()
 
 
-func _has_earlier_site_priority(site: Node) -> bool:
-	if not site.has_method("get_delivery_priority"):
-		return false
+func _get_construction_task_priority(site: Node) -> int:
+	if site != null and site.has_method("get_delivery_priority"):
+		return -int(site.get_delivery_priority())
 
-	var site_priority: int = site.get_delivery_priority()
-
-	for candidate: Node in get_tree().get_nodes_in_group("construction_sites"):
-		if candidate == site:
-			continue
-		if not candidate.has_method("has_delivery_priority_claim"):
-			continue
-		if not candidate.has_delivery_priority_claim():
-			continue
-		if not candidate.has_method("get_delivery_priority"):
-			continue
-		if candidate.get_delivery_priority() < site_priority:
-			return true
-
-	return false
+	return 0
 
 
 func _has_resource_source(resource_type: int) -> bool:
@@ -319,7 +315,8 @@ func create_construction_build_tasks(
 		var task: GameTask = create_task(
 			GameTask.TaskType.BUILD,
 			site,
-			site
+			site,
+			_get_construction_task_priority(site)
 		)
 		task.data = {"preferred_worker": preferred_worker}
 		_print_task(task, "created")

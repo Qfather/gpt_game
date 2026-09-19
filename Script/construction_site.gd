@@ -267,17 +267,6 @@ func can_request_delivery_tasks() -> bool:
 	return state == State.WAITING_RESOURCES and not delivery_replenishment_blocked
 
 
-func has_delivery_priority_claim() -> bool:
-	if not can_request_delivery_tasks():
-		return false
-	if get_worker_count() > 0:
-		return true
-	for resource_type: int in reserved_resources.keys():
-		if get_reserved_amount(resource_type) > 0.0:
-			return true
-	return false
-
-
 func get_worker_target_position(worker: Node) -> Vector3:
 	var worker_id: int = worker.get_instance_id() if worker != null else 0
 	if not worker_target_offsets.has(worker_id):

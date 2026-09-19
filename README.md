@@ -986,3 +986,153 @@ Godot 严格解析检查通过。
 ROADMAP 当前指向 FOOD，但工程内尚无 FOOD 阶段任务文档。
 收到明确任务文档或实现范围后再开始，不提前开发疲劳、吃饭或休息逻辑。
 ~~~
+
+## 10.15 资源系统 V2 分阶段迁移计划修订
+
+计划文件：
+
+~~~ text
+GPT_Game_资源系统V2_分阶段迁移计划.md
+~~~
+
+本次仅修订实施计划，尚未开始资源系统 V2 的代码迁移。
+
+修订内容：
+
+-   明确 `ResourceData`、`RecipeData` 与未来 `ProductionBuildingBase` 的职责边界；
+-   补充 `FOOD → &"food"` 旧数据兼容，不再只覆盖 WOOD / STONE；
+-   第一版统一使用 `Dictionary[StringName, float]` 表达资源数量，不在迁移中途引入 `ResourceAmount`；
+-   补充现有 ResourceNodePanel、ResourceBuildingPanel、Base、LevelConfig、ResourceBase、TaskManager 和 BuildingData 的迁移检查项；
+-   新增阶段 2.5 `Resource Editor`，支持资源定义增删改、稳定 ID 和引用保护；
+-   新增阶段 8.5 `Recipe Editor`，与资源编辑器共用插件入口和校验逻辑；
+-   明确阶段 1 使用 `.tres` 形式的 ResourceDatabase，不提前增加 Autoload；
+-   阶段 9 只有在阶段 1～8.5 全部验证通过后，才能清理旧 `ResourceType` 兼容层。
+
+当前状态：
+
+~~~ text
+计划修订完成。
+资源系统 V2 阶段 1 尚未执行。
+首次实施时只执行阶段 1，完成并由用户验证后再进入阶段 2。
+~~~
+
+## 10.16 资源系统 V2 阶段 1
+
+完成范围：
+
+~~~ text
+ResourceData
+FoodProperties
+ResourceDatabase
+~~~
+
+完成内容：
+
+-   新增 `ResourceData` 数据结构，包含稳定 `StringName` ID、显示名称、分类、Tier、Tags、图标、堆叠上限和可选食物属性；
+-   新增 `has_tag()` 与 `is_food()` 查询接口；
+-   新增 `FoodProperties`，预留营养值、食物品质和多样性分组；
+-   新增 `.tres` 形式的 `ResourceDatabase`，支持注册资源、按 ID 查询、检查 ID、重建索引以及重复/无效 ID 警告；
+-   新增正式空数据库 `data/resources/resource_database.tres`；
+-   新增阶段 1 独立测试，测试数据仅保存到 `user://` 临时文件并在结束后清理；
+-   未创建 wood、stone、food 等正式资源定义，这些内容留到阶段 2；
+-   未新增 Autoload，也未把新数据库接入 Main 或现有运行系统。
+
+保护范围：
+
+~~~ text
+ResourceStorage / ResourceManager 未修改
+ResourceType 旧 enum 未修改
+Villager Carry 未修改
+LumberCamp / Quarry 未修改
+BuildingData / ConstructionSite 未修改
+HUD / LevelConfig 未修改
+~~~
+
+验证结果：
+
+~~~ text
+Godot 4.7.2 项目导入与脚本解析通过。
+正式 resource_database.tres 加载通过。
+ResourceData、Category、Tier、Tags、FoodProperties 测试通过。
+ResourceDatabase 注册、查询、重复 ID、空 ID 和缺失 ID 测试通过。
+ResourceDatabase user:// 临时序列化与重新读取通过。
+主场景无界面启动回归通过，未发现新脚本或解析错误。
+~~~
+
+当前状态：
+
+~~~ text
+资源系统 V2 阶段 1 已完成。
+用户实际运行确认通过。
+暂未进入阶段 2。
+~~~
+
+## 10.17 多工地顺序锁修正
+
+问题：
+
+~~~ text
+较早放置的工地尚未完工时，后续工地即使具备材料，
+也会被工地顺序全局阻止，无法创建和领取运输任务。
+~~~
+
+修正内容：
+
+-   移除“前序工地仍有居民或预约就完全阻止后续工地”的全局顺序锁；
+-   所有具备资源来源、能够推进的工地都可以创建运输任务；
+-   运输与施工任务根据工地放置顺序写入任务优先级；
+-   TaskManager 派发前按任务优先级排序，同时可执行时仍优先较早工地；
+-   较早工地缺料或没有可执行任务时，空闲居民可以处理后续工地；
+-   删除不再使用的 `has_delivery_priority_claim()` 旧锁定接口。
+
+验证结果：
+
+~~~ text
+两个工地都有资源时，两边均能生成运输任务：通过。
+只有一个空闲居民时，较早工地仍优先：通过。
+资源系统 V2 阶段 1 回归测试：通过。
+主场景无界面启动：通过，未发现新脚本或解析错误。
+~~~
+
+实际运行确认：
+
+~~~ text
+先后放置两个工地。
+第一个工地尚未完工，但无法继续推进或已有足够人员时，
+后续具备材料的工地应能获得空闲居民运输。
+用户测试后确认暂时没有发现问题。
+~~~
+
+## 10.18 当前备份检查点
+
+本检查点适合进行一次完整工程备份。
+
+已确认内容：
+
+~~~ text
+建造系统分阶段计划已完成
+Villager UnitPanel 与统一对象详情 UI 正常
+建筑、居民、Base、Tree、Stone 选择描边正常
+详情面板滑入与收回动画正常
+资源系统 V2 实施计划已修订
+资源系统 V2 阶段 1 已完成并通过测试
+多工地调度已由全局顺序锁改为顺序优先级
+用户实际运行暂未发现问题
+~~~
+
+资源系统 V2 当前进度：
+
+~~~ text
+阶段 1：ResourceData + FoodProperties + ResourceDatabase  ✅
+阶段 2：第一批 ResourceData                         ⏸ 未开始
+~~~
+
+本检查点尚未执行：
+
+~~~ text
+现有 WOOD / STONE / FOOD 迁移
+ResourceStorage / ResourceManager V2 迁移
+Resource Editor
+RecipeData / Recipe Editor
+旧 ResourceType 清理
+~~~
