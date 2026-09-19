@@ -1,12 +1,12 @@
-[gd_resource type="Resource" script_class="BuildingData" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="BuildingData" format=3 uid="uid://dwbwvkcwhhvis"]
 
-[ext_resource type="Script" path="res://Script/building_data.gd" id="1_building_data"]
-[ext_resource type="PackedScene" path="res://Scene/building/game/quarry.tscn" id="2_quarry"]
+[ext_resource type="Script" uid="uid://b2vt2lwsdilgf" path="res://Script/building_data.gd" id="1_building_data"]
+[ext_resource type="PackedScene" uid="uid://bp03yo24lthb4" path="res://Scene/building/game/quarry.tscn" id="2_quarry"]
 
 [resource]
 script = ExtResource("1_building_data")
 id = &"quarry"
-display_name = "Quarry"
+display_name = "采石场"
 building_scene = ExtResource("2_quarry")
 grid_size = Vector2i(3, 2)
 construction_cost = {
@@ -14,5 +14,3 @@ construction_cost = {
 }
 construction_time = 20.0
 max_construction_workers = 3
-allow_rotation = true
-allow_mirror = true

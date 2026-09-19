@@ -1,12 +1,12 @@
-[gd_resource type="Resource" script_class="BuildingData" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="BuildingData" format=3 uid="uid://cadxikna5hur2"]
 
-[ext_resource type="Script" path="res://Script/building_data.gd" id="1_building_data"]
-[ext_resource type="PackedScene" path="res://Scene/building/game/lumber_camp.tscn" id="2_lumber_camp"]
+[ext_resource type="Script" uid="uid://b2vt2lwsdilgf" path="res://Script/building_data.gd" id="1_building_data"]
+[ext_resource type="PackedScene" uid="uid://cmc4xaoufvd7x" path="res://Scene/building/game/lumber_camp.tscn" id="2_lumber_camp"]
 
 [resource]
 script = ExtResource("1_building_data")
 id = &"lumber_camp"
-display_name = "LumberCamp"
+display_name = "伐木场"
 building_scene = ExtResource("2_lumber_camp")
 grid_size = Vector2i(3, 2)
 construction_cost = {
@@ -14,5 +14,3 @@ construction_cost = {
 }
 construction_time = 20.0
 max_construction_workers = 3
-allow_rotation = true
-allow_mirror = true

@@ -447,3 +447,166 @@ Stone
 7.  Godot 当前严格类型检查，避免 Variant 推断 Warning-as-error。
 8.  多文件联动重构优先让客户端 GPT 直接读取完整工程修改。
 9.  开发一段时间后重新上传完整工程复查 README / ROADMAP。
+
+# 10. 阶段实施与修改记录
+
+## 10.1 ResourceManager + HUD 事件驱动改造
+
+修改文件：
+
+~~~ text
+Script/resource/ResourceManager.gd
+Script/unit/game/villager.gd
+Script/ui/hud.gd
+~~~
+
+完成内容：
+
+-   ResourceManager 新增 resources_changed 信号；
+-   ResourceStorage 和 Villager 携带资源变化统一触发 deferred 刷新；
+-   Villager 新增 carried_resource_changed；
+-   HUD 删除资源相关 _process() 每帧扫描；
+-   全局资源总量保持为所有 Storage + 居民携带资源；
+-   动态生成居民通过 register_villager() 接入 ResourceManager。
+
+状态：
+
+~~~ text
+静态检查通过。
+HUD 事件驱动逻辑已完成。
+~~~
+
+## 10.2 建造系统阶段 1：LevelConfig
+
+新建文件：
+
+~~~ text
+Script/level_config.gd
+data/levels/Level_01.tres
+~~~
+
+修改文件：
+
+~~~ text
+Script/main.gd
+Scene/main.tscn
+Script/building/game/lumber_camp.gd
+Script/resource/ResourceManager.gd
+~~~
+
+完成内容：
+
+-   LevelConfig 支持初始木材、石头和居民数量；
+-   Main 根据 Level_01.tres 给 Base 注入初始资源；
+-   根据 initial_villagers 在 Base 附近动态生成居民；
+-   移除 Main.tscn 中手工摆放的 5 个居民；
+-   移除 LumberCamp 启动时自动把空闲居民设置为伐木工的临时逻辑；
+-   动态居民保持 Job.NONE，并注册到 ResourceManager。
+
+测试结果：
+
+~~~ text
+已通过。
+居民数量、初始资源和原有采集流程验证正常。
+~~~
+
+## 10.3 建造系统阶段 2：BuildingData
+
+新建文件：
+
+~~~ text
+Script/building_data.gd
+data/buildings/LumberCampData.tres
+data/buildings/QuarryData.tres
+~~~
+
+完成内容：
+
+-   建立通用 BuildingData Resource；
+-   支持建筑 ID、显示名称、建筑场景、占地、成本、施工时间、最大施工人数；
+-   支持旋转和镜像配置；
+-   LumberCamp 与 Quarry 蓝图数据已建立，场景引用正确。
+
+测试结果：
+
+~~~ text
+已通过。
+两个 .tres 可在 Inspector 编辑，原有建筑运行正常。
+~~~
+
+## 10.4 建造系统阶段 3：BuildGrid
+
+新建文件：
+
+~~~ text
+Script/build_grid.gd
+~~~
+
+修改文件：
+
+~~~ text
+Scene/main.tscn
+~~~
+
+完成内容：
+
+-   主场景新增 Systems/BuildGrid；
+-   实现世界坐标与网格坐标互转；
+-   实现网格边界检查；
+-   实现区域占用、释放和重复占用检测；
+-   支持 3×2 旋转为 2×3；
+-   当前使用 1 米单元、30×30 平地网格；
+-   保留 Inspector 可开启的临时调试测试。
+
+测试结果：
+
+~~~ text
+已通过。
+坐标转换、3×2 旋转、占用、冲突检测和释放均正常。
+~~~
+
+当前阶段：
+
+~~~ text
+阶段 3 已完成。
+下一阶段：BuildingGhost。
+等待用户确认后开始。
+~~~
+## 10.5 建造系统阶段 4：BuildingGhost
+
+新建文件：
+
+~~~ text
+Script/building_ghost.gd
+~~~
+
+修改文件：
+
+~~~ text
+Scene/main.tscn
+~~~
+
+完成内容：
+
+-   主场景新增 Systems/BuildingGhost；
+-   默认加载 LumberCampData 作为当前蓝图；从 building_scene 提取静态 MeshInstance3D，使用半透明材质作为 Ghost 预览。
+-   鼠标位置投射到地面并吸附 BuildGrid；
+-   R 键按 90 度旋转；
+-   M 键切换镜像；
+-   合法位置显示绿色半透明预览；
+-   非法位置显示红色半透明预览；
+-   左键确认时只打印 BuildingData、网格坐标、旋转和镜像状态；
+-   右键或 Esc 取消预览；
+-   本阶段未生成正式建筑、未创建 ConstructionSite、未接入施工物流；主场景测试时暂时只保留 Base，移除 LumberCamp 和 Quarry 实例，相关场景与蓝图数据保留。
+
+测试状态：
+
+~~~ text
+代码与场景引用静态检查通过。
+等待用户运行主场景测试 Ghost 交互。
+~~~
+修复记录：
+
+-   修复 Main.tscn 中 BuildingGhost 与 LumberCampData 的 ExtResource 声明缺失问题。
+-   修复 BuildingGhost 鼠标世界坐标从 Variant 推断导致的 Warning-as-error。
+-   Ghost 改为递归保留建筑场景各级 Node3D Transform，只复制静态模型并叠加透明材质。
