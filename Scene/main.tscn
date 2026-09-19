@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" uid="uid://b35h0wuf0qn8a" path="res://Scene/resource/stone.tscn" id="10_3pt4j"]
 [ext_resource type="PackedScene" uid="uid://bp03yo24lthb4" path="res://Scene/building/game/quarry.tscn" id="11_7y4ci"]
 [ext_resource type="Script" uid="uid://bl6icvg1k0815" path="res://Script/resource/ResourceManager.gd" id="12_mxd2g"]
+[ext_resource type="Script" uid="uid://bli0u0op8xduv" path="res://Script/build_grid.gd" id="13_build_grid"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sblpm"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -96,6 +97,10 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0951574, 0, 9.42311)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12.111956, 0, 2.7658768)
 
 [node name="Systems" type="Node" parent="." unique_id=1881781889]
+
+[node name="BuildGrid" type="Node3D" parent="Systems" unique_id=1370628468]
+script = ExtResource("13_build_grid")
+run_debug_test = true
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="Systems" unique_id=1486133278]
 environment = SubResource("Environment_2wwxx")
