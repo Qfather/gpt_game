@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://cmc4xaoufvd7x"]
 
-[ext_resource type="Script" uid="uid://bl4ds33574bn2" path="res://Script/lumber_camp.gd" id="1_d43ua"]
-[ext_resource type="Script" uid="uid://c8iasvdn8ygnl" path="res://Script/resource/resource_storage.gd" id="2_j55qe"]
+[ext_resource type="Script" uid="uid://bl4ds33574bn2" path="res://Script/building/game/lumber_camp.gd" id="1_d43ua"]
+[ext_resource type="Script" uid="uid://c8iasvdn8ygnl" path="res://Script/resource/ResourceStorage.gd" id="2_ucuog"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_t2dwb"]
 size = Vector3(2, 1, 2)
@@ -23,7 +23,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("BoxShape3D_t2dwb")
 
 [node name="ResourceStorage" type="Node" parent="." unique_id=1680789278]
-script = ExtResource("2_j55qe")
+script = ExtResource("2_ucuog")
 wood_capacity = 20.0
 stone_capacity = 0.0
 food_capacity = 0.0

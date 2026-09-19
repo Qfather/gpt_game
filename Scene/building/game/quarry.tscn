@@ -1,0 +1,13 @@
+[gd_scene format=3 uid="uid://cnmemy1tuystt"]
+
+[ext_resource type="Script" uid="uid://ui4gjj7r02dw" path="res://Script/building/game/quarry.gd" id="1_j7tq1"]
+[ext_resource type="Script" uid="uid://c8iasvdn8ygnl" path="res://Script/resource/ResourceStorage.gd" id="2_j7tq1"]
+
+[node name="Quarry" type="Node3D" unique_id=83062817]
+script = ExtResource("1_j7tq1")
+
+[node name="ResourceStorage" type="Node" parent="." unique_id=1910500186]
+script = ExtResource("2_j7tq1")
+wood_capacity = 0.0
+stone_capacity = 20.0
+food_capacity = 0.0

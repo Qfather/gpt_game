@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://cq8kxaoi8luhl"]
 
-[ext_resource type="Script" uid="uid://dsvx88aiiacqp" path="res://Script/hud.gd" id="1_cevek"]
+[ext_resource type="Script" uid="uid://dsvx88aiiacqp" path="res://Script/ui/hud.gd" id="1_cevek"]
 
 [node name="HUD" type="CanvasLayer" unique_id=1924675286]
 process_mode = 3

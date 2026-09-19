@@ -1,0 +1,26 @@
+[gd_scene format=3 uid="uid://b35h0wuf0qn8a"]
+
+[ext_resource type="Script" uid="uid://dh0qfrv0n5tnh" path="res://Script/resource/game/stone.gd" id="1_e2ywa"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_eg0p3"]
+albedo_color = Color(0.37036446, 0.3703645, 0.37036446, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ogq8d"]
+material = SubResource("StandardMaterial3D_eg0p3")
+size = Vector3(2, 1, 2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ogq8d"]
+size = Vector3(2, 1, 2)
+
+[node name="Stone" type="Node3D" unique_id=882348821]
+script = ExtResource("1_e2ywa")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=2112303021]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+mesh = SubResource("BoxMesh_ogq8d")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=1284541980]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D" unique_id=1972710538]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("BoxShape3D_ogq8d")

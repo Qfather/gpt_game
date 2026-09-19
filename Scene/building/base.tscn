@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://ds5iuq38leawb"]
 
-[ext_resource type="Script" uid="uid://2v134eyjfwa5" path="res://Script/base.gd" id="1_d3q2k"]
-[ext_resource type="Script" uid="uid://c8iasvdn8ygnl" path="res://Script/resource/resource_storage.gd" id="2_7lj54"]
+[ext_resource type="Script" uid="uid://2v134eyjfwa5" path="res://Script/building/game/base.gd" id="1_d3q2k"]
+[ext_resource type="Script" uid="uid://c8iasvdn8ygnl" path="res://Script/resource/ResourceStorage.gd" id="2_7lj54"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_t2dwb"]
 size = Vector3(3, 2, 3)
