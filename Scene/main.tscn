@@ -5,6 +5,8 @@
 [ext_resource type="PackedScene" uid="uid://bjhgmbhk67241" path="res://Scene/resource/tree.tscn" id="2_r34rm"]
 [ext_resource type="PackedScene" uid="uid://cq8kxaoi8luhl" path="res://Scene/ui/hud.tscn" id="4_2wwxx"]
 [ext_resource type="PackedScene" uid="uid://hblm4xs2qdre" path="res://Scene/ui/resource_building_panel.tscn" id="6_1xcnr"]
+[ext_resource type="PackedScene" path="res://UI/unit_panel/villager_panel.tscn" id="7_villager_panel"]
+[ext_resource type="PackedScene" path="res://UI/resource_panel/resource_node_panel.tscn" id="8_resource_panel"]
 [ext_resource type="PackedScene" uid="uid://b35h0wuf0qn8a" path="res://Scene/resource/stone.tscn" id="10_3pt4j"]
 [ext_resource type="Script" uid="uid://bl6icvg1k0815" path="res://Script/resource/ResourceManager.gd" id="12_mxd2g"]
 [ext_resource type="Script" uid="uid://bli0u0op8xduv" path="res://Script/build_grid.gd" id="13_build_grid"]
@@ -37,6 +39,10 @@ script = ExtResource("1_ow1sv")
 [node name="UI" type="CanvasLayer" parent="." unique_id=1347447447]
 
 [node name="ResourceBuildingPanel" parent="UI" unique_id=1705630249 instance=ExtResource("6_1xcnr")]
+
+[node name="VillagerPanel" parent="UI" instance=ExtResource("7_villager_panel")]
+
+[node name="ResourceNodePanel" parent="UI" instance=ExtResource("8_resource_panel")]
 
 [node name="HUD" parent="UI" unique_id=1924675286 instance=ExtResource("4_2wwxx")]
 

@@ -1,5 +1,7 @@
 extends UnitBase
 
+signal unit_clicked(unit: UnitBase)
+
 # ============================================================
 # 参数
 # ============================================================
@@ -108,8 +110,26 @@ var chop_timer: float = 0.0
 
 func _ready():
 	super._ready()
+	input_event.connect(_on_input_event)
 	call_deferred("start")
 	
+
+func _on_input_event(
+	_camera: Node,
+	event: InputEvent,
+	_event_position: Vector3,
+	_normal: Vector3,
+	_shape_idx: int
+) -> void:
+	if not event is InputEventMouseButton:
+		return
+
+	var mouse_event: InputEventMouseButton = event as InputEventMouseButton
+	if mouse_event.button_index != MOUSE_BUTTON_LEFT or not mouse_event.pressed:
+		return
+
+	unit_clicked.emit(self)
+	get_viewport().set_input_as_handled()
 
 
 func start():

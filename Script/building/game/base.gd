@@ -1,4 +1,4 @@
-extends Node3D
+extends BuildingBase
 
 
 # ============================================================
@@ -42,6 +42,7 @@ signal wood_changed(new_amount: int)
 # ============================================================
 
 func _ready():
+	super._ready()
 
 	if storage == null:
 		push_error(

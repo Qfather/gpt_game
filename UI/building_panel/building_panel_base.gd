@@ -155,6 +155,14 @@ func close_panel():
 	current_building = null
 
 
+func close_panel_immediately() -> void:
+	if move_tween != null:
+		move_tween.kill()
+	current_building = null
+	position.x = closed_x
+	hide()
+
+
 # ============================================================
 # 关闭按钮
 # ============================================================

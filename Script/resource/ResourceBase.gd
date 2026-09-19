@@ -1,6 +1,7 @@
 class_name ResourceBase
 extends Node3D
 
+signal resource_clicked(resource: ResourceBase)
 
 # ============================================================
 # 参数
@@ -26,6 +27,7 @@ var reserved_by: Node = null
 # ============================================================
 
 func _ready():
+	add_to_group("resources")
 
 	resource_amount = randi_range(
 		min_amount,
@@ -40,6 +42,35 @@ func _ready():
 		" | type = ",
 		resource_type
 	)
+
+	var click_body: CollisionObject3D = get_node_or_null("StaticBody3D")
+	if click_body != null:
+		click_body.input_event.connect(_on_click_body_input_event)
+	call_deferred("_register_with_main")
+
+
+func _on_click_body_input_event(
+	_camera: Node,
+	event: InputEvent,
+	_event_position: Vector3,
+	_normal: Vector3,
+	_shape_idx: int
+) -> void:
+	if not event is InputEventMouseButton:
+		return
+
+	var mouse_event: InputEventMouseButton = event as InputEventMouseButton
+	if mouse_event.button_index != MOUSE_BUTTON_LEFT or not mouse_event.pressed:
+		return
+
+	resource_clicked.emit(self)
+	get_viewport().set_input_as_handled()
+
+
+func _register_with_main() -> void:
+	var main_node: Node = get_tree().current_scene
+	if main_node != null and main_node.has_method("register_resource"):
+		main_node.register_resource(self)
 
 
 # ============================================================

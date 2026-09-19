@@ -1,6 +1,25 @@
 class_name VillagerPanel
 extends UnitPanelBase
 
+const JOB_NAMES: PackedStringArray = ["NONE", "LUMBERJACK", "MINER"]
+const STATE_NAMES: PackedStringArray = [
+	"IDLE",
+	"RETURN_TO_IDLE",
+	"FIND_RESOURCE",
+	"MOVE_TO_RESOURCE",
+	"GATHER_RESOURCE",
+	"MOVE_TO_WORKPLACE",
+	"DEPOSIT_TO_WORKPLACE",
+	"MOVE_TO_BASE",
+	"DEPOSIT_TO_BASE",
+	"FIND_TASK_SOURCE",
+	"MOVE_TO_TASK_SOURCE",
+	"MOVE_TO_TASK_SITE",
+	"WAIT_TASK_RESOURCE",
+	"WAIT_CONSTRUCTION_SITE",
+	"MOVE_TO_BUILD_SITE",
+	"BUILDING"
+]
 
 @onready var health_label: Label = %HealthLabel
 @onready var move_speed_label: Label = %MoveSpeedLabel
@@ -8,6 +27,10 @@ extends UnitPanelBase
 @onready var work_speed_label: Label = %WorkSpeedLabel
 @onready var gather_speed_label: Label = %GatherSpeedLabel
 @onready var job_label: Label = %JobLabel
+@onready var state_label: Label = %StateLabel
+@onready var task_label: Label = %TaskLabel
+@onready var workplace_label: Label = %WorkplaceLabel
+@onready var carry_label: Label = %CarryLabel
 
 @onready var trait_container: VBoxContainer = %TraitContainer
 
@@ -22,11 +45,14 @@ func refresh():
 	if current_unit == null:
 		return
 
+	var villager: UnitBase = current_unit
+
 
 	# ========================================================
 	# 基础状态
 	# ========================================================
 
+	unit_name.text = "%s  #%d" % [villager.name, villager.get_instance_id()]
 	health_label.text = (
 		"生命："
 		+ str(round(current_unit.get_health()))
@@ -59,13 +85,22 @@ func refresh():
 	# 职业
 	# ========================================================
 
-	if current_unit.has_method("get_job_display_name"):
-		job_label.text = (
-			"职业："
-			+ current_unit.get_job_display_name()
-		)
+	var job_index: int = int(villager.get("job"))
+	var state_index: int = int(villager.get("state"))
+	job_label.text = "职业：" + JOB_NAMES[job_index]
+	state_label.text = "状态：" + STATE_NAMES[state_index]
+	task_label.text = "当前任务：" + _get_task_text(villager)
+	workplace_label.text = "工作地点：" + _get_node_name(villager.get("workplace") as Node)
+
+	var carried_amount: float = float(villager.call("get_carried_amount"))
+	if carried_amount <= 0.0:
+		carry_label.text = "携带：无"
 	else:
-		job_label.text = "职业：居民"
+		carry_label.text = "携带：%s %.1f / %.1f" % [
+			ResourceType.Type.keys()[int(villager.call("get_carried_resource_type"))],
+			carried_amount,
+			float(villager.get("carry_capacity"))
+		]
 
 
 	# ========================================================
@@ -73,6 +108,17 @@ func refresh():
 	# ========================================================
 
 	_refresh_traits()
+
+
+func _get_task_text(villager: UnitBase) -> String:
+	var task: GameTask = villager.get("current_task") as GameTask
+	if task == null:
+		return "无"
+	return GameTask.TaskType.keys()[task.type]
+
+
+func _get_node_name(node: Node) -> String:
+	return node.name if is_instance_valid(node) else "无"
 
 
 func _refresh_traits():

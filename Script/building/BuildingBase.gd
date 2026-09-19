@@ -50,3 +50,4 @@ func _on_click_area_input_event(
 			and mouse_event.pressed
 		):
 			building_clicked.emit(self)
+			get_viewport().set_input_as_handled()

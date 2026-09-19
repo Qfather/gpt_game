@@ -1,0 +1,22 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://UI/building_panel/building_panel_base.tscn" id="1_panel_base"]
+[ext_resource type="Script" path="res://UI/resource_panel/resource_node_panel.gd" id="2_resource_panel"]
+
+[node name="ResourceNodePanel" instance=ExtResource("1_panel_base")]
+script = ExtResource("2_resource_panel")
+
+[node name="ResourceTypeLabel" type="Label" parent="Vbox/Content" index="0"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "资源类型：WOOD"
+
+[node name="RemainingLabel" type="Label" parent="Vbox/Content" index="1"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "剩余数量：0"
+
+[node name="ReservedLabel" type="Label" parent="Vbox/Content" index="2"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "预约状态：未预约"

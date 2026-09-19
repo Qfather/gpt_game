@@ -46,6 +46,10 @@ func select_building(data: BuildingData) -> void:
 	_update_preview()
 
 
+func is_placement_active() -> bool:
+	return start_preview
+
+
 func _process(_delta: float) -> void:
 
 	if not start_preview:

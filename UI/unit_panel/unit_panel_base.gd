@@ -123,6 +123,14 @@ func close_panel():
 	current_unit = null
 
 
+func close_panel_immediately() -> void:
+	if move_tween != null:
+		move_tween.kill()
+	current_unit = null
+	position.x = closed_x
+	hide()
+
+
 func _on_close_pressed():
 
 	close_panel()

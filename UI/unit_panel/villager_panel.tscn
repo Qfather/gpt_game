@@ -1,62 +1,98 @@
-[gd_scene format=3 uid="uid://c0ignntbqytf3"]
+[gd_scene format=3]
 
-[ext_resource type="Script" uid="uid://c2556yaq52olh" path="res://UI/unit_panel/villager_panel.gd" id="1_8u23j"]
+[ext_resource type="Script" path="res://UI/unit_panel/villager_panel.gd" id="1_villager_panel"]
 
-[node name="VillagerPanel" type="Control" unique_id=1018035071]
-layout_mode = 3
-anchors_preset = 15
+[node name="VillagerPanel" type="PanelContainer"]
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
 anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
+anchor_bottom = 0.5
+offset_left = -624.0
+offset_top = -190.0
+offset_right = -304.0
+offset_bottom = 190.0
+grow_horizontal = 0
 grow_vertical = 2
-script = ExtResource("1_8u23j")
+script = ExtResource("1_villager_panel")
 
-[node name="MarginContainer" type="MarginContainer" parent="." unique_id=773400638]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 40.0
-
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer" unique_id=1332718360]
+[node name="VBox" type="VBoxContainer" parent="."]
 layout_mode = 2
 
-[node name="Header" type="HBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=1728969609]
+[node name="Header" type="HBoxContainer" parent="VBox"]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/Header" unique_id=790947964]
+[node name="UnitName" type="Label" parent="VBox/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "居民"
+
+[node name="CloseButton" type="Button" parent="VBox/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "关闭"
+
+[node name="BasicSeparator" type="HSeparator" parent="VBox"]
 layout_mode = 2
 
-[node name="Control" type="Control" parent="MarginContainer/VBoxContainer/Header" unique_id=1376499294]
+[node name="JobLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "职业：NONE"
+
+[node name="StateLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "状态：IDLE"
+
+[node name="TaskLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "当前任务：无"
+
+[node name="WorkplaceLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "工作地点：无"
+
+[node name="HealthLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "生命：0 / 0"
+
+[node name="MoveSpeedLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "移动速度：0"
+
+[node name="FoodLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "食物消耗：0"
+
+[node name="WorkSpeedLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "工作效率：0"
+
+[node name="GatherSpeedLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "采集效率：0"
+
+[node name="CarryLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "携带：无"
+
+[node name="TraitSeparator" type="HSeparator" parent="VBox"]
 layout_mode = 2
 
-[node name="Button" type="Button" parent="MarginContainer/VBoxContainer/Header" unique_id=2092054875]
+[node name="TraitTitle" type="Label" parent="VBox"]
 layout_mode = 2
+text = "Trait："
 
-[node name="HSeparator" type="HSeparator" parent="MarginContainer/VBoxContainer" unique_id=1849100148]
-layout_mode = 2
-
-[node name="HealthLabel" type="Label" parent="MarginContainer/VBoxContainer" unique_id=187996507]
-layout_mode = 2
-
-[node name="MoveSpeedLabel" type="Label" parent="MarginContainer/VBoxContainer" unique_id=1884447393]
-layout_mode = 2
-
-[node name="FoodLabel" type="Label" parent="MarginContainer/VBoxContainer" unique_id=1590903934]
-layout_mode = 2
-
-[node name="WorkSpeedLabel" type="Label" parent="MarginContainer/VBoxContainer" unique_id=430344490]
-layout_mode = 2
-
-[node name="GatherSpeedLabel" type="Label" parent="MarginContainer/VBoxContainer" unique_id=1251220533]
-layout_mode = 2
-
-[node name="JobLabel" type="Label" parent="MarginContainer/VBoxContainer" unique_id=1253258979]
-layout_mode = 2
-
-[node name="HSeparator2" type="HSeparator" parent="MarginContainer/VBoxContainer" unique_id=193159785]
-layout_mode = 2
-
-[node name="TraitTitle" type="Label" parent="MarginContainer/VBoxContainer" unique_id=965636878]
-layout_mode = 2
-
-[node name="TraitContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=175475595]
+[node name="TraitContainer" type="VBoxContainer" parent="VBox"]
+unique_name_in_owner = true
 layout_mode = 2

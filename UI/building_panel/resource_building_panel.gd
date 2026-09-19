@@ -34,6 +34,23 @@ func refresh():
 	if current_building == null:
 		return
 
+	if current_building.is_in_group("bases"):
+		storage_label.show()
+		material_label.hide()
+		worker_label.hide()
+		hire_button.hide()
+		fire_button.hide()
+		storage_label.text = "库存：\n木材：%d\n石材：%d\n食物：%d" % [
+			int(current_building.get_resource(ResourceType.Type.WOOD)),
+			int(current_building.get_resource(ResourceType.Type.STONE)),
+			int(current_building.get_resource(ResourceType.Type.FOOD))
+		]
+		return
+
+	worker_label.show()
+	hire_button.show()
+	fire_button.show()
+
 	if current_building.has_method("get_construction_material_text"):
 		storage_label.hide()
 		material_label.show()

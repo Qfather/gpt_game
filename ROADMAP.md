@@ -24,19 +24,19 @@
 → 胜利 / 失败
 ```
 
-# 2. 当前开发章节：Villager UnitPanel 最小版
+# 2. 当前开发章节：FOOD
 
-STONE + Quarry 与建造系统第一轮已经完成。当前下一步先制作居民信息面板，
-用于观察居民状态，并为 FOOD、疲劳和 Trait 展示提供调试入口。
+STONE + Quarry、建造系统第一轮和 Villager UnitPanel 最小版已经完成。
+当前进入 FOOD 需求循环开发。
 
 目标：
 
 ``` text
-点击居民
-→ 名称 / 编号
-→ Job / State / CurrentTask / Workplace
-→ HP / 移动速度 / 工作速度
-→ 携带资源 / Trait
+工作
+→ 工作时长 / 疲劳基础
+→ 回据点吃饭
+→ 休息
+→ 恢复原工作
 ```
 
 本章节暂时不开发：
@@ -57,9 +57,9 @@ STONE + Quarry 与建造系统第一轮已经完成。当前下一步先制作�
              ↓
 [已完成] 3. 建造系统第一轮
              ↓
-[当前] 4. Villager UnitPanel 最小版
+[已完成] 4. Villager UnitPanel 最小版
              ↓
-5. FOOD
+[当前] 5. FOOD
           ↓
 6. 工作时长 / 疲劳基础
           ↓
