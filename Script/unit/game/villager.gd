@@ -244,10 +244,7 @@ func find_task_source() -> void:
 			nearest_distance = distance
 
 	if nearest == null:
-		task_resource_wait_timer = 0.0
-		if task_site != null:
-			_set_task_site_navigation_target()
-		state = State.WAIT_TASK_RESOURCE
+		_fail_delivery_task_and_return_to_idle()
 		return
 
 	task_source = nearest
@@ -279,10 +276,7 @@ func move_to_task_source() -> void:
 	var requested_amount: float = float(task.data.get("amount", 0.0))
 	var taken_amount: float = task_source.take(resource_type, minf(requested_amount, carry_capacity))
 	if taken_amount <= 0.0:
-		task_source = null
-		task_resource_wait_timer = 0.0
-		_set_task_site_navigation_target()
-		state = State.WAIT_TASK_RESOURCE
+		_fail_delivery_task_and_return_to_idle()
 		return
 
 	carried_resource_type = resource_type
@@ -304,6 +298,20 @@ func wait_for_task_resource(delta: float) -> void:
 
 	task_resource_wait_timer = 0.0
 	find_task_source()
+
+
+func _fail_delivery_task_and_return_to_idle() -> void:
+	var task: GameTask = current_task as GameTask
+	var managers: Array[Node] = get_tree().get_nodes_in_group("task_manager")
+	if task != null and not managers.is_empty() and managers[0].has_method("fail_task"):
+		managers[0].fail_task(task)
+	else:
+		clear_current_task()
+		return_to_idle()
+
+	task_source = null
+	task_site = null
+	task_resource_wait_timer = 0.0
 
 
 func wait_at_construction_site(site: Node3D) -> void:

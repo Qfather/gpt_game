@@ -27,10 +27,17 @@ func _on_resource_changed(
 		if villager.has_method("wake_delivery_task"):
 			villager.wake_delivery_task()
 
+	for site: Node in get_tree().get_nodes_in_group("construction_sites"):
+		if site.has_method("request_delivery_tasks"):
+			site.request_delivery_tasks()
+
 
 func _process(_delta: float) -> void:
 
 	_dispatch_available_tasks()
+	for site: Node in get_tree().get_nodes_in_group("construction_sites"):
+		if site.has_method("request_delivery_tasks"):
+			site.request_delivery_tasks()
 
 
 func _dispatch_available_tasks() -> void:
@@ -165,10 +172,17 @@ func create_construction_delivery_tasks(
 
 	if site == null or not site.has_method("get_max_construction_workers"):
 		return
+	if _has_earlier_site_priority(site):
+		return
 
 	var max_workers: int = site.get_max_construction_workers()
 	if site.has_method("get_construction_worker_limit"):
 		max_workers = site.get_construction_worker_limit()
+	var resource_type: int = site.get_delivery_resource_type()
+	if not _has_resource_source(resource_type):
+		if site.has_method("release_waiting_workers"):
+			site.release_waiting_workers()
+		return
 	var active_count: int = 0
 	var preferred_assigned: bool = false
 
@@ -193,6 +207,45 @@ func create_construction_delivery_tasks(
 			break
 		active_count += 1
 		preferred_assigned = true
+
+	if _has_resource_source(resource_type):
+		if site.has_method("fill_waiting_workers"):
+			site.fill_waiting_workers()
+	elif site.has_method("release_waiting_workers"):
+		site.release_waiting_workers()
+
+
+func _has_earlier_site_priority(site: Node) -> bool:
+	if not site.has_method("get_delivery_priority"):
+		return false
+
+	var site_priority: int = site.get_delivery_priority()
+
+	for candidate: Node in get_tree().get_nodes_in_group("construction_sites"):
+		if candidate == site:
+			continue
+		if not candidate.has_method("has_delivery_priority_claim"):
+			continue
+		if not candidate.has_delivery_priority_claim():
+			continue
+		if not candidate.has_method("get_delivery_priority"):
+			continue
+		if candidate.get_delivery_priority() < site_priority:
+			return true
+
+	return false
+
+
+func _has_resource_source(resource_type: int) -> bool:
+	if resource_type < 0:
+		return false
+
+	for storage_node: Node in get_tree().get_nodes_in_group("resource_storages"):
+		var storage: ResourceStorage = storage_node as ResourceStorage
+		if storage != null and storage.get_amount(resource_type) > 0.0:
+			return true
+
+	return false
 
 
 func create_construction_build_tasks(
@@ -318,7 +371,7 @@ func cancel_one_delivery_task(site: Node) -> bool:
 	return false
 
 
-func cancel_tasks_for_target(target: Node) -> void:
+func cancel_tasks_for_target(target: Node, return_workers: bool = true) -> void:
 	var target_tasks: Array[GameTask] = []
 	for task_variant in tasks.values():
 		var task: GameTask = task_variant as GameTask
@@ -328,7 +381,7 @@ func cancel_tasks_for_target(target: Node) -> void:
 			target_tasks.append(task)
 
 	for task: GameTask in target_tasks:
-		cancel_task(task)
+		cancel_task(task, return_workers)
 
 
 func release_task(task: GameTask) -> bool:
@@ -398,7 +451,7 @@ func complete_task(task: GameTask) -> bool:
 	return true
 
 
-func cancel_task(task: GameTask) -> bool:
+func cancel_task(task: GameTask, return_worker: bool = true) -> bool:
 
 	if not _is_registered(task):
 		return false
@@ -424,7 +477,8 @@ func cancel_task(task: GameTask) -> bool:
 
 	_return_worker_resources(task)
 	_clear_worker_task(task)
-	_return_worker_to_idle(task)
+	if return_worker:
+		_return_worker_to_idle(task)
 	task.data["preferred_worker"] = null
 	task.state = GameTask.State.CANCELLED
 	task.assigned_worker = null

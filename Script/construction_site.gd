@@ -1,6 +1,8 @@
 class_name ConstructionSite
 extends BuildingBase
 
+static var next_delivery_priority: int = 0
+
 enum State {
 	WAITING_RESOURCES,
 	READY_TO_BUILD,
@@ -14,6 +16,7 @@ signal state_changed(new_state: State)
 @export var debug_delivery_amount: float = 5.0
 
 var building_data: BuildingData
+var delivery_priority: int = 0
 var grid_position: Vector2i
 var rotation_step: int = 0
 var mirrored: bool = false
@@ -37,6 +40,11 @@ var progress_report_timer: float = 0.0
 
 var site_mesh: MeshInstance3D
 var site_material: StandardMaterial3D
+
+
+func _init() -> void:
+	delivery_priority = next_delivery_priority
+	next_delivery_priority += 1
 
 
 func setup(
@@ -113,17 +121,23 @@ func _complete_construction() -> void:
 	print("ConstructionSite 状态：", _state_name())
 
 	var managers: Array[Node] = get_tree().get_nodes_in_group("task_manager")
-	if not managers.is_empty() and managers[0].has_method("cancel_tasks_for_target"):
-		managers[0].cancel_tasks_for_target(self)
-
 	var building: Node3D = building_data.building_scene.instantiate() as Node3D
 	if building == null:
 		push_error("ConstructionSite：无法生成正式建筑场景")
 		return
 
+	var completed_workers: Array[Node] = builders.duplicate()
+	var keep_workers_at_building: bool = building.has_method("add_worker")
+	if not managers.is_empty() and managers[0].has_method("cancel_tasks_for_target"):
+		managers[0].cancel_tasks_for_target(self, not keep_workers_at_building)
+
 	var parent_node: Node = get_parent()
 	parent_node.add_child(building)
 	building.global_transform = global_transform
+	if keep_workers_at_building:
+		for worker: Node in completed_workers:
+			if is_instance_valid(worker):
+				building.add_worker(worker)
 
 	var main_node: Node = get_tree().current_scene
 	if main_node != null and main_node.has_method("register_building"):
@@ -222,6 +236,14 @@ func get_next_needed_resource() -> int:
 	return -1
 
 
+func get_delivery_resource_type() -> int:
+	for resource_type: int in required_resources.keys():
+		if get_delivered_amount(resource_type) < get_required_amount(resource_type):
+			return resource_type
+
+	return -1
+
+
 func get_max_construction_workers() -> int:
 
 	if building_data == null:
@@ -232,6 +254,25 @@ func get_max_construction_workers() -> int:
 
 func get_construction_worker_limit() -> int:
 	return construction_worker_limit
+
+
+func get_delivery_priority() -> int:
+	return delivery_priority
+
+
+func can_request_delivery_tasks() -> bool:
+	return state == State.WAITING_RESOURCES and not delivery_replenishment_blocked
+
+
+func has_delivery_priority_claim() -> bool:
+	if not can_request_delivery_tasks():
+		return false
+	if get_worker_count() > 0:
+		return true
+	for resource_type: int in reserved_resources.keys():
+		if get_reserved_amount(resource_type) > 0.0:
+			return true
+	return false
 
 
 func get_worker_target_position(worker: Node) -> Vector3:
@@ -441,12 +482,41 @@ func cancel_one_worker() -> void:
 
 func register_construction_worker(worker: Node) -> void:
 	if worker != null and not construction_workers.has(worker):
+		waiting_workers.erase(worker)
 		construction_workers.append(worker)
 
 
 func remove_construction_worker(worker: Node) -> void:
 	if construction_workers.has(worker):
 		construction_workers.erase(worker)
+
+
+func fill_waiting_workers() -> void:
+	if state != State.WAITING_RESOURCES:
+		return
+
+	var villagers: Array[Node] = get_tree().get_nodes_in_group("villagers")
+	while get_worker_count() < construction_worker_limit:
+		var assigned: bool = false
+		for villager: Node in villagers:
+			if not villager.has_method("is_idle") or not villager.is_idle():
+				continue
+			if construction_workers.has(villager) or waiting_workers.has(villager):
+				continue
+			waiting_workers.append(villager)
+			villager.wait_at_construction_site(self)
+			assigned = true
+			break
+		if not assigned:
+			break
+
+
+func release_waiting_workers() -> void:
+	var workers_to_release: Array[Node] = waiting_workers.duplicate()
+	waiting_workers.clear()
+	for worker: Node in workers_to_release:
+		if is_instance_valid(worker) and worker.has_method("return_to_idle"):
+			worker.return_to_idle()
 
 
 func reserve_resource(
@@ -543,6 +613,10 @@ func _request_delivery_task() -> void:
 	if manager.has_method("create_construction_delivery_tasks"):
 		manager.create_construction_delivery_tasks(self, next_delivery_worker)
 	next_delivery_worker = null
+
+
+func request_delivery_tasks() -> void:
+	_request_delivery_task()
 
 
 func _request_build_tasks() -> void:
