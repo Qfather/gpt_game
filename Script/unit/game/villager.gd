@@ -70,6 +70,8 @@ var target_resource: ResourceBase = null
 var target_base: Node3D = null
 
 # 当前携带的资源类型和数量
+signal carried_resource_changed
+
 var carried_resource_type: ResourceType.Type = ResourceType.Type.WOOD
 var carried_amount: float = 0.0
 
@@ -80,6 +82,7 @@ var carried_wood: int:
 	set(value):
 		carried_resource_type = ResourceType.Type.WOOD
 		carried_amount = float(value)
+		carried_resource_changed.emit()
 
 # 砍树计时
 var chop_timer: float = 0.0
@@ -467,6 +470,8 @@ func gather_resource(delta):
 		if gather_type != null:
 			carried_resource_type = gather_type
 		carried_amount += float(gathered_amount)
+		if gathered_amount > 0:
+			carried_resource_changed.emit()
 
 
 	# ========================================================
@@ -604,6 +609,8 @@ func deposit_to_base():
 			)
 
 			carried_amount -= stored_amount
+			if stored_amount > 0.0:
+				carried_resource_changed.emit()
 
 
 	print(
@@ -1012,6 +1019,8 @@ func deposit_to_workplace():
 	)
 
 	carried_amount -= deposited
+	if deposited > 0.0:
+		carried_resource_changed.emit()
 
 
 	print(
@@ -1143,6 +1152,7 @@ func try_transport_workplace_resource(
 
 	carried_resource_type = resource_type
 	carried_amount += taken
+	carried_resource_changed.emit()
 
 
 	print(
@@ -1237,6 +1247,8 @@ func fill_carry_from_workplace():
 
 	carried_resource_type = resource_type
 	carried_amount += taken
+	if taken > 0.0:
+		carried_resource_changed.emit()
 
 
 func take_wood_for_transport():

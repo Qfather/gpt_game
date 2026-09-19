@@ -2,22 +2,13 @@
 
 [ext_resource type="Script" uid="uid://cuiy6ilnk6s7c" path="res://Script/main.gd" id="1_ow1sv"]
 [ext_resource type="PackedScene" uid="uid://ds5iuq38leawb" path="res://Scene/building/base.tscn" id="1_r34rm"]
-[ext_resource type="PackedScene" uid="uid://ck5uqtqyntnas" path="res://Scene/unit/villager.tscn" id="1_sblpm"]
 [ext_resource type="PackedScene" uid="uid://bjhgmbhk67241" path="res://Scene/resource/tree.tscn" id="2_r34rm"]
-[ext_resource type="Script" uid="uid://vjowyu6mphb3" path="res://Script/unit/unit_trait.gd" id="3_c2iwn"]
 [ext_resource type="PackedScene" uid="uid://cq8kxaoi8luhl" path="res://Scene/ui/hud.tscn" id="4_2wwxx"]
-[ext_resource type="Resource" uid="uid://2h2r32me2ws" path="res://data/traits/swift_feet.tres" id="4_3pt4j"]
 [ext_resource type="PackedScene" uid="uid://cmc4xaoufvd7x" path="res://Scene/building/game/lumber_camp.tscn" id="5_3amdw"]
 [ext_resource type="PackedScene" uid="uid://hblm4xs2qdre" path="res://Scene/ui/resource_building_panel.tscn" id="6_1xcnr"]
 [ext_resource type="PackedScene" uid="uid://b35h0wuf0qn8a" path="res://Scene/resource/stone.tscn" id="10_3pt4j"]
 [ext_resource type="PackedScene" uid="uid://bp03yo24lthb4" path="res://Scene/building/game/quarry.tscn" id="11_7y4ci"]
 [ext_resource type="Script" uid="uid://bl6icvg1k0815" path="res://Script/resource/ResourceManager.gd" id="12_mxd2g"]
-
-[sub_resource type="Resource" id="Resource_7y4ci"]
-resource_local_to_scene = true
-script = ExtResource("3_c2iwn")
-trait_data = ExtResource("4_3pt4j")
-metadata/_custom_type_script = "uid://vjowyu6mphb3"
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sblpm"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -78,22 +69,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.6131, -1.9073486e-06, 4.623
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.446763, -1.9073486e-06, 10.794338)
 
 [node name="Villagers" type="Node" parent="." unique_id=1530581502]
-
-[node name="Villager" parent="Villagers" unique_id=1280470496 instance=ExtResource("1_sblpm")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.4819183, 0, -7.8615894)
-traits = Array[ExtResource("3_c2iwn")]([SubResource("Resource_7y4ci")])
-
-[node name="Villager2" parent="Villagers" unique_id=868835237 instance=ExtResource("1_sblpm")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.394434, 0, -3.0560637)
-
-[node name="Villager3" parent="Villagers" unique_id=1698941055 instance=ExtResource("1_sblpm")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.609398, 9.536743e-07, -3.1319094)
-
-[node name="Villager4" parent="Villagers" unique_id=762992999 instance=ExtResource("1_sblpm")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.27463, 9.536743e-07, -8.967838)
-
-[node name="Villager5" parent="Villagers" unique_id=837132624 instance=ExtResource("1_sblpm")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.86508, 9.536743e-07, -9.646027)
 
 [node name="Stones" type="Node" parent="." unique_id=661628920]
 

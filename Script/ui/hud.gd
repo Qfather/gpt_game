@@ -36,19 +36,15 @@ func _ready() -> void:
 
 		return
 
+	resource_manager.resources_changed.connect(
+		update_resource_display
+	)
 	update_resource_display()
 
 
 # ============================================================
-# 实时刷新资源
-#
-# 当前属于第一版验证方案。
-# 后面再改成 Signal 驱动。
+# ResourceManager 信号会在资源发生变化时触发刷新。
 # ============================================================
-
-func _process(_delta: float) -> void:
-
-	update_resource_display()
 
 
 # ============================================================

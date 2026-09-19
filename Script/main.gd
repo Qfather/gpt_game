@@ -1,12 +1,18 @@
 extends Node3D
 
 
+const VILLAGER_SCENE: PackedScene = preload("res://Scene/unit/villager.tscn")
+
+@export var level_config: LevelConfig = preload("res://data/levels/Level_01.tres")
+
+
 # ============================================================
 # UI
 # ============================================================
 
 @onready var resource_building_panel: ResourceBuildingPanel = \
 	$UI/ResourceBuildingPanel
+@onready var villagers_container: Node = $Villagers
 
 
 # ============================================================
@@ -14,6 +20,9 @@ extends Node3D
 # ============================================================
 
 func _ready():
+
+	_apply_level_config()
+	_spawn_initial_villagers()
 
 	print("========== Main启动 ==========")
 
@@ -36,6 +45,63 @@ func _ready():
 			)
 
 	print("========== Main连接结束 ==========")
+
+
+func _spawn_initial_villagers() -> void:
+
+	if level_config == null:
+		return
+
+	var bases = get_tree().get_nodes_in_group("bases")
+	if bases.is_empty():
+		return
+
+	var base: Node3D = bases[0]
+	var spawn_origin: Vector3 = base.global_position
+
+	for index in range(maxi(level_config.initial_villagers, 0)):
+		var villager = VILLAGER_SCENE.instantiate()
+		villagers_container.add_child(villager)
+
+		var resource_manager = get_tree().get_first_node_in_group(
+			"resource_manager"
+		)
+		if resource_manager != null:
+			resource_manager.register_villager(villager)
+
+		var column: int = index % 3
+		var row: int = index / 3
+		villager.global_position = spawn_origin + Vector3(
+			float(column - 1) * 1.5,
+			0.0,
+			float(row + 1) * 1.5
+		)
+
+
+func _apply_level_config() -> void:
+
+	if level_config == null:
+		push_error("Main：没有找到 LevelConfig")
+		return
+
+	var bases = get_tree().get_nodes_in_group("bases")
+	if bases.is_empty():
+		push_error("Main：没有找到 Base")
+		return
+
+	var base = bases[0]
+	if not base.has_method("add_resource"):
+		push_error("Main：Base 不支持资源接口")
+		return
+
+	base.add_resource(
+		ResourceType.Type.WOOD,
+		level_config.initial_wood
+	)
+	base.add_resource(
+		ResourceType.Type.STONE,
+		level_config.initial_stone
+	)
 
 
 # ============================================================

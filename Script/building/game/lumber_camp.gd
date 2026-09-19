@@ -14,50 +14,6 @@ func _ready() -> void:
 
 	print("========== LumberCamp 启动 ==========")
 
-	# 等待场景初始化完成
-	await get_tree().physics_frame
-	await get_tree().physics_frame
-
-	# --------------------------------------------------------
-	# 当前测试逻辑：
-	# 游戏开始后自动寻找空闲居民并填充岗位
-	# 以后有正式招募系统后可以删除这一段
-	# --------------------------------------------------------
-
-	var villagers: Array[Node] = get_tree().get_nodes_in_group(
-		"villagers"
-	)
-
-	print("找到居民数量：", villagers.size())
-
-	for villager: Node in villagers:
-
-		print("发现居民：", villager.name)
-
-		if not villager.has_method("is_idle"):
-			print("❌ 这个居民没有 is_idle()")
-			continue
-
-		print(
-			"是否空闲：",
-			villager.is_idle()
-		)
-
-		if not villager.is_idle():
-			continue
-
-		if not has_free_slot():
-			break
-
-		print(
-			"准备分配居民：",
-			villager.name
-		)
-
-		add_worker(villager)
-
-	print("========== LumberCamp 检查结束 ==========")
-
 # ============================================================
 # 分配伐木工职业
 # ============================================================
