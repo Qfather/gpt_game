@@ -187,6 +187,13 @@ func remove_worker(worker: Node) -> bool:
 	return true
 
 
+func release_all_workers() -> void:
+	var current_workers: Array[Node] = workers.duplicate()
+	for worker: Node in current_workers:
+		if is_instance_valid(worker):
+			remove_worker(worker)
+
+
 # ============================================================
 # 工作范围
 # ============================================================

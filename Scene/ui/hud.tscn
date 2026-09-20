@@ -2,6 +2,20 @@
 
 [ext_resource type="Script" uid="uid://dsvx88aiiacqp" path="res://Script/ui/hud.gd" id="1_cevek"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ImmigrationBackground"]
+bg_color = Color(0.08, 0.12, 0.2, 0.9)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ImmigrationFill"]
+bg_color = Color(0.12, 0.48, 1, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
 [node name="HUD" type="CanvasLayer" unique_id=1924675286]
 process_mode = 3
 script = ExtResource("1_cevek")
@@ -35,6 +49,40 @@ text = "谷物：0"
 unique_name_in_owner = true
 layout_mode = 2
 text = "人口：0 / 0"
+
+[node name="ImmigrationPanel" type="PanelContainer" parent="." unique_id=1924680001]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -270.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = 108.0
+grow_horizontal = 0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ImmigrationPanel"]
+layout_mode = 2
+
+[node name="ImmigrationStatusLabel" type="Label" parent="ImmigrationPanel/VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "等待移民条件"
+horizontal_alignment = 1
+
+[node name="ImmigrationRequirementLabel" type="Label" parent="ImmigrationPanel/VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "需要住房：0　当前空房：0\n需要食物：0　当前食物：0"
+horizontal_alignment = 1
+
+[node name="ImmigrationProgressBar" type="ProgressBar" parent="ImmigrationPanel/VBoxContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+value = 0.0
+show_percentage = true
+theme_override_styles/background = SubResource("StyleBoxFlat_ImmigrationBackground")
+theme_override_styles/fill = SubResource("StyleBoxFlat_ImmigrationFill")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer" unique_id=879828698]
 layout_mode = 2

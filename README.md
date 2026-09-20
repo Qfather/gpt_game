@@ -18,9 +18,53 @@
 当前开发节点：
 
 ```text
-基础食物来源 V1：Farm / GRAIN（已完成并通过实际回归）
-下一步：根据试玩优先进入 House / 人口 V1 或 MEAT / FISH 食物来源
+House / Population V1：阶段 1～8 已完成
+下一步：等待新的系统开发任务
 ```
+
+## 2026-09-20 本轮更新
+
+- 从 Git 快进到 `1da5333 人口HUD显示`，包含 PopulationManager、House 和人口 HUD 基础代码；
+- 开始 House / Population V1 阶段 3：新增可配置 ImmigrationRules；
+- 移民规则已独立到 `res://data/population/immigration_rules.tres`，`LevelConfig` 只负责引用；
+- PopulationManager 现在可以统计数据库中所有 FOOD 资源，判断住房、粮食和预计移民人数；
+- 新增 `can_start_immigration()` 和 `get_immigration_status()`；
+- 阶段 4 新增移民倒计时和 `immigration_ready` 信号；
+- 倒计时期间条件失效会取消并重置，条件恢复后可以重新开始；
+- 当前仍不生成 Migrant、不直接增加人口；
+- 新增并通过 `house_population_stage3_test.gd`；
+- 新增并通过 `house_population_stage4_test.gd`，确认只触发一次且不会每帧重复；
+- 当前本轮修改尚未提交 Git，换电脑继续前先保留这些工作区改动。
+- 阶段 5 新增 4 个地图外围 ArrivalPoint 和独立 Migrant 场景；
+- 倒计时完成后按预计人数生成 Migrant，Migrant 不加入 `villagers` 组，也不计入正式人口；
+- Migrant 使用 NavigationAgent3D 前往 Base；
+- 阶段 6 新增抵达转换：Migrant 变为普通 Villager，接入资源管理、点击选择和 PopulationManager；
+- 新 Villager 初始职业为 `NONE`，会进入正常待命、Needs 和 Task 流程。
+- HUD 右上角新增移民状态面板，倒计时显示蓝色 0%～100% 进度条；
+- HUD 同时显示本轮移民所需住房、当前空房、所需 FOOD 和当前 FOOD；
+- 倒计时中途条件失效时进度归零，并恢复等待状态。
+- 建筑基类新增通用拆除接口；正式建筑详情面板提供“拆除（返还 30%）”；
+- 拆除按 `BuildingData.construction_cost` 的每种资源返还 30% 到 Base，Base 和施工中的工地不可拆除；
+- 拆除前会释放资源建筑工人并取消相关任务。
+- 阶段 8 修复移民批次状态：移民出发后不因住房或 FOOD 变化被取消，全部抵达后才允许下一批；正式人口超过住房容量时停止新批次。
+- 阶段 8 新增回归测试，覆盖倒计时取消、在途移民保护、下一批移民和人口超住房容量。
+- 移民 HUD 的“需要住房”改为显示本批预计人数，保证预计来 2 人时必须准备 2 个空房。
+
+阶段 7 回归流程：
+
+```text
+初始居民工作
+→ 建 Farm 并生产 GRAIN
+→ 建 House，住房容量增加
+→ 右上角确认移民条件和倒计时
+→ Migrant 从地图外围前往 Base
+→ 抵达后人口增加
+→ 新居民进入待命并可分配职业
+→ Hunger / Fatigue 正常增长
+→ FOOD 消耗随人口增加
+```
+
+阶段 7 只做试玩验证，不调整最终平衡，也不实现 FoodPreference、饥饿伤害或正式住房休息点。
 
 ### 基础食物来源 V1
 
@@ -231,6 +275,25 @@ Farm / GRAIN 已提供基础食物生产来源；其他食物与加工品目前�
 
 暂不实现：FoodPreference、Starvation、HealthComponent 饥饿伤害、House 正式休息地点。
 
+## House / Population V1
+
+阶段 1～8 已完成并通过实际回归：
+
+- `PopulationManager` 统计真实 Villager 和全局住房容量；
+- Base 提供初始住房容量，House 建成后提供 `+3` 住房容量；
+- HUD 显示“人口：当前 / 住房容量”；
+- House 复用现有 BuildingData、Ghost、Grid、ConstructionSite 和建筑面板流程；
+- 阶段 3 新增集中配置的移民规则：最低粮食储备、每名移民粮食需求、最低空房、到达间隔和人数范围；
+- 移民规则配置文件位于 `res://data/population/immigration_rules.tres`，可直接在 Godot Inspector 或文本中调整；
+- `can_start_immigration()` 只判断条件，FOOD 使用数据库中所有带 `FoodProperties` 的资源；
+- 当前移民流程已包含倒计时、生成 Migrant 和抵达后增加正式人口。
+- 已完成阶段 4～7：移民倒计时、外围生成、抵达转为 Villager、人口 HUD 和完整经济闭环。
+- 阶段 8：已出发的 Migrant 独立于后续条件变化继续前往 Base；本批次未结束前不重复开新批次，结束后才重新检查住房与 FOOD；预计移民人数与所需住房数量一致。
+
+阶段 3 的规则测试覆盖：无空房、有房无粮、有房有粮，以及移民人数上限。
+
+阶段 5 的基础测试确认 Migrant 查询和正式人口统计互不混淆；实际生成与移动需要在主场景中观察。
+
 ## 操作
 
 ### 建造
@@ -268,6 +331,12 @@ res://Tests/resource_editor_stage2_5_test.gd
 res://Tests/resource_v2_stage3_storage_test.gd
 res://Tests/resource_v2_stage4_manager_test.gd
 res://Tests/construction_site_priority_test.gd
+res://Tests/house_population_stage3_test.gd
+res://Tests/house_population_stage4_test.gd
+res://Tests/house_population_stage5_test.gd
+res://Tests/house_population_stage6_test.gd
+res://Tests/house_population_stage8_test.gd
+res://Tests/building_demolition_test.gd
 ```
 
 当前验证状态：
@@ -276,6 +345,9 @@ res://Tests/construction_site_priority_test.gd
 - 资源 V2 阶段 3 `ResourceStorage` 新旧 ID 兼容测试通过；
 - 资源 V2 阶段 4 `ResourceManager` 测试已新增，等待用户在 Godot 中运行确认；
 - 资源 V2 阶段 5、阶段 6、阶段 7、阶段 8 已完成代码迁移，等待用户在 Godot 主场景中回归确认；
+- House / Population V1 阶段 3～8 已完成代码检查、自动测试和主场景回归；
+- 移民 HUD 已确认显示需求住房、当前空房、需求 FOOD、当前 FOOD 和倒计时进度；
+- 建筑拆除返还功能已确认可用。
 - Resource Editor 已通过 Godot 编辑器插件加载测试并扫描到 7 个资源；
 - 多工地任务生成与顺序优先级测试通过；
 - Godot 主场景无界面启动通过；
@@ -305,4 +377,7 @@ res://Tests/construction_site_priority_test.gd
 - 资源系统 V2 阶段 6 建筑成本、ConstructionSite 与施工运输任务迁移：代码完成，待用户运行确认；
 - 资源系统 V2 阶段 7 HUD、Base 面板与资源节点面板迁移：代码完成，待用户运行确认；
 - 资源系统 V2 阶段 8 运行路径旧枚举清理：代码完成，待用户运行确认；
+- House / Population V1 阶段 1～6：完成；
+- House / Population V1 阶段 7 完整人口经济闭环：完成；
+- House / Population V1 阶段 8 异常情况回归：完成；
 - README 精简为当前状态文档：完成。

@@ -34,3 +34,9 @@ text = "招募"
 unique_name_in_owner = true
 layout_mode = 2
 text = "解雇"
+
+[node name="DemolishButton" type="Button" parent="Vbox/Content" unique_id=946615292]
+unique_name_in_owner = true
+layout_mode = 2
+text = "拆除（返还 30%）"
+visible = false

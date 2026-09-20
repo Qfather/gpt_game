@@ -11,6 +11,7 @@ extends BuildingPanelBase
 @onready var worker_label: Label = %WorkerLabel
 @onready var hire_button: Button = %HireButton
 @onready var fire_button: Button = %FireButton
+@onready var demolish_button: Button = %DemolishButton
 # ============================================================
 # 初始化
 # ============================================================
@@ -24,6 +25,7 @@ func _ready():
 
 	hire_button.pressed.connect(_on_hire_pressed)
 	fire_button.pressed.connect(_on_fire_pressed)
+	demolish_button.pressed.connect(_on_demolish_pressed)
 
 # ============================================================
 # 刷新资源建筑信息
@@ -33,6 +35,11 @@ func refresh():
 
 	if current_building == null:
 		return
+
+	demolish_button.visible = (
+		current_building.has_method("can_be_demolished")
+		and current_building.can_be_demolished()
+	)
 
 	if current_building.is_in_group("bases"):
 		storage_label.show()
@@ -199,6 +206,23 @@ func _on_fire_pressed():
 	if current_building.remove_worker(worker):
 
 		refresh()
+
+
+func _on_demolish_pressed() -> void:
+	if current_building == null:
+		return
+
+	if not current_building.has_method("demolish"):
+		return
+
+	if not current_building.demolish():
+		return
+
+	var main: Node = get_tree().current_scene
+	if main != null and main.has_method("clear_selection"):
+		main.clear_selection()
+	else:
+		close_panel()
 # ============================================================
 # 面板打开期间实时刷新
 # ============================================================

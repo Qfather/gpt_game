@@ -34,6 +34,9 @@ const BUILDING_OPTIONS: Array[BuildingData] = [
 @onready var stone_label: Label = %StoneLabel
 @onready var grain_label: Label = %GrainLabel
 @onready var population_label: Label = %PopulationLabel
+@onready var immigration_status_label: Label = %ImmigrationStatusLabel
+@onready var immigration_requirement_label: Label = %ImmigrationRequirementLabel
+@onready var immigration_progress_bar: ProgressBar = %ImmigrationProgressBar
 @onready var build_buttons: HBoxContainer = $BuildMenu/BuildButtons
 
 
@@ -76,6 +79,7 @@ func _ready() -> void:
 			population_manager.get_population(),
 			population_manager.get_housing_capacity()
 		)
+		_refresh_immigration_display()
 
 	if resource_manager == null:
 
@@ -99,10 +103,49 @@ func _process(_delta: float) -> void:
 			population_manager.get_population(),
 			population_manager.get_housing_capacity()
 		)
+		_refresh_immigration_display()
 
 
 func _refresh_population_display(current_population: int, housing_capacity: int) -> void:
 	population_label.text = "人口：%d / %d" % [current_population, housing_capacity]
+
+
+func _refresh_immigration_display() -> void:
+	if population_manager == null:
+		return
+
+	var status: Dictionary = population_manager.get_immigration_status()
+	var countdown_active: bool = bool(status.get("countdown_active", false))
+	var ready_emitted: bool = bool(status.get("ready_emitted", false))
+	var group_size: int = int(status.get("group_size", 0))
+	var progress: float = population_manager.get_immigration_progress()
+	var required_housing: int = int(status.get("required_housing", 0))
+	var free_housing: int = int(status.get("free_housing", 0))
+	var required_food: float = float(status.get("required_food", 0.0))
+	var available_food: float = float(status.get("available_food", 0.0))
+
+	immigration_requirement_label.text = (
+		"需要住房：%d　当前空房：%d\n需要食物：%d　当前食物：%d"
+		% [
+			required_housing,
+			free_housing,
+			int(ceil(required_food)),
+			int(floor(available_food)),
+		]
+	)
+
+	immigration_progress_bar.value = progress * 100.0
+	if countdown_active:
+		immigration_status_label.text = "移民倒计时：%d 人" % group_size
+		return
+
+	immigration_progress_bar.value = 0.0
+	if ready_emitted:
+		immigration_status_label.text = "移民队伍已出发：%d 人" % group_size
+	elif bool(status.get("can_start", false)):
+		immigration_status_label.text = "移民条件满足"
+	else:
+		immigration_status_label.text = "等待移民条件"
 
 
 func _create_debug_panel() -> void:

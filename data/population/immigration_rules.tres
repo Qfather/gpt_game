@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ImmigrationRules" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Script/population/ImmigrationRules.gd" id="1_rules"]
+
+[resource]
+script = ExtResource("1_rules")
+minimum_food_reserve = 30.0
+food_per_migrant = 10.0
+required_free_housing = 1
+arrival_interval = 30.0
+min_group_size = 1
+max_group_size = 2

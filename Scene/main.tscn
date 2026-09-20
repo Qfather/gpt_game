@@ -78,6 +78,22 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.446763, -1.9073486e-06, 10
 
 [node name="Villagers" type="Node" parent="." unique_id=1530581502]
 
+[node name="Migrants" type="Node" parent="." unique_id=1839020001]
+
+[node name="ArrivalPoints" type="Node3D" parent="." unique_id=1839020002]
+
+[node name="North" type="Marker3D" parent="ArrivalPoints" groups=["arrival_points"]]
+position = Vector3(0, 0, -13)
+
+[node name="South" type="Marker3D" parent="ArrivalPoints" groups=["arrival_points"]]
+position = Vector3(0, 0, 13)
+
+[node name="West" type="Marker3D" parent="ArrivalPoints" groups=["arrival_points"]]
+position = Vector3(-13, 0, 0)
+
+[node name="East" type="Marker3D" parent="ArrivalPoints" groups=["arrival_points"]]
+position = Vector3(13, 0, 0)
+
 [node name="Stones" type="Node" parent="." unique_id=661628920]
 
 [node name="Stone" parent="Stones" unique_id=882348821 instance=ExtResource("10_3pt4j")]

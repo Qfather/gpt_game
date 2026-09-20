@@ -19,7 +19,6 @@ signal state_changed(new_state: State)
 
 @export var debug_delivery_amount: float = 5.0
 
-var building_data: BuildingData
 var delivery_priority: int = 0
 var grid_position: Vector2i
 var rotation_step: int = 0
@@ -162,6 +161,8 @@ func _complete_construction() -> void:
 	var parent_node: Node = get_parent()
 	parent_node.add_child(building)
 	building.global_transform = global_transform
+	if building.has_method("set_building_data"):
+		building.set_building_data(building_data)
 	if keep_workers_at_building:
 		for worker: Node in completed_workers:
 			if is_instance_valid(worker):
