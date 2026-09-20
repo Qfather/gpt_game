@@ -64,20 +64,6 @@ func _ready():
 
 func _unhandled_input(event: InputEvent) -> void:
 	if (
-		event is InputEventKey
-		and event.pressed
-		and not event.echo
-		and (event.keycode == KEY_H or event.keycode == KEY_J)
-	):
-		if DevMode.DEV_MODE:
-			if event.keycode == KEY_H:
-				_debug_add_wood()
-			else:
-				_debug_add_stone()
-			get_viewport().set_input_as_handled()
-		return
-
-	if (
 		event is InputEventMouseButton
 		and event.pressed
 		and event.button_index == MOUSE_BUTTON_LEFT
@@ -92,48 +78,6 @@ func _clear_selection_if_world_empty() -> void:
 	if not world_object_clicked:
 		clear_selection()
 	world_object_clicked = false
-
-
-func _debug_add_wood() -> void:
-	var bases: Array[Node] = get_tree().get_nodes_in_group("bases")
-	if bases.is_empty():
-		return
-
-	var base: Node = bases[0]
-	if not base.has_method("add_resource") or not base.has_method("get_resource"):
-		return
-
-	var added_amount: float = base.add_resource(
-		&"wood",
-		10.0
-	)
-	print(
-		"快捷测试：增加木材 ",
-		added_amount,
-		"，据点当前木材：",
-		base.get_resource(&"wood")
-	)
-
-
-func _debug_add_stone() -> void:
-	var bases: Array[Node] = get_tree().get_nodes_in_group("bases")
-	if bases.is_empty():
-		return
-
-	var base: Node = bases[0]
-	if not base.has_method("add_resource") or not base.has_method("get_resource"):
-		return
-
-	var added_amount: float = base.add_resource(
-		&"stone",
-		10.0
-	)
-	print(
-		"快捷测试：增加石头 ",
-		added_amount,
-		"，据点当前石头：",
-		base.get_resource(&"stone")
-	)
 
 
 func register_building(building: Node) -> void:
@@ -215,6 +159,10 @@ func _apply_level_config() -> void:
 		&"stone",
 		level_config.initial_stone
 	)
+	base.add_resource(
+		&"grain",
+		level_config.initial_grain
+	)
 
 
 # ============================================================
@@ -223,6 +171,7 @@ func _apply_level_config() -> void:
 
 func _on_resource_building_clicked(building):
 	world_object_clicked = true
+	hud.set_debug_villager(null)
 
 	print("📨 Main收到建筑点击：", building.name)
 	print("📺 UI对象：", resource_building_panel)
@@ -236,6 +185,7 @@ func _on_resource_building_clicked(building):
 
 func _on_villager_clicked(villager: UnitBase) -> void:
 	world_object_clicked = true
+	hud.set_debug_villager(villager)
 	_clear_selection_highlight()
 	resource_building_panel.close_panel()
 	resource_node_panel.close_panel()
@@ -245,6 +195,7 @@ func _on_villager_clicked(villager: UnitBase) -> void:
 
 func _on_resource_clicked(resource: ResourceBase) -> void:
 	world_object_clicked = true
+	hud.set_debug_villager(null)
 	_clear_selection_highlight()
 	resource_building_panel.close_panel()
 	villager_panel.close_panel()
@@ -269,6 +220,7 @@ func _open_resource_node_panel(resource: ResourceBase) -> void:
 
 func clear_selection() -> void:
 	_clear_selection_highlight()
+	hud.set_debug_villager(null)
 	resource_building_panel.close_panel()
 	villager_panel.close_panel()
 	resource_node_panel.close_panel()

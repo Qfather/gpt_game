@@ -2,6 +2,10 @@ extends UnitBase
 
 signal unit_clicked(unit: UnitBase)
 
+const RESOURCE_DATABASE: ResourceDatabase = preload(
+	"res://data/resources/resource_database.tres"
+)
+
 # ============================================================
 # 参数
 # ============================================================
@@ -31,6 +35,12 @@ var is_clearing_workplace_storage: bool = false
 
 enum State {
 	IDLE,
+	NEED_EAT,
+	MOVE_TO_EAT,
+	EATING,
+	NEED_REST,
+	MOVE_TO_REST,
+	RESTING,
 	RETURN_TO_IDLE,
 
 	FIND_RESOURCE,#寻找当前职业需要的资源
@@ -59,6 +69,312 @@ enum Job {
 	LUMBERJACK,
 	MINER
 }
+
+enum ActivityLevel {
+	RESTING,
+	NORMAL,
+	WORKING,
+	COMBAT
+}
+
+@export_category("居民需求")
+@export_range(0.0, 100.0, 0.1) var hunger: float = 0.0
+@export_range(0.0, 100.0, 0.1) var fatigue: float = 0.0
+@export_range(0.0, 10.0, 0.01) var hunger_rate: float = 0.6
+@export_range(0.0, 10.0, 0.01) var fatigue_rate: float = 0.6
+@export_range(0.0, 20.0, 0.1) var rest_recovery_rate: float = 4.0
+const HUNGRY_THRESHOLD: float = 70.0
+const TIRED_THRESHOLD: float = 90.0
+const RESTED_THRESHOLD: float = 30.0
+const ACTIVITY_MULTIPLIERS: Dictionary = {
+	ActivityLevel.RESTING: 0.7,
+	ActivityLevel.NORMAL: 1.0,
+	ActivityLevel.WORKING: 1.5,
+	ActivityLevel.COMBAT: 1.8
+}
+
+var activity_level: ActivityLevel = ActivityLevel.NORMAL
+const EATING_TIME: float = 5.0
+const SATIATED_HUNGER_THRESHOLD: float = 10.0
+var eating_timer: float = 0.0
+var resting_timer: float = 0.0
+var selected_food_id: StringName = &""
+
+
+func update_needs(delta: float) -> void:
+	activity_level = get_activity_level()
+	var multiplier: float = float(ACTIVITY_MULTIPLIERS[activity_level])
+	hunger = clampf(hunger + delta * hunger_rate * multiplier, 0.0, 100.0)
+
+	if activity_level == ActivityLevel.RESTING:
+		fatigue = clampf(fatigue - delta * rest_recovery_rate, 0.0, 100.0)
+	else:
+		var current_fatigue_rate: float = (
+			self.fatigue_rate
+			if activity_level == ActivityLevel.WORKING
+			else self.fatigue_rate * 0.15
+		)
+		fatigue = clampf(fatigue + delta * current_fatigue_rate, 0.0, 100.0)
+
+
+func get_activity_level() -> ActivityLevel:
+	match state:
+		State.FIND_RESOURCE, State.MOVE_TO_RESOURCE, State.GATHER_RESOURCE:
+			return ActivityLevel.WORKING
+		State.MOVE_TO_WORKPLACE, State.DEPOSIT_TO_WORKPLACE:
+			return ActivityLevel.WORKING
+		State.MOVE_TO_BASE, State.DEPOSIT_TO_BASE:
+			return ActivityLevel.WORKING
+		State.FIND_TASK_SOURCE, State.MOVE_TO_TASK_SOURCE:
+			return ActivityLevel.WORKING
+		State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.BUILDING:
+			return ActivityLevel.WORKING
+		State.RESTING:
+			return ActivityLevel.RESTING
+		_:
+			return ActivityLevel.NORMAL
+
+
+func is_hungry() -> bool:
+	return hunger >= HUNGRY_THRESHOLD
+
+
+func is_tired() -> bool:
+	return fatigue >= TIRED_THRESHOLD
+
+
+func get_hunger() -> float:
+	return hunger
+
+
+func get_fatigue() -> float:
+	return fatigue
+
+
+func get_activity_level_name() -> String:
+	return ActivityLevel.keys()[activity_level]
+
+
+func find_available_food(
+	storage_filter: ResourceStorage = null
+) -> Array[StringName]:
+	var available_food: Array[StringName] = []
+	for resource_data: ResourceData in RESOURCE_DATABASE.resources:
+		if resource_data == null or not resource_data.is_food():
+			continue
+		if storage_filter != null:
+			if storage_filter.get_amount(resource_data.id) > 0.0:
+				available_food.append(resource_data.id)
+			continue
+		for storage_node: Node in get_tree().get_nodes_in_group("resource_storages"):
+			var storage: ResourceStorage = storage_node as ResourceStorage
+			if storage != null and storage.get_amount(resource_data.id) > 0.0:
+				available_food.append(resource_data.id)
+				break
+	return available_food
+
+
+func choose_food(storage_filter: ResourceStorage = null) -> StringName:
+	var available_food: Array[StringName] = find_available_food(storage_filter)
+	return available_food[0] if not available_food.is_empty() else &""
+
+
+func evaluate_needs() -> void:
+	if (
+		state == State.NEED_EAT
+		or state == State.MOVE_TO_EAT
+		or state == State.EATING
+		or state == State.NEED_REST
+		or state == State.MOVE_TO_REST
+		or state == State.RESTING
+		or is_quitting_job
+	):
+		return
+	if carried_amount > 0.0:
+		return
+	if not is_hungry() and not is_tired():
+		return
+	if current_task != null:
+		_release_current_task_for_needs()
+		if current_task != null:
+			return
+	if target_base == null:
+		return
+
+	if is_hungry():
+		if is_tired():
+			begin_resting()
+			return
+		begin_eating()
+		return
+
+	if is_tired():
+		begin_resting()
+
+
+func move_to_eat() -> void:
+	if target_base == null or not is_instance_valid(target_base):
+		state = State.IDLE
+		return
+	if not navigation_agent.is_navigation_finished():
+		move_along_navigation()
+		return
+	eating_timer = 0.0
+	state = State.EATING
+
+
+func begin_resting() -> void:
+	if target_base == null or not is_instance_valid(target_base):
+		return
+	if is_instance_valid(target_resource) and target_resource.has_method("release"):
+		target_resource.release(self)
+	target_resource = null
+	selected_food_id = &""
+	if hunger > SATIATED_HUNGER_THRESHOLD:
+		var base_storage: ResourceStorage = target_base.get("storage") as ResourceStorage
+		if base_storage == null:
+			base_storage = target_base.get_node_or_null("ResourceStorage") as ResourceStorage
+		selected_food_id = choose_food(base_storage)
+	eating_timer = 0.0
+	var target_position: Vector3 = target_base.global_position
+	if target_base.has_method("get_interaction_position"):
+		target_position = target_base.get_interaction_position(self)
+	navigation_agent.target_position = target_position
+	state = State.NEED_REST
+
+
+func begin_eating() -> bool:
+	if target_base == null or not is_instance_valid(target_base):
+		return false
+
+	var base_storage: ResourceStorage = target_base.get("storage") as ResourceStorage
+	if base_storage == null:
+		base_storage = target_base.get_node_or_null("ResourceStorage") as ResourceStorage
+	selected_food_id = choose_food(base_storage)
+	if selected_food_id.is_empty():
+		return false
+
+	if is_instance_valid(target_resource) and target_resource.has_method("release"):
+		target_resource.release(self)
+	target_resource = null
+	var target_position: Vector3 = target_base.global_position
+	if target_base.has_method("get_interaction_position"):
+		target_position = target_base.get_interaction_position(self)
+	navigation_agent.target_position = target_position
+	state = State.NEED_EAT
+	return true
+
+
+func move_to_rest() -> void:
+	if target_base == null or not is_instance_valid(target_base):
+		state = State.IDLE
+		return
+	if not navigation_agent.is_navigation_finished():
+		move_along_navigation()
+		return
+	resting_timer = 0.0
+	state = State.RESTING
+
+
+func rest(delta: float) -> void:
+	resting_timer += delta
+	velocity = Vector3.ZERO
+	_eat_while_resting(delta)
+	if fatigue <= RESTED_THRESHOLD or resting_timer >= 20.0:
+		_resume_after_rest()
+
+
+func _eat_while_resting(delta: float) -> void:
+	if selected_food_id.is_empty():
+		return
+	eating_timer += delta
+	if eating_timer < EATING_TIME:
+		return
+
+	var base_storage: ResourceStorage = target_base.get("storage") as ResourceStorage
+	if base_storage == null:
+		base_storage = target_base.get_node_or_null("ResourceStorage") as ResourceStorage
+	if base_storage == null:
+		selected_food_id = &""
+		return
+
+	var consumed_amount: float = base_storage.take(selected_food_id, 1.0)
+	if consumed_amount <= 0.0:
+		selected_food_id = &""
+		return
+
+	var food_data: ResourceData = RESOURCE_DATABASE.get_resource_data(selected_food_id)
+	if food_data != null and food_data.food_properties != null:
+		hunger = clampf(
+			hunger - food_data.food_properties.nutrition,
+			0.0,
+			100.0
+		)
+
+	if hunger > SATIATED_HUNGER_THRESHOLD:
+		selected_food_id = choose_food(base_storage)
+		eating_timer = 0.0
+	else:
+		selected_food_id = &""
+
+
+func _resume_after_rest() -> void:
+	resting_timer = 0.0
+	if is_hungry() and begin_eating():
+		return
+	if job == Job.NONE:
+		return_to_idle()
+	else:
+		start_current_job()
+
+
+func eat_food(delta: float) -> void:
+	eating_timer += delta
+	velocity = Vector3.ZERO
+	if eating_timer < EATING_TIME:
+		return
+
+	var base_storage: ResourceStorage = target_base.get("storage") as ResourceStorage
+	if base_storage == null:
+		base_storage = target_base.get_node_or_null("ResourceStorage") as ResourceStorage
+	if base_storage == null:
+		_resume_after_eating()
+		return
+	var consumed_amount: float = 0.0
+	consumed_amount = base_storage.take(selected_food_id, 1.0)
+	if consumed_amount <= 0.0:
+		selected_food_id = choose_food(base_storage)
+		if selected_food_id.is_empty():
+			_resume_after_eating()
+		else:
+			eating_timer = 0.0
+		return
+
+	var food_data: ResourceData = RESOURCE_DATABASE.get_resource_data(selected_food_id)
+	if food_data != null and food_data.food_properties != null:
+		hunger = clampf(
+			hunger - food_data.food_properties.nutrition,
+			0.0,
+			100.0
+		)
+	if hunger > SATIATED_HUNGER_THRESHOLD:
+		selected_food_id = choose_food(base_storage)
+		if not selected_food_id.is_empty():
+			eating_timer = 0.0
+			return
+	_resume_after_eating()
+
+
+func _resume_after_eating() -> void:
+	selected_food_id = &""
+	eating_timer = 0.0
+	if is_tired():
+		begin_resting()
+		return
+	if job == Job.NONE:
+		return_to_idle()
+	else:
+		start_current_job()
 
 func get_job_resource_id() -> StringName:
 
@@ -163,6 +479,8 @@ func start():
 # ============================================================
 
 func _physics_process(delta):
+	update_needs(delta)
+	evaluate_needs()
 
 	if (
 		(
@@ -178,6 +496,24 @@ func _physics_process(delta):
 
 		State.IDLE:
 			velocity = Vector3.ZERO
+
+		State.NEED_EAT:
+			state = State.MOVE_TO_EAT
+
+		State.MOVE_TO_EAT:
+			move_to_eat()
+
+		State.EATING:
+			eat_food(delta)
+
+		State.NEED_REST:
+			state = State.MOVE_TO_REST
+
+		State.MOVE_TO_REST:
+			move_to_rest()
+
+		State.RESTING:
+			rest(delta)
 
 		State.RETURN_TO_IDLE:
 			move_to_idle_area()
@@ -216,7 +552,12 @@ func _physics_process(delta):
 			wait_for_task_resource(delta)
 
 		State.WAIT_CONSTRUCTION_SITE:
-			velocity = Vector3.ZERO
+			if not is_instance_valid(task_site):
+				return_to_idle()
+			elif not _has_reached_task_site_navigation_target():
+				move_along_navigation()
+			else:
+				velocity = Vector3.ZERO
 
 		State.MOVE_TO_BUILD_SITE:
 			move_to_build_site()
@@ -325,6 +666,7 @@ func move_to_task_source() -> void:
 
 	carried_resource_id = resource_id
 	carried_amount += taken_amount
+	task.data["resource_taken_amount"] = taken_amount
 	carried_resource_changed.emit()
 	print("Villager 取出资源：", resource_id, " amount=", taken_amount)
 
@@ -506,6 +848,19 @@ func _release_current_task() -> void:
 	task_source = null
 	task_site = null
 	state = State.IDLE
+
+
+func _release_current_task_for_needs() -> void:
+	var task: GameTask = current_task as GameTask
+	var managers: Array[Node] = get_tree().get_nodes_in_group("task_manager")
+	if task != null and not managers.is_empty() and managers[0].has_method("release_task"):
+		managers[0].release_task(task)
+	else:
+		clear_current_task()
+
+	task_source = null
+	task_site = null
+	task_resource_wait_timer = 0.0
 
 # ============================================================
 # 找据点
@@ -1262,6 +1617,18 @@ func move_to_idle_area():
 # ============================================================
 
 func start_current_job():
+	if workplace is ResourceBuildingBase:
+		if workplace.resume_worker(self):
+			print(
+				"⛏️ 恢复资源建筑工作：",
+				workplace.name
+			)
+			return
+
+		print("❌ 资源建筑无法恢复居民工作：", workplace.name)
+		job = Job.NONE
+		return_to_idle()
+		return
 
 	match job:
 

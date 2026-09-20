@@ -26,6 +26,11 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "石头：0"
 
+[node name="GrainLabel" type="Label" parent="PanelContainer/VBoxContainer/HBoxContainer2"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "谷物：0"
+
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer" unique_id=879828698]
 layout_mode = 2
 

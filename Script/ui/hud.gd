@@ -24,6 +24,7 @@ const BUILDING_OPTIONS: Array[BuildingData] = [
 
 @onready var wood_label: Label = %WoodLabel
 @onready var stone_label: Label = %StoneLabel
+@onready var grain_label: Label = %GrainLabel
 @onready var build_buttons: HBoxContainer = $BuildMenu/BuildButtons
 
 
@@ -35,6 +36,11 @@ var resource_manager: ResourceManager = null
 var building_popup: PanelContainer = null
 var building_popup_tab: Label = null
 var building_popup_body: Label = null
+var debug_panel: PanelContainer = null
+var debug_resource_labels: Dictionary = {}
+var debug_villager_section: VBoxContainer = null
+var debug_villager_label: Label = null
+var debug_villager: Node = null
 
 
 # ============================================================
@@ -42,6 +48,7 @@ var building_popup_body: Label = null
 # ============================================================
 
 func _ready() -> void:
+	_create_debug_panel()
 	_create_building_popup()
 	_configure_building_menu()
 
@@ -63,6 +70,171 @@ func _ready() -> void:
 		update_resource_display
 	)
 	update_resource_display()
+	_refresh_debug_panel()
+
+
+func _process(_delta: float) -> void:
+	_refresh_debug_panel()
+
+
+func _create_debug_panel() -> void:
+	debug_panel = PanelContainer.new()
+	debug_panel.name = "DebugPanel"
+	debug_panel.position = Vector2(8.0, 150.0)
+	debug_panel.custom_minimum_size = Vector2(245.0, 0.0)
+	debug_panel.z_index = 10
+	add_child(debug_panel)
+
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 5)
+	debug_panel.add_child(content)
+
+	var title := Label.new()
+	title.text = "调试工具"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(title)
+
+	var resource_title := Label.new()
+	resource_title.text = "资源调整（据点库存）"
+	content.add_child(resource_title)
+
+	for resource_data: ResourceData in RESOURCE_DATABASE.resources:
+		if resource_data == null or resource_data.id.is_empty():
+			continue
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 4)
+		content.add_child(row)
+
+		var amount_label := Label.new()
+		amount_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		amount_label.text = resource_data.display_name + "：0"
+		row.add_child(amount_label)
+		debug_resource_labels[resource_data.id] = amount_label
+
+		var remove_button := Button.new()
+		remove_button.text = "-10"
+		remove_button.custom_minimum_size.x = 48.0
+		remove_button.pressed.connect(
+			_on_debug_resource_adjust.bind(resource_data.id, -10.0)
+		)
+		row.add_child(remove_button)
+
+		var add_button := Button.new()
+		add_button.text = "+10"
+		add_button.custom_minimum_size.x = 48.0
+		add_button.pressed.connect(
+			_on_debug_resource_adjust.bind(resource_data.id, 10.0)
+		)
+		row.add_child(add_button)
+
+	var separator := HSeparator.new()
+	content.add_child(separator)
+
+	debug_villager_section = VBoxContainer.new()
+	debug_villager_section.add_theme_constant_override("separation", 4)
+	content.add_child(debug_villager_section)
+	debug_villager_section.hide()
+
+	var villager_title := Label.new()
+	villager_title.text = "选中居民需求"
+	debug_villager_section.add_child(villager_title)
+
+	debug_villager_label = Label.new()
+	debug_villager_section.add_child(debug_villager_label)
+	_create_debug_need_row("饥饿", "hunger", debug_villager_section)
+	_create_debug_need_row("疲劳", "fatigue", debug_villager_section)
+
+
+func _create_debug_need_row(
+	caption: String,
+	property_name: String,
+	parent: Container
+) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	parent.add_child(row)
+
+	var label := Label.new()
+	label.name = property_name.capitalize() + "DebugLabel"
+	label.text = caption + "：0"
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
+
+	var remove_button := Button.new()
+	remove_button.text = "-10"
+	remove_button.custom_minimum_size.x = 48.0
+	remove_button.pressed.connect(
+		_on_debug_villager_adjust.bind(property_name, -10.0)
+	)
+	row.add_child(remove_button)
+
+	var add_button := Button.new()
+	add_button.text = "+10"
+	add_button.custom_minimum_size.x = 48.0
+	add_button.pressed.connect(
+		_on_debug_villager_adjust.bind(property_name, 10.0)
+	)
+	row.add_child(add_button)
+
+
+func set_debug_villager(villager: Node) -> void:
+	debug_villager = villager
+	_refresh_debug_panel()
+
+
+func _refresh_debug_panel() -> void:
+	if debug_panel == null:
+		return
+
+	for resource_id: StringName in debug_resource_labels.keys():
+		var label: Label = debug_resource_labels[resource_id] as Label
+		if label == null:
+			continue
+		var resource_data: ResourceData = RESOURCE_DATABASE.get_resource_data(resource_id)
+		var resource_name: String = str(resource_id)
+		if resource_data != null and not resource_data.display_name.is_empty():
+			resource_name = resource_data.display_name
+		var amount: float = 0.0
+		if resource_manager != null:
+			amount = resource_manager.get_total(resource_id)
+		label.text = "%s：%d" % [resource_name, int(amount)]
+
+	var has_villager: bool = is_instance_valid(debug_villager)
+	debug_villager_section.visible = has_villager
+	if not has_villager:
+		return
+
+	debug_villager_label.text = "居民：%s" % debug_villager.name
+	var hunger_label: Label = debug_villager_section.get_node_or_null(
+		"HungerDebugLabel"
+	) as Label
+	var fatigue_label: Label = debug_villager_section.get_node_or_null(
+		"FatigueDebugLabel"
+	) as Label
+	if hunger_label != null:
+		hunger_label.text = "饥饿：%d" % int(float(debug_villager.get("hunger")))
+	if fatigue_label != null:
+		fatigue_label.text = "疲劳：%d" % int(float(debug_villager.get("fatigue")))
+
+
+func _on_debug_resource_adjust(resource_id: StringName, amount: float) -> void:
+	var bases: Array[Node] = get_tree().get_nodes_in_group("bases")
+	if bases.is_empty():
+		return
+	var base: Node = bases[0]
+	if amount >= 0.0 and base.has_method("add_resource"):
+		base.add_resource(resource_id, amount)
+	elif amount < 0.0 and base.has_method("take_resource"):
+		base.take_resource(resource_id, -amount)
+	_refresh_debug_panel()
+
+
+func _on_debug_villager_adjust(property_name: String, amount: float) -> void:
+	if not is_instance_valid(debug_villager):
+		return
+	var current_value: float = float(debug_villager.get(property_name))
+	debug_villager.set(property_name, clampf(current_value + amount, 0.0, 100.0))
+	_refresh_debug_panel()
 
 
 func _configure_building_menu() -> void:
@@ -232,6 +404,7 @@ func update_resource_display() -> void:
 
 		wood_label.text = "木材：0"
 		stone_label.text = "石头：0"
+		grain_label.text = "谷物：0"
 
 		return
 
@@ -243,6 +416,9 @@ func update_resource_display() -> void:
 	var stone_amount: float = resource_manager.get_total(
 		&"stone"
 	)
+	var grain_amount: float = resource_manager.get_total(
+		&"grain"
+	)
 
 
 	wood_label.text = (
@@ -253,6 +429,10 @@ func update_resource_display() -> void:
 	stone_label.text = (
 		"石头："
 		+ str(int(stone_amount))
+	)
+	grain_label.text = (
+		"谷物："
+		+ str(int(grain_amount))
 	)
 
 

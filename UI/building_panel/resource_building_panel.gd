@@ -40,9 +40,10 @@ func refresh():
 		worker_label.hide()
 		hire_button.hide()
 		fire_button.hide()
-		storage_label.text = "库存：\n木材：%d\n石材：%d\n食物：%d" % [
+		storage_label.text = "库存：\n木材：%d\n石材：%d\n谷物：%d\n食物：%d" % [
 			int(current_building.get_resource(&"wood")),
 			int(current_building.get_resource(&"stone")),
+			int(current_building.get_resource(&"grain")),
 			int(current_building.get_resource(&"food"))
 		]
 		return

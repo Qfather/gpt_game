@@ -32,6 +32,7 @@ signal resource_changed(
 @export var starting_wood: float = 0.0
 @export var starting_stone: float = 0.0
 @export var starting_food: float = 0.0
+@export var starting_grain: float = 0.0
 
 
 # ============================================================
@@ -106,6 +107,11 @@ func _ready() -> void:
 		food_capacity
 	)
 
+	set_capacity(
+		&"grain",
+		food_capacity
+	)
+
 
 	# --------------------------------------------------------
 	# 设置初始资源
@@ -127,6 +133,12 @@ func _ready() -> void:
 		add(
 			&"food",
 			starting_food
+		)
+
+	if starting_grain > 0.0:
+		add(
+			&"grain",
+			starting_grain
 		)
 
 

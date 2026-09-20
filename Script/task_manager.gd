@@ -56,6 +56,8 @@ func _run_dispatch() -> void:
 			site._create_delivery_tasks_now()
 		elif site.has_method("request_delivery_tasks"):
 			site.request_delivery_tasks()
+		if site.has_method("prepare_construction_workers"):
+			site.prepare_construction_workers()
 
 	_dispatch_available_tasks()
 	dispatch_running = false
@@ -103,35 +105,6 @@ func _sort_task_priority(a: GameTask, b: GameTask) -> bool:
 		return a.priority > b.priority
 
 	return str(a.id).naturalnocasecmp_to(str(b.id)) < 0
-
-
-func _unhandled_input(event: InputEvent) -> void:
-
-	if not DevMode.DEV_MODE:
-		return
-
-	if not (
-		event is InputEventKey
-		and event.pressed
-		and not event.echo
-	):
-		return
-
-	var key_event := event as InputEventKey
-
-	match key_event.keycode:
-		KEY_T:
-			_debug_create_task()
-		KEY_C:
-			_debug_claim_task()
-		KEY_R:
-			_debug_release_task()
-		KEY_F:
-			_debug_complete_task()
-		_:
-			return
-
-	get_viewport().set_input_as_handled()
 
 
 func create_task(
@@ -247,8 +220,14 @@ func create_construction_delivery_tasks(
 		resource_id = ResourceStorage.resource_id_from_key(
 			site.get_delivery_resource_type()
 		)
+	var resources_already_reserved: bool = (
+		site.has_method("has_all_reserved_construction_resources")
+		and site.has_all_reserved_construction_resources()
+	)
 	if not _has_resource_source(resource_id):
-		if site.has_method("release_waiting_workers"):
+		if resources_already_reserved and site.has_method("fill_waiting_workers"):
+			site.fill_waiting_workers()
+		elif site.has_method("release_waiting_workers"):
 			site.release_waiting_workers()
 		return
 	var active_count: int = 0
@@ -276,7 +255,11 @@ func create_construction_delivery_tasks(
 		active_count += 1
 		preferred_assigned = true
 
-	if _has_resource_source(resource_id):
+	resources_already_reserved = (
+		site.has_method("has_all_reserved_construction_resources")
+		and site.has_all_reserved_construction_resources()
+	)
+	if resources_already_reserved:
 		if site.has_method("fill_waiting_workers"):
 			site.fill_waiting_workers()
 	elif site.has_method("release_waiting_workers"):
@@ -320,7 +303,11 @@ func _get_available_resource_amount(resource_id: StringName) -> float:
 			task.data.get("resource_id", task.data.get("resource_type", &""))
 		)
 		if task_resource_id == resource_id:
-			reserved_by_tasks += float(task.data.get("amount", 0.0))
+			reserved_by_tasks += maxf(
+				float(task.data.get("amount", 0.0))
+				- float(task.data.get("resource_taken_amount", 0.0)),
+				0.0
+			)
 
 	return maxf(total_amount - reserved_by_tasks, 0.0)
 
@@ -488,6 +475,7 @@ func release_task(task: GameTask) -> bool:
 		task.target.on_build_task_released(task)
 
 	_return_worker_resources(task)
+	task.data["resource_taken_amount"] = 0.0
 	_clear_worker_task(task)
 	_return_worker_to_idle(task)
 	task.data["preferred_worker"] = null
@@ -557,6 +545,7 @@ func cancel_task(task: GameTask, return_worker: bool = true) -> bool:
 		task.target.on_build_task_released(task)
 
 	_return_worker_resources(task)
+	task.data["resource_taken_amount"] = 0.0
 	_clear_worker_task(task)
 	if return_worker:
 		_return_worker_to_idle(task)
@@ -588,6 +577,7 @@ func fail_task(task: GameTask) -> bool:
 
 	_clear_worker_task(task)
 	_return_worker_resources(task)
+	task.data["resource_taken_amount"] = 0.0
 	_return_worker_to_idle(task)
 	task.data["preferred_worker"] = null
 	task.state = GameTask.State.CANCELLED

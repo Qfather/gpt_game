@@ -4,25 +4,32 @@ extends UnitPanelBase
 const RESOURCE_DATABASE: ResourceDatabase = preload(
 	"res://data/resources/resource_database.tres"
 )
-const JOB_NAMES: PackedStringArray = ["NONE", "LUMBERJACK", "MINER"]
-const STATE_NAMES: PackedStringArray = [
-	"IDLE",
-	"RETURN_TO_IDLE",
-	"FIND_RESOURCE",
-	"MOVE_TO_RESOURCE",
-	"GATHER_RESOURCE",
-	"MOVE_TO_WORKPLACE",
-	"DEPOSIT_TO_WORKPLACE",
-	"MOVE_TO_BASE",
-	"DEPOSIT_TO_BASE",
-	"FIND_TASK_SOURCE",
-	"MOVE_TO_TASK_SOURCE",
-	"MOVE_TO_TASK_SITE",
-	"WAIT_TASK_RESOURCE",
-	"WAIT_CONSTRUCTION_SITE",
-	"MOVE_TO_BUILD_SITE",
-	"BUILDING"
+const JOB_DISPLAY_NAMES: PackedStringArray = ["无业", "伐木工", "矿工"]
+const STATE_DISPLAY_NAMES: PackedStringArray = [
+	"待命",
+	"需要进食",
+	"前往吃饭",
+	"正在吃饭",
+	"需要休息",
+	"前往休息",
+	"正在休息",
+	"返回待命",
+	"寻找资源",
+	"前往资源",
+	"正在采集",
+	"前往工作地点",
+	"存入工作建筑",
+	"返回据点",
+	"存入据点",
+	"寻找任务材料",
+	"前往取货",
+	"前往工地",
+	"等待任务材料",
+	"前往工地等待",
+	"前往施工",
+	"正在施工"
 ]
+const TASK_DISPLAY_NAMES: PackedStringArray = ["运输建造材料", "建筑施工"]
 
 @onready var health_label: Label = %HealthLabel
 @onready var move_speed_label: Label = %MoveSpeedLabel
@@ -34,6 +41,8 @@ const STATE_NAMES: PackedStringArray = [
 @onready var task_label: Label = %TaskLabel
 @onready var workplace_label: Label = %WorkplaceLabel
 @onready var carry_label: Label = %CarryLabel
+@onready var hunger_bar: ProgressBar = %HungerBar
+@onready var fatigue_bar: ProgressBar = %FatigueBar
 
 @onready var trait_container: VBoxContainer = %TraitContainer
 
@@ -41,6 +50,7 @@ const STATE_NAMES: PackedStringArray = [
 func _ready():
 
 	super._ready()
+	_configure_needs_bars()
 
 
 func refresh():
@@ -90,10 +100,12 @@ func refresh():
 
 	var job_index: int = int(villager.get("job"))
 	var state_index: int = int(villager.get("state"))
-	job_label.text = "职业：" + JOB_NAMES[job_index]
-	state_label.text = "状态：" + STATE_NAMES[state_index]
+	job_label.text = "职业：" + _get_display_name(JOB_DISPLAY_NAMES, job_index)
+	state_label.text = "状态：" + _get_display_name(STATE_DISPLAY_NAMES, state_index)
 	task_label.text = "当前任务：" + _get_task_text(villager)
 	workplace_label.text = "工作地点：" + _get_node_name(villager.get("workplace") as Node)
+	_update_needs_bar(hunger_bar, float(villager.call("get_hunger")))
+	_update_needs_bar(fatigue_bar, float(villager.call("get_fatigue")))
 
 	var carried_amount: float = float(villager.call("get_carried_amount"))
 	if carried_amount <= 0.0:
@@ -116,11 +128,45 @@ func refresh():
 	_refresh_traits()
 
 
+func _configure_needs_bars() -> void:
+	for bar: ProgressBar in [hunger_bar, fatigue_bar]:
+		bar.min_value = 0.0
+		bar.max_value = 100.0
+		bar.show_percentage = true
+		bar.custom_minimum_size.y = 18.0
+		_update_needs_bar(bar, 0.0)
+
+
+func _update_needs_bar(bar: ProgressBar, value: float) -> void:
+	bar.value = value
+	var progress_style := StyleBoxFlat.new()
+	progress_style.bg_color = _get_needs_color(value)
+	progress_style.corner_radius_top_left = 4
+	progress_style.corner_radius_top_right = 4
+	progress_style.corner_radius_bottom_left = 4
+	progress_style.corner_radius_bottom_right = 4
+	bar.add_theme_stylebox_override("fill", progress_style)
+
+
+func _get_needs_color(value: float) -> Color:
+	if value >= 75.0:
+		return Color(0.82, 0.20, 0.18)
+	if value >= 50.0:
+		return Color(0.92, 0.68, 0.16)
+	return Color(0.25, 0.78, 0.32)
+
+
 func _get_task_text(villager: UnitBase) -> String:
 	var task: GameTask = villager.get("current_task") as GameTask
 	if task == null:
 		return "无"
-	return GameTask.TaskType.keys()[task.type]
+	return _get_display_name(TASK_DISPLAY_NAMES, task.type)
+
+
+func _get_display_name(names: PackedStringArray, index: int) -> String:
+	if index < 0 or index >= names.size():
+		return "未知"
+	return names[index]
 
 
 func _get_node_name(node: Node) -> String:

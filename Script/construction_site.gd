@@ -132,7 +132,16 @@ func _complete_construction() -> void:
 		push_error("ConstructionSite：无法生成正式建筑场景")
 		return
 
-	var completed_workers: Array[Node] = builders.duplicate()
+	var completed_workers: Array[Node] = []
+	for worker: Node in builders:
+		if is_instance_valid(worker) and not completed_workers.has(worker):
+			completed_workers.append(worker)
+	for worker: Node in waiting_workers:
+		if is_instance_valid(worker) and not completed_workers.has(worker):
+			completed_workers.append(worker)
+	for worker: Node in delivery_workers:
+		if is_instance_valid(worker) and not completed_workers.has(worker):
+			completed_workers.append(worker)
 	var keep_workers_at_building: bool = building.has_method("add_worker")
 	if not managers.is_empty() and managers[0].has_method("cancel_tasks_for_target"):
 		managers[0].cancel_tasks_for_target(self, not keep_workers_at_building)
@@ -189,21 +198,6 @@ func _register_with_main() -> void:
 	var main_node: Node = get_tree().current_scene
 	if main_node != null and main_node.has_method("register_building"):
 		main_node.register_building(self)
-
-
-func _unhandled_input(event: InputEvent) -> void:
-	if not DevMode.DEV_MODE:
-		return
-
-	if (
-		event is InputEventKey
-		and event.pressed
-		and not event.echo
-		and event.keycode == KEY_D
-	):
-
-		debug_deliver_required_resources()
-		get_viewport().set_input_as_handled()
 
 
 func get_state() -> State:
@@ -284,6 +278,29 @@ func get_delivery_priority() -> int:
 
 func can_request_delivery_tasks() -> bool:
 	return state == State.WAITING_RESOURCES and not delivery_replenishment_blocked
+
+
+func has_all_reserved_construction_resources() -> bool:
+	if state != State.WAITING_RESOURCES:
+		return false
+	for resource_id: StringName in required_resources.keys():
+		if get_still_needed(resource_id) > 0.0:
+			return false
+	return true
+
+
+func prepare_construction_workers() -> void:
+	if not has_all_reserved_construction_resources():
+		return
+	fill_waiting_workers()
+
+
+func get_build_preferred_workers() -> Array[Node]:
+	var preferred_workers: Array[Node] = waiting_workers.duplicate()
+	for worker: Node in delivery_workers:
+		if not preferred_workers.has(worker):
+			preferred_workers.append(worker)
+	return preferred_workers
 
 
 func get_worker_target_position(worker: Node) -> Vector3:
@@ -392,7 +409,10 @@ func _transform_aabb(source: AABB, transform: Transform3D) -> AABB:
 
 
 func get_worker_count() -> int:
-	var count: int = construction_workers.size()
+	var count: int = 0
+	for worker: Node in construction_workers:
+		if is_instance_valid(worker) and not delivery_workers.has(worker):
+			count += 1
 	for worker: Node in waiting_workers:
 		if is_instance_valid(worker) and not construction_workers.has(worker):
 			count += 1
@@ -429,6 +449,7 @@ func request_additional_worker() -> void:
 	if (
 		state != State.WAITING_RESOURCES
 		and state != State.READY_TO_BUILD
+		and state != State.BUILDING
 	):
 		return
 	if construction_worker_limit >= get_max_construction_workers():
@@ -437,26 +458,40 @@ func request_additional_worker() -> void:
 	construction_worker_limit += 1
 	delivery_replenishment_blocked = false
 	var villagers: Array[Node] = get_tree().get_nodes_in_group("villagers")
+	var preferred_workers: Array[Node] = []
 	for villager: Node in villagers:
 		if not villager.has_method("is_idle") or not villager.is_idle():
 			continue
 		if construction_workers.has(villager) or waiting_workers.has(villager):
 			continue
-		waiting_workers.append(villager)
-		if villager.has_method("wait_at_construction_site"):
-			villager.wait_at_construction_site(self)
+		if state == State.BUILDING:
+			preferred_workers.append(villager)
+		else:
+			waiting_workers.append(villager)
+			if villager.has_method("wait_at_construction_site"):
+				villager.wait_at_construction_site(self)
 		break
 
 	if state == State.WAITING_RESOURCES:
 		call_deferred("_request_delivery_task")
 	else:
-		call_deferred("_request_build_tasks")
+		if state == State.BUILDING:
+			var managers: Array[Node] = get_tree().get_nodes_in_group("task_manager")
+			if not managers.is_empty() and managers[0].has_method(
+				"create_construction_build_tasks"
+			):
+				managers[0].create_construction_build_tasks(self, preferred_workers)
+			if not managers.is_empty() and managers[0].has_method("request_dispatch"):
+				managers[0].request_dispatch()
+		else:
+			call_deferred("_request_build_tasks")
 
 
 func cancel_one_worker() -> void:
 	if (
 		state != State.WAITING_RESOURCES
 		and state != State.READY_TO_BUILD
+		and state != State.BUILDING
 	) or construction_worker_limit <= 0:
 		return
 
@@ -466,11 +501,15 @@ func cancel_one_worker() -> void:
 		var manager: Node = managers[0]
 		if state == State.WAITING_RESOURCES and manager.has_method("cancel_one_delivery_task"):
 			cancelled = manager.cancel_one_delivery_task(self)
-		elif state == State.READY_TO_BUILD and manager.has_method("cancel_one_build_task"):
+		elif (
+			(state == State.READY_TO_BUILD or state == State.BUILDING)
+			and manager.has_method("cancel_one_build_task")
+		):
 			cancelled = manager.cancel_one_build_task(self)
 
 	if cancelled:
-		delivery_replenishment_blocked = true
+		if state == State.WAITING_RESOURCES:
+			delivery_replenishment_blocked = true
 		construction_worker_limit = maxi(construction_worker_limit - 1, 0)
 		return
 
@@ -483,6 +522,14 @@ func cancel_one_worker() -> void:
 				worker.return_to_idle()
 			construction_worker_limit = maxi(construction_worker_limit - 1, 0)
 			return
+
+	if state == State.BUILDING and not builders.is_empty():
+		var worker: Node = builders.back()
+		remove_builder(worker)
+		if is_instance_valid(worker) and worker.has_method("return_to_idle"):
+			worker.return_to_idle()
+		construction_worker_limit = maxi(construction_worker_limit - 1, 0)
+		return
 
 	if not waiting_workers.is_empty():
 		delivery_replenishment_blocked = true
@@ -666,7 +713,7 @@ func _request_build_tasks() -> void:
 
 	var manager: Node = managers[0]
 	if manager.has_method("create_construction_build_tasks"):
-		manager.create_construction_build_tasks(self, delivery_workers)
+		manager.create_construction_build_tasks(self, get_build_preferred_workers())
 	if manager.has_method("request_dispatch"):
 		manager.request_dispatch()
 

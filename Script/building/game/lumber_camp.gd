@@ -97,21 +97,3 @@ func test_add_worker() -> void:
 		add_worker(villager)
 
 		return
-
-
-# ============================================================
-# 临时测试输入
-#
-# Enter / Space：移除工人
-# ↑：添加工人
-#
-# 正式 UI 完全接管以后可以删除。
-# ============================================================
-
-func _input(event: InputEvent) -> void:
-
-	if event.is_action_pressed("ui_accept"):
-		test_remove_worker()
-
-	if event.is_action_pressed("ui_up"):
-		test_add_worker()

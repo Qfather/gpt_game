@@ -11,8 +11,8 @@ description = "为居民提供采集石头的工作地点。"
 function_text = "生产石头，并将石头存入建筑库存。"
 building_scene = ExtResource("2_quarry")
 grid_size = Vector2i(3, 2)
-construction_cost = {
+construction_cost = Dictionary[StringName, float]({
 &"stone": 20.0
-}
+})
 construction_time = 20.0
 max_construction_workers = 3

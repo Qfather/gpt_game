@@ -5,7 +5,7 @@
 
 [sub_resource type="Resource" id="FoodProperties_grain"]
 script = ExtResource("1_food_properties")
-nutrition = 4.0
+nutrition = 25.0
 food_quality = 1.0
 variety_group = &"grain"
 

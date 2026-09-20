@@ -67,6 +67,18 @@ func get_worker_job() -> int:
 	return -1
 
 
+## 恢复资源建筑工人的工作状态。
+## 所有继承 ResourceBuildingBase 的资源建筑共用这套流程。
+func resume_worker(worker: Node) -> bool:
+	if worker == null or not workers.has(worker):
+		return false
+	if not worker.has_method("get_job_resource_id"):
+		return false
+
+	worker.state = worker.State.FIND_RESOURCE
+	return true
+
+
 # ============================================================
 # 当前工人数
 # ============================================================
@@ -126,10 +138,18 @@ func add_worker(worker: Node) -> bool:
 
 		return false
 
+	var previous_state: int = int(worker.get("state"))
+	var was_resting: bool = (
+		previous_state == worker.State.NEED_REST
+		or previous_state == worker.State.MOVE_TO_REST
+		or previous_state == worker.State.RESTING
+	)
 
 	workers.append(worker)
 
 	assign_worker_job(worker)
+	if was_resting:
+		worker.set("state", previous_state)
 
 
 	print(
