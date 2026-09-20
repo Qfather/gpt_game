@@ -9,12 +9,16 @@ const LUMBER_CAMP_DATA: BuildingData = preload(
 const QUARRY_DATA: BuildingData = preload(
 	"res://data/buildings/QuarryData.tres"
 )
+const FARM_DATA: BuildingData = preload(
+	"res://data/buildings/FarmData.tres"
+)
 const RESOURCE_DATABASE: ResourceDatabase = preload(
 	"res://data/resources/resource_database.tres"
 )
 const BUILDING_OPTIONS: Array[BuildingData] = [
 	LUMBER_CAMP_DATA,
-	QUARRY_DATA
+	QUARRY_DATA,
+	FARM_DATA
 ]
 
 

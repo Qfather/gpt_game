@@ -1,7 +1,7 @@
 # 时间裂缝
 
 > Godot 4.7 工程。当前目标是用简化角色、建筑和 UI 跑通第一关完整闭环。
-> 开发顺序与未来玩法见 `ROADMAP.md`，资源迁移细节见 `GPT_Game_资源系统V2_分阶段迁移计划.md`。
+> 开发顺序与未来玩法见 `ROADMAP.md`。
 
 ## 当前状态
 
@@ -10,6 +10,7 @@
 - 木材与石材采集、生产建筑、本地仓储和据点运输；
 - 网格建造、Ghost 预览、工地物流、多人施工和正式建筑生成；
 - 居民、建筑、据点和资源节点的统一选择、描边与详情面板；
+- 基础食物来源 V1：Farm、三块 Field、Farmer 动态派工、GRAIN 生产、Farm 本地库存、据点运输和居民消费闭环；
 - `UnitBase`、Trait 数据、属性 Modifier 和 Trait Editor；
 - 资源系统 V2 阶段 1、阶段 2、阶段 2.5 Resource Editor、阶段 3 ResourceStorage ID 迁移；
 - 多工地调度由“全局顺序锁”改为“顺序优先级”。
@@ -17,9 +18,17 @@
 当前开发节点：
 
 ```text
-资源系统 V2 阶段 5：居民携带与资源建筑迁移（代码完成，等待用户运行确认）
-下一步：阶段 5 回归确认后进入阶段 6 建筑成本与施工任务迁移
+基础食物来源 V1：Farm / GRAIN（已完成并通过实际回归）
+下一步：根据试玩优先进入 House / 人口 V1 或 MEAT / FISH 食物来源
 ```
+
+### 基础食物来源 V1
+
+- Farm 4×4，最多 3 名 Farmer，内部 3 块 2×2 Field 和 FarmHouse；
+- Field 状态循环：耕地、播种、生长、成熟、收割；
+- Farmer 按田地优先级动态派工，支持认领、中断释放和休息后恢复；
+- GRAIN 先进入 Farm 本地库存，再由居民真实运输到据点；
+- 据点粮食可被居民实际消费，Needs、Task 和建筑 UI 回归通过。
 
 ## 2026-09-19 更新交接
 
@@ -123,7 +132,7 @@ Tree/Stone  → ResourceNodePanel
 | T2 | plank、flour |
 | T3 | bread |
 
-食物与加工品目前只证明数据结构能够表达多分类、多层级和食物属性，尚无生产来源或生产建筑。工程暂无对应资源图标，因此图标暂为空。
+Farm / GRAIN 已提供基础食物生产来源；其他食物与加工品目前只证明数据结构能够表达多分类、多层级和食物属性。工程暂无对应资源图标，因此图标暂为空。
 
 ### 阶段 3、阶段 4 已完成，阶段 5、阶段 6、阶段 7、阶段 8 等待实际运行确认
 
@@ -203,52 +212,24 @@ Tree/Stone  → ResourceNodePanel
 - 按钮名称、点击事件和 tooltip 均来自 `BuildingData`；
 - 保留当前两个按钮的布局，后续新增建筑可复用同一套菜单逻辑。
 
-## 居民生活循环 V1
+## 居民生活循环 V1 ✅
 
-当前进行阶段 1：Needs 数据与 UI。
+居民生活循环 V1 已完成并通过当前回归测试：
 
-- 已加入 Hunger、Fatigue、ActivityLevel；
-- 无业居民和工作居民都会累计 Hunger；
-- 工作、搬运、施工使用 WORKING 消耗倍率；
-- VillagerPanel 实时显示 Hunger / Fatigue 进度条，并按绿、黄、红变色；
-- 当前阶段不会自动吃饭、自动休息，也不会修改食物库存。
-
-阶段 1 已完成代码，阶段 2 当前加入测试用 `grain` 初始库存和通用 FOOD 查询入口，仍不会自动进食。
-
-- Level 01 初始据点增加 10 个谷物；
-- HUD 和 Base 面板显示谷物数量；
-- `find_available_food()` 通过 `ResourceData.is_food()` 查询所有可用食物；
-- `choose_food()` 提供通用选择入口，当前只选择第一种可用食物。
-
-阶段 2 已完成代码，阶段 3 当前加入通用进食流程：饥饿居民前往 Base、停留 5 秒、消耗一种 FOOD 并按 nutrition 降低 Hunger。
-
-- 进食只使用 `choose_food()` 选择 Base 中的通用 FOOD；
-- 一次进食会持续消耗 FOOD，直到 Hunger 小于 `10`，或 Base 没有食物；
-- Job / Workplace 保持不变，进食后恢复原行为；
-- 正在执行公共 Task 或携带资源时不会被强行打断；
-- 没有食物时保持当前 Hunger，不会报错或进入无限切换；
-- 当前仍不处理 Fatigue，不会自动休息。
-- Hunger、Fatigue、Hunger Rate、Fatigue Rate 已暴露到 Villager 检查器；当前 Hunger Rate 临时提高到 `0.6`，便于阶段 3 测试。
-- 测试用谷物营养值调整为 `25`，确保居民吃掉 1 个谷物后 Hunger 有明显下降。
-
-阶段 3 已完成代码，阶段 4 当前加入独立休息流程：疲劳达到阈值后前往 Base，恢复到较低水平或达到最长休息时间，再恢复原行为。
-
-- 新增 `NEED_REST`、`MOVE_TO_REST`、`RESTING` 状态；
-- `RESTING` 使用 `ActivityLevel.RESTING`，疲劳恢复速度由 `rest_recovery_rate` 控制；
-- 测试期间疲劳阈值临时调整为 `90`，默认 `Fatigue Rate` 临时提高到 `0.6`；
-- Job / Workplace 保持不变；
-- 当前不处理 Hunger + Fatigue 的联合优先级，联合处理留到阶段 5。
-
-阶段 4、阶段 5、阶段 6、阶段 7 已通过用户实际运行测试，阶段 8 当前进行完整回归。
-
+- Hunger、Fatigue、ActivityLevel 按实际行为持续更新；
+- 工作时需求增长更快，休息时 Fatigue 恢复；
+- 通过通用 `find_available_food()` / `choose_food()` 查询 FOOD；
+- 进食按 `FoodProperties.nutrition` 降低 Hunger，低于或达到 10% 后停止；
 - 又饿又累时一次回据点，休息期间同时进食；
-- 吃完后仍然疲劳会继续休息，不会先离开据点再返回；
-- 休息结束后如果已经达到饥饿阈值，会留在据点直接进食；
-- 没有食物时不会进入无限切换，仍按当前需求恢复原岗位。
+- 携带材料时先完成安全运输，没有携带材料时才安全释放公共任务；
+- 休息结束后恢复原 Job / Workplace / Idle 状态；
+- 建筑完工时会继承施工、等待和运输居民的正式岗位；
+- VillagerPanel 显示中文职业、任务、生活状态和 Hunger / Fatigue 颜色进度条；
+- 左侧调试面板可调整资源、选中居民的 Hunger 与 Fatigue。
 
-阶段 6 已加入 Job / Task 中断安全：携带材料时先完成运输，没有携带材料时才释放可安全中断的公共任务；阶段 7 已将居民职业、任务和生活状态改为中文显示。
+当前 Hunger、Fatigue、Eating、Resting 数值仍主要用于开发测试，正式时间尺度将在第一关闭环（经营 → 守城 → Boss）跑通后统一平衡。
 
-阶段 8 回归重点：无业居民、伐木工、矿工、多人吃饭/休息、食物不足、施工运输、多人施工、建筑完工后的岗位继承，以及调试面板资源和需求调整。
+暂不实现：FoodPreference、Starvation、HealthComponent 饥饿伤害、House 正式休息地点。
 
 ## 操作
 

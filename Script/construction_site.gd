@@ -36,6 +36,7 @@ var waiting_workers: Array[Node] = []
 var state: State = State.WAITING_RESOURCES
 var next_delivery_worker: Node = null
 var delivery_replenishment_blocked: bool = false
+var worker_replenishment_requested: bool = false
 var worker_target_offsets: Dictionary = {}
 var model_bounds: AABB = AABB()
 var has_model_bounds: bool = false
@@ -72,6 +73,7 @@ func setup(
 	waiting_workers = []
 	next_delivery_worker = null
 	delivery_replenishment_blocked = false
+	worker_replenishment_requested = false
 	worker_target_offsets = {}
 	has_model_bounds = false
 	construction_worker_limit = maxi(building_data.max_construction_workers, 1)
@@ -91,6 +93,17 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if (
+		state == State.WAITING_RESOURCES
+		and worker_replenishment_requested
+		and not delivery_replenishment_blocked
+	):
+		var worker_count_before: int = get_worker_count()
+		fill_waiting_workers()
+		if get_worker_count() > worker_count_before:
+			worker_replenishment_requested = false
+			call_deferred("_request_delivery_task")
+
 	if state != State.BUILDING or builders.is_empty() or building_data == null:
 		return
 
@@ -409,15 +422,18 @@ func _transform_aabb(source: AABB, transform: Transform3D) -> AABB:
 
 
 func get_worker_count() -> int:
-	var count: int = 0
+	var assigned_workers: Array[Node] = []
 	for worker: Node in construction_workers:
-		if is_instance_valid(worker) and not delivery_workers.has(worker):
-			count += 1
+		if is_instance_valid(worker) and not assigned_workers.has(worker):
+			assigned_workers.append(worker)
 	for worker: Node in waiting_workers:
-		if is_instance_valid(worker) and not construction_workers.has(worker):
-			count += 1
+		if is_instance_valid(worker) and not assigned_workers.has(worker):
+			assigned_workers.append(worker)
+	for worker: Node in delivery_workers:
+		if is_instance_valid(worker) and not assigned_workers.has(worker):
+			assigned_workers.append(worker)
 
-	return count
+	return assigned_workers.size()
 
 
 func get_max_worker_count() -> int:
@@ -457,6 +473,7 @@ func request_additional_worker() -> void:
 
 	construction_worker_limit += 1
 	delivery_replenishment_blocked = false
+	worker_replenishment_requested = true
 	var villagers: Array[Node] = get_tree().get_nodes_in_group("villagers")
 	var preferred_workers: Array[Node] = []
 	for villager: Node in villagers:
@@ -471,6 +488,8 @@ func request_additional_worker() -> void:
 			if villager.has_method("wait_at_construction_site"):
 				villager.wait_at_construction_site(self)
 		break
+	if state != State.WAITING_RESOURCES or get_worker_count() >= construction_worker_limit:
+		worker_replenishment_requested = false
 
 	if state == State.WAITING_RESOURCES:
 		call_deferred("_request_delivery_task")

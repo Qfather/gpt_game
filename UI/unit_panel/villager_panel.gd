@@ -4,7 +4,7 @@ extends UnitPanelBase
 const RESOURCE_DATABASE: ResourceDatabase = preload(
 	"res://data/resources/resource_database.tres"
 )
-const JOB_DISPLAY_NAMES: PackedStringArray = ["无业", "伐木工", "矿工"]
+const JOB_DISPLAY_NAMES: PackedStringArray = ["无业", "伐木工", "矿工", "农夫"]
 const STATE_DISPLAY_NAMES: PackedStringArray = [
 	"待命",
 	"需要进食",
@@ -27,13 +27,15 @@ const STATE_DISPLAY_NAMES: PackedStringArray = [
 	"等待任务材料",
 	"前往工地等待",
 	"前往施工",
-	"正在施工"
+	"正在施工",
+	"寻找田地",
+	"前往田地",
+	"正在处理田地"
 ]
 const TASK_DISPLAY_NAMES: PackedStringArray = ["运输建造材料", "建筑施工"]
 
 @onready var health_label: Label = %HealthLabel
 @onready var move_speed_label: Label = %MoveSpeedLabel
-@onready var food_label: Label = %FoodLabel
 @onready var work_speed_label: Label = %WorkSpeedLabel
 @onready var gather_speed_label: Label = %GatherSpeedLabel
 @onready var job_label: Label = %JobLabel
@@ -76,11 +78,6 @@ func refresh():
 	move_speed_label.text = (
 		"移动速度："
 		+ str(current_unit.get_move_speed())
-	)
-
-	food_label.text = (
-		"食物消耗："
-		+ str(current_unit.get_food_consumption())
 	)
 
 	work_speed_label.text = (

@@ -156,9 +156,9 @@ IRON_BAR
 
 ------------------------------------------------------------------------
 
-# 4. 当前开发章节：居民生活循环 V1
+# 4. 已完成章节：居民生活循环 V1 ✅
 
-当前主线进入：
+本章节已完成：
 
 ``` text
 Hunger
@@ -504,7 +504,7 @@ VillagerPanel：
 
 ------------------------------------------------------------------------
 
-## 阶段 8 --- 完整回归与文档同步
+## 阶段 8 --- 完整回归与文档同步 ✅
 
 验证：
 
@@ -519,7 +519,7 @@ FOOD = 0
 多个工地
 ```
 
-完成后同步 README / ROADMAP。
+已完成 README / ROADMAP 同步。
 
 ------------------------------------------------------------------------
 
@@ -705,9 +705,11 @@ House / 人口最小版
 
 # 9. 基础食物来源 V1
 
+状态：✅ 已完成并通过实际回归测试。
+
 生活循环跑通以后，不能长期依赖初始 GRAIN。
 
-第一版只需要建立一个最简单、可持续的食物来源。
+第一版已建立一个最简单、可持续的食物来源：Farm / GRAIN。
 
 目标：
 
@@ -721,9 +723,25 @@ House / 人口最小版
 其他居民消费
 ```
 
-这一阶段只需要证明：
+已验证：
 
-> 人口需要消耗食物，而玩家能够通过经营补充食物。
+> Farmer 真实种麦、收割、存入 Farm、运输到 Base，居民再实际消费谷物。
+
+已完成内容：
+
+``` text
+Farm 4×4
+3 Worker Capacity
+3 × 2×2 Field
+Field State Machine
+Farmer Dynamic Field Work
+GRAIN Production
+Farm Local Storage
+Farm → Base Logistics
+Needs Integration
+Farm UI
+Food Production / Consumption Loop
+```
 
 不要立即展开：
 
@@ -1513,8 +1531,8 @@ Meta Progression
 # 32. 当前最近路线
 
 ``` text
-【当前】
-居民生活循环 V1
+【已完成】
+居民生活循环 V1 ✅
 ├─ Hunger
 ├─ Fatigue
 ├─ ActivityLevel
@@ -1522,9 +1540,12 @@ Meta Progression
 ├─ Resting
 └─ Needs UI
         ↓
-基础食物来源 V1
+基础食物来源 V1 ✅
+├─ Farm / GRAIN
+├─ Farm → Base Logistics
+└─ Food Production / Consumption
         ↓
-House / 人口 V1
+【下一章节】House / 人口 V1
         ↓
 训练建筑
         ↓

@@ -56,9 +56,9 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -125.0
+offset_left = -180.0
 offset_top = -78.0
-offset_right = 125.0
+offset_right = 180.0
 offset_bottom = -18.0
 grow_horizontal = 2
 grow_vertical = 0
@@ -75,6 +75,11 @@ text = "伐木场"
 custom_minimum_size = Vector2(115, 48)
 layout_mode = 2
 text = "采石场"
+
+[node name="FarmButton" type="Button" parent="BuildMenu/BuildButtons"]
+custom_minimum_size = Vector2(115, 48)
+layout_mode = 2
+text = "农场"
 
 [connection signal="pressed" from="PanelContainer/VBoxContainer/HBoxContainer/PauseButton" to="." method="_on_pause_button_pressed"]
 [connection signal="pressed" from="PanelContainer/VBoxContainer/HBoxContainer/Speed1Button" to="." method="_on_speed_1_button_pressed"]

@@ -59,7 +59,10 @@ enum State {
 	WAIT_TASK_RESOURCE,
 	WAIT_CONSTRUCTION_SITE,
 	MOVE_TO_BUILD_SITE,
-	BUILDING
+	BUILDING,
+	FIND_FIELD_WORK,
+	MOVE_TO_FIELD,
+	WORKING_FIELD
 }
 
 var state: State = State.IDLE
@@ -67,7 +70,8 @@ var state: State = State.IDLE
 enum Job {
 	NONE,
 	LUMBERJACK,
-	MINER
+	MINER,
+	FARMER
 }
 
 enum ActivityLevel {
@@ -127,7 +131,7 @@ func get_activity_level() -> ActivityLevel:
 			return ActivityLevel.WORKING
 		State.FIND_TASK_SOURCE, State.MOVE_TO_TASK_SOURCE:
 			return ActivityLevel.WORKING
-		State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.BUILDING:
+		State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.BUILDING, State.FIND_FIELD_WORK, State.MOVE_TO_FIELD, State.WORKING_FIELD:
 			return ActivityLevel.WORKING
 		State.RESTING:
 			return ActivityLevel.RESTING
@@ -229,6 +233,7 @@ func begin_resting() -> void:
 	if is_instance_valid(target_resource) and target_resource.has_method("release"):
 		target_resource.release(self)
 	target_resource = null
+	release_target_field()
 	selected_food_id = &""
 	if hunger > SATIATED_HUNGER_THRESHOLD:
 		var base_storage: ResourceStorage = target_base.get("storage") as ResourceStorage
@@ -257,6 +262,7 @@ func begin_eating() -> bool:
 	if is_instance_valid(target_resource) and target_resource.has_method("release"):
 		target_resource.release(self)
 	target_resource = null
+	release_target_field()
 	var target_position: Vector3 = target_base.global_position
 	if target_base.has_method("get_interaction_position"):
 		target_position = target_base.get_interaction_position(self)
@@ -401,6 +407,10 @@ var task_resource_wait_timer: float = 0.0
 
 # 当前目标树
 var target_resource: ResourceBase = null
+
+# 当前农场田地与工作计时
+var target_field: FarmField = null
+var field_work_timer: float = 0.0
 
 # 据点
 var target_base: Node3D = null
@@ -564,6 +574,15 @@ func _physics_process(delta):
 
 		State.BUILDING:
 			velocity = Vector3.ZERO
+
+		State.FIND_FIELD_WORK:
+			find_field_work()
+
+		State.MOVE_TO_FIELD:
+			move_to_field()
+
+		State.WORKING_FIELD:
+			work_field(delta)
 
 
 func _start_current_task() -> void:
@@ -886,6 +905,15 @@ func find_base():
 # ============================================================
 
 func find_nearest_resource():
+	if workplace is Farm:
+		var farm := workplace as Farm
+		if carried_amount > 0.0:
+			go_to_workplace()
+		elif farm.should_transport_grain():
+			start_farm_transport()
+		else:
+			start_farm_work()
+		return
 
 	# --------------------------------------------------------
 	# 获取当前职业需要的资源类型
@@ -1359,6 +1387,18 @@ func deposit_to_base():
 
 	if is_clearing_workplace_storage:
 
+		# Farm 运输途中如果出现新的可处理田地，先结束本趟运输，
+		# 不继续清空 Farm，交货后立即回去务农。
+		if (
+			workplace is Farm
+			and workplace.has_method("has_available_field")
+			and workplace.has_available_field()
+		):
+			is_clearing_workplace_storage = false
+			is_transporting = false
+			start_farm_work()
+			return
+
 		# 工作建筑还有库存
 		if workplace != null:
 
@@ -1477,6 +1517,7 @@ func assign_job(
 	if job == Job.NONE:
 
 		print("👨 村民失去工作")
+		release_target_field()
 
 		# 如果当前预约了资源，解除预约
 		if is_instance_valid(target_resource):
@@ -1612,6 +1653,107 @@ func move_to_idle_area():
 
 
 	move_along_navigation()
+
+
+func start_farm_work() -> void:
+	release_target_field()
+	state = State.FIND_FIELD_WORK
+
+
+func start_farm_transport() -> void:
+	if not workplace is Farm:
+		return_to_idle()
+		return
+	is_clearing_workplace_storage = true
+	is_transporting = true
+	if carried_amount <= 0.0:
+		fill_carry_from_workplace()
+	if carried_amount > 0.0:
+		go_to_base()
+	else:
+		is_clearing_workplace_storage = false
+		is_transporting = false
+		start_farm_work()
+
+
+func find_field_work() -> void:
+	var farm := workplace as Farm
+	if farm == null:
+		return_to_idle()
+		return
+
+	target_field = farm.claim_next_field(self)
+	if target_field == null:
+		return_to_idle()
+		return
+
+	navigation_agent.target_position = target_field.global_position
+	state = State.MOVE_TO_FIELD
+
+
+func move_to_field() -> void:
+	if not is_instance_valid(target_field):
+		target_field = null
+		state = State.FIND_FIELD_WORK
+		return
+
+	if not _has_reached_field_target():
+		move_along_navigation()
+		return
+
+	velocity = Vector3.ZERO
+	field_work_timer = 0.0
+	state = State.WORKING_FIELD
+
+
+func work_field(delta: float) -> void:
+	velocity = Vector3.ZERO
+	if not is_instance_valid(target_field) or not workplace is Farm:
+		release_target_field()
+		state = State.FIND_FIELD_WORK
+		return
+
+	field_work_timer += delta
+	var farm := workplace as Farm
+	var required_work_time: float = farm.get_field_work_time(target_field.state)
+	if field_work_timer < required_work_time:
+		return
+
+	var is_harvesting: bool = target_field.state == FarmField.State.HARVESTING
+	var completed: bool = target_field.complete_work(self)
+	target_field = null
+	field_work_timer = 0.0
+	if completed and is_harvesting:
+		var harvest_amount: float = minf(
+			farm.grain_yield,
+			carry_capacity - carried_amount
+		)
+		if harvest_amount > 0.0:
+			carried_resource_id = &"grain"
+			carried_amount += harvest_amount
+			carried_resource_changed.emit()
+			go_to_workplace()
+			return
+	state = State.FIND_FIELD_WORK
+
+
+func _has_reached_field_target() -> bool:
+	if navigation_agent.is_navigation_finished():
+		return true
+	var target_delta: Vector3 = navigation_agent.target_position - global_position
+	target_delta.y = 0.0
+	return target_delta.length() <= navigation_agent.target_desired_distance + 0.5
+
+
+func release_target_field() -> void:
+	if target_field == null:
+		return
+	if workplace != null and workplace.has_method("release_field"):
+		workplace.release_field(self, target_field)
+	target_field = null
+	field_work_timer = 0.0
+
+
 # ============================================================
 # 根据当前职业开始工作
 # ============================================================
@@ -1724,8 +1866,10 @@ func move_to_workplace():
 func deposit_to_workplace():
 
 	if carried_amount <= 0.0:
-
-		state = State.FIND_RESOURCE
+		if workplace is Farm:
+			start_farm_work()
+		else:
+			state = State.FIND_RESOURCE
 
 		return
 
@@ -1758,6 +1902,10 @@ func deposit_to_workplace():
 		"🎒 居民剩余携带资源：",
 		carried_amount
 	)
+	if workplace is Farm and carried_amount > 0.0:
+		print("⚠️ Farm 本地库存已满，Farmer 开始运输谷物")
+		start_farm_transport()
+		return
 
 
 	# 当前先测试本地库存。
@@ -1767,7 +1915,10 @@ func deposit_to_workplace():
 		if is_quitting_job:
 			finish_quit_job()
 			return
-		state = State.FIND_RESOURCE
+		if workplace is Farm:
+			start_farm_work()
+		else:
+			state = State.FIND_RESOURCE
 
 	else:
 

@@ -14,12 +14,6 @@ enum StatType {
 	HEALTH_REGEN,        # 生命恢复速度
 	MOVE_SPEED,          # 移动速度
 
-	# ---------- 生存 / 作息 ----------
-
-	FOOD_CONSUMPTION,    # 每次吃饭消耗的食物
-	WORK_DURATION,       # 连续工作多久后需要回据点
-	REST_DURATION,       # 每次需要休息多久
-
 	# ---------- 工作属性 ----------
 
 	WORK_SPEED,          # 通用工作效率

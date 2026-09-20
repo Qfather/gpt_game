@@ -96,6 +96,8 @@ func refresh():
 		+ " / "
 		+ str(int(storage_capacity))
 	)
+	if current_building.has_method("get_field_status_text"):
+		storage_label.text += "\n" + current_building.get_field_status_text()
 
 
 	# --------------------------------------------------------

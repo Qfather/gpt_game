@@ -1,0 +1,87 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://Script/building/game/farm.gd" id="1_farm"]
+[ext_resource type="Script" path="res://Script/resource/ResourceStorage.gd" id="2_storage"]
+[ext_resource type="Script" path="res://Script/building/game/farm_field.gd" id="3_field"]
+
+[sub_resource type="StandardMaterial3D" id="Material_FarmHouse"]
+albedo_color = Color(0.48, 0.32, 0.18, 1)
+
+[sub_resource type="StandardMaterial3D" id="Material_FieldA"]
+albedo_color = Color(0.34, 0.22, 0.12, 1)
+
+[sub_resource type="StandardMaterial3D" id="Material_FieldB"]
+albedo_color = Color(0.42, 0.28, 0.14, 1)
+
+[sub_resource type="StandardMaterial3D" id="Material_FieldC"]
+albedo_color = Color(0.30, 0.25, 0.16, 1)
+
+[sub_resource type="BoxMesh" id="Mesh_FarmHouse"]
+material = SubResource("Material_FarmHouse")
+size = Vector3(2, 0.8, 2)
+
+[sub_resource type="BoxMesh" id="Mesh_FieldA"]
+material = SubResource("Material_FieldA")
+size = Vector3(2, 0.12, 2)
+
+[sub_resource type="BoxMesh" id="Mesh_FieldB"]
+material = SubResource("Material_FieldB")
+size = Vector3(2, 0.12, 2)
+
+[sub_resource type="BoxMesh" id="Mesh_FieldC"]
+material = SubResource("Material_FieldC")
+size = Vector3(2, 0.12, 2)
+
+[sub_resource type="BoxShape3D" id="Shape_Farm"]
+size = Vector3(4, 1, 4)
+
+[node name="Farm" type="Node3D" groups=["resource_buildings"]]
+script = ExtResource("1_farm")
+production_resource_id = &"grain"
+max_workers = 3
+work_radius = 12.0
+idle_radius = 2.5
+
+[node name="FieldA" type="Node3D" parent="." groups=["farm_fields"]]
+script = ExtResource("3_field")
+position = Vector3(-1, 0, -1)
+field_id = "A"
+debug_initial_state = 0
+
+[node name="FieldMesh" type="MeshInstance3D" parent="FieldA"]
+position = Vector3(0, 0.06, 0)
+mesh = SubResource("Mesh_FieldA")
+
+[node name="FieldB" type="Node3D" parent="." groups=["farm_fields"]]
+script = ExtResource("3_field")
+position = Vector3(1, 0, -1)
+field_id = "B"
+
+[node name="FieldMesh" type="MeshInstance3D" parent="FieldB"]
+position = Vector3(0, 0.06, 0)
+mesh = SubResource("Mesh_FieldB")
+
+[node name="FieldC" type="Node3D" parent="." groups=["farm_fields"]]
+script = ExtResource("3_field")
+position = Vector3(-1, 0, 1)
+field_id = "C"
+
+[node name="FieldMesh" type="MeshInstance3D" parent="FieldC"]
+position = Vector3(0, 0.06, 0)
+mesh = SubResource("Mesh_FieldC")
+
+[node name="FarmHouse" type="MeshInstance3D" parent="."]
+position = Vector3(1, 0.4, 1)
+mesh = SubResource("Mesh_FarmHouse")
+
+[node name="ClickArea" type="Area3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ClickArea"]
+position = Vector3(0, 0.5, 0)
+shape = SubResource("Shape_Farm")
+
+[node name="ResourceStorage" type="Node" parent="."]
+script = ExtResource("2_storage")
+wood_capacity = 0.0
+stone_capacity = 0.0
+food_capacity = 50.0

@@ -84,11 +84,6 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "移动速度：0"
 
-[node name="FoodLabel" type="Label" parent="VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "食物消耗：0"
-
 [node name="WorkSpeedLabel" type="Label" parent="VBox"]
 unique_name_in_owner = true
 layout_mode = 2
