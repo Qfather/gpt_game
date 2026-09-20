@@ -53,6 +53,9 @@ func _ready():
 
 		register_building(building)
 
+	for building: Node in get_tree().get_nodes_in_group("buildings"):
+		register_building(building)
+
 	for base: Node in get_tree().get_nodes_in_group("bases"):
 		register_building(base)
 
@@ -124,6 +127,11 @@ func _spawn_initial_villagers() -> void:
 		)
 		if resource_manager != null:
 			resource_manager.register_villager(villager)
+		var population_manager = get_tree().get_first_node_in_group(
+			"population_manager"
+		)
+		if population_manager != null:
+			population_manager.register_villager(villager)
 		register_villager(villager)
 
 		var column: int = index % 3

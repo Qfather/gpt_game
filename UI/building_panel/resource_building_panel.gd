@@ -68,6 +68,18 @@ func refresh():
 		fire_button.text = "取消居民"
 		return
 
+	if current_building.has_method("get_housing_capacity"):
+		storage_label.show()
+		material_label.hide()
+		worker_label.hide()
+		hire_button.hide()
+		fire_button.hide()
+		storage_label.text = "住户：0 / %d\n住房容量：+%d" % [
+			int(current_building.get_housing_capacity()),
+			int(current_building.get_housing_capacity())
+		]
+		return
+
 	storage_label.show()
 	material_label.hide()
 	hire_button.text = "招募"

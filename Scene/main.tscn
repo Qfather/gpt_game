@@ -12,6 +12,7 @@
 [ext_resource type="Script" uid="uid://bli0u0op8xduv" path="res://Script/build_grid.gd" id="13_build_grid"]
 [ext_resource type="Script" uid="uid://derqyaunvu2d1" path="res://Script/building_ghost.gd" id="14_building_ghost"]
 [ext_resource type="Script" uid="uid://chlns8i87yc4m" path="res://Script/task_manager.gd" id="16_task_manager"]
+[ext_resource type="Script" uid="uid://drj583rp81mc2" path="res://Script/population/PopulationManager.gd" id="17_population_manager"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sblpm"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -106,6 +107,9 @@ script = ExtResource("14_building_ghost")
 
 [node name="TaskManager" type="Node" parent="Systems" unique_id=208927853]
 script = ExtResource("16_task_manager")
+
+[node name="PopulationManager" type="Node" parent="Systems" unique_id=462382604]
+script = ExtResource("17_population_manager")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="Systems" unique_id=1486133278]
 environment = SubResource("Environment_2wwxx")

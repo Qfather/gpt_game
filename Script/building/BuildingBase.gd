@@ -19,6 +19,7 @@ var interaction_positions: Dictionary = {}
 # ============================================================
 
 func _ready() -> void:
+	add_to_group("buildings")
 
 	if click_area == null:
 		push_warning(

@@ -35,6 +35,7 @@ signal wood_changed(new_amount: int)
 
 # 无业居民待命范围
 @export var idle_radius: float = 5.0
+@export var base_housing_capacity: int = 5
 
 
 # ============================================================
@@ -53,6 +54,10 @@ func _ready():
 	storage.resource_changed.connect(
 		_on_storage_resource_changed
 	)
+
+
+func get_housing_capacity() -> int:
+	return base_housing_capacity
 
 # ============================================================
 # 通用资源接口

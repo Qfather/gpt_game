@@ -12,13 +12,17 @@ const QUARRY_DATA: BuildingData = preload(
 const FARM_DATA: BuildingData = preload(
 	"res://data/buildings/FarmData.tres"
 )
+const HOUSE_DATA: BuildingData = preload(
+	"res://data/buildings/HouseData.tres"
+)
 const RESOURCE_DATABASE: ResourceDatabase = preload(
 	"res://data/resources/resource_database.tres"
 )
 const BUILDING_OPTIONS: Array[BuildingData] = [
 	LUMBER_CAMP_DATA,
 	QUARRY_DATA,
-	FARM_DATA
+	FARM_DATA,
+	HOUSE_DATA
 ]
 
 
@@ -29,6 +33,7 @@ const BUILDING_OPTIONS: Array[BuildingData] = [
 @onready var wood_label: Label = %WoodLabel
 @onready var stone_label: Label = %StoneLabel
 @onready var grain_label: Label = %GrainLabel
+@onready var population_label: Label = %PopulationLabel
 @onready var build_buttons: HBoxContainer = $BuildMenu/BuildButtons
 
 
@@ -37,6 +42,7 @@ const BUILDING_OPTIONS: Array[BuildingData] = [
 # ============================================================
 
 var resource_manager: ResourceManager = null
+var population_manager: PopulationManager = null
 var building_popup: PanelContainer = null
 var building_popup_tab: Label = null
 var building_popup_body: Label = null
@@ -61,6 +67,15 @@ func _ready() -> void:
 	resource_manager = get_tree().get_first_node_in_group(
 		"resource_manager"
 	) as ResourceManager
+	population_manager = get_tree().get_first_node_in_group(
+		"population_manager"
+	) as PopulationManager
+	if population_manager != null:
+		population_manager.population_changed.connect(_refresh_population_display)
+		_refresh_population_display(
+			population_manager.get_population(),
+			population_manager.get_housing_capacity()
+		)
 
 	if resource_manager == null:
 
@@ -79,6 +94,15 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	_refresh_debug_panel()
+	if population_manager != null:
+		_refresh_population_display(
+			population_manager.get_population(),
+			population_manager.get_housing_capacity()
+		)
+
+
+func _refresh_population_display(current_population: int, housing_capacity: int) -> void:
+	population_label.text = "人口：%d / %d" % [current_population, housing_capacity]
 
 
 func _create_debug_panel() -> void:
