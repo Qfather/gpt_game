@@ -19,7 +19,18 @@
 
 ```text
 House / Population V1：阶段 1～8 已完成
-下一步：等待新的系统开发任务
+当前：Military Daily Loop V1（规划中）
+```
+
+Population V1 已完成：
+
+```text
+PopulationManager / Population HUD       ✅
+Base Housing Capacity / House V1         ✅
+ImmigrationRules / Food Requirement     ✅
+Immigration Countdown / ArrivalPoint     ✅
+Migrant → Villager                       ✅
+Population / Farm / FOOD 闭环            ✅
 ```
 
 ## 2026-09-20 本轮更新
@@ -49,6 +60,22 @@ House / Population V1：阶段 1～8 已完成
 - 阶段 8 修复移民批次状态：移民出发后不因住房或 FOOD 变化被取消，全部抵达后才允许下一批；正式人口超过住房容量时停止新批次。
 - 阶段 8 新增回归测试，覆盖倒计时取消、在途移民保护、下一批移民和人口超住房容量。
 - 移民 HUD 的“需要住房”改为显示本批预计人数，保证预计来 2 人时必须准备 2 个空房。
+
+当前经营闭环：
+
+```text
+初始居民
+→ WOOD / STONE 采集、运输与储存
+→ 建筑施工
+→ Farm 生产 GRAIN
+→ 居民 Hunger / Fatigue、吃饭与休息
+→ House 提供住房容量
+→ FOOD + Housing 满足移民条件
+→ Migrant 前往 Base 并转为 Villager
+→ 新居民加入生产、物流和施工
+```
+
+下一阶段方向：人口与经济转化为军事力量。详细设计只维护在 `ROADMAP.md`。
 
 阶段 7 回归流程：
 
@@ -290,6 +317,14 @@ Farm / GRAIN 已提供基础食物生产来源；其他食物与加工品目前�
 - 已完成阶段 4～7：移民倒计时、外围生成、抵达转为 Villager、人口 HUD 和完整经济闭环。
 - 阶段 8：已出发的 Migrant 独立于后续条件变化继续前往 Base；本批次未结束前不重复开新批次，结束后才重新检查住房与 FOOD；预计移民人数与所需住房数量一致。
 
+长期人口入口：
+
+```text
+Population
+├─ Immigration ✅ V1
+└─ Expedition  ⏳ 后续
+```
+
 阶段 3 的规则测试覆盖：无空房、有房无粮、有房有粮，以及移民人数上限。
 
 阶段 5 的基础测试确认 Migrant 查询和正式人口统计互不混淆；实际生成与移动需要在主场景中观察。
@@ -361,6 +396,7 @@ res://Tests/building_demolition_test.gd
 4. Godot 使用严格类型检查，避免 Variant 推断警告。
 5. 分阶段迁移；用户运行确认后再进入下一阶段。
 6. 不提前开发当前阶段以外的 FOOD 循环、生产建筑、仓库或程序化地图。
+7. README 只记录当前真实完成状态；ROADMAP 记录后续方向、系统连接和暂缓功能。
 
 ## 关键里程碑
 

@@ -1,8 +1,36 @@
-# 时间裂缝 --- ROADMAP
+# 时间裂缝 — ROADMAP
 
-> 更新日期：2026-09-20\
-> 定位：第一关闭环优先。经营系统服务于备战、守城和 Boss 战。\
+> 更新日期：2026-09-20
+> 当前阶段：Population V1 已完成 → Military Daily Loop V1 规划中。
+> 本文件合并程序化小岛、人口与远征规划，后续只维护这一份 ROADMAP。
 > 当前实际完成细节仍以 `README.md` 为准。
+
+## 当前统一开发顺序
+
+```text
+资源 / 建造                         ✅
+居民生活循环 / Farm / GRAIN         ✅
+House / Population V1               ✅
+
+Military Daily Loop V1              ⏳
+├─ 剑士营与 Swordsman
+├─ 军营 Capacity
+├─ 驻军与真实轮班巡逻
+├─ Settlement Patrol Ring
+└─ Threat Detection
+        ↓
+Combat V1
+        ↓
+第三方日常袭扰
+        ↓
+城墙 / 防御
+        ↓
+时间裂缝 / 情报 / Wave
+        ↓
+战后修复 / 补员
+        ↓
+Boss / Victory / Defeat
+```
 
 # 1. 游戏核心定位
 
@@ -1545,19 +1573,19 @@ Meta Progression
 ├─ Farm → Base Logistics
 └─ Food Production / Consumption
         ↓
-【下一章节】House / 人口 V1
+【下一章节】Military Daily Loop V1
         ↓
-训练建筑
+剑士营 / Swordsman
         ↓
-第一个战斗职业
+军营 / 驻军 / 轮班巡逻
         ↓
-Health / Combat
+Settlement Patrol Ring / Threat Detection
         ↓
-城墙
+Combat V1
         ↓
-Enemy
+第三方日常袭扰
         ↓
-第一波敌袭
+城墙 / 防御 / 时间裂缝
         ↓
 WaveManager + 倒计时
         ↓
@@ -1584,3 +1612,83 @@ Boss
 如果已经可以：
 
 > 再根据实际试玩，选择最影响乐趣和策略深度的系统继续扩展。
+
+------------------------------------------------------------------------
+
+# 34. Military Daily Loop V1
+
+## 战斗职业与训练
+
+```text
+Villager
+→ 剑士营训练任务
+→ 占用 Training Slot
+→ 训练完成
+→ Swordsman
+```
+
+Swordsman 仍属于居民体系，继续保留 Hunger、Fatigue、Trait 和人口身份。训练会减少可用于采集、生产、运输和施工的劳动力。
+
+## 军营与巡逻
+
+军营负责驻扎、待命和轮班，不负责生成士兵。和平时期按以下规则分配巡逻：
+
+```text
+PatrolCount = ceil(GarrisonCount / 2)
+```
+
+轮班必须表现为真实移动：当前巡逻组返回军营、进入待命，下一组再离开巡逻。巡逻目标是保护外围生产、发现第三方威胁并降低经济损失，不是随机散步。
+
+所有敌对单位最终共用 Faction、Health、Targeting、Damage 和 Death 底层。
+
+------------------------------------------------------------------------
+
+# 35. 程序化有限小岛与战争迷雾
+
+长期地图采用 Seed 驱动的有限小岛：
+
+```text
+World Seed
+→ 岛屿轮廓 / 地形
+→ 合法 Base 区域
+→ 树林、石矿、食物资源簇
+→ 特殊地点与第三方势力
+→ Navigation
+→ 战争迷雾
+```
+
+地图必须保证 Base 可玩、资源簇合理，并排除水面、不可达区域和已有建筑。有限小岛用于控制单局规模与 Navigation 成本，不制作无限地图、多岛航海或复杂地形模拟。
+
+时间裂缝从 Settlement Territory 外的合法环带中动态生成，生成位置与玩家是否已侦察分离。军营巡逻和未来预言塔逐步暴露方向、距离、规模与爆发时间。
+
+------------------------------------------------------------------------
+
+# 36. 人口长期入口与远征
+
+```text
+Population
+├─ Immigration ✅ V1：稳定、被动人口来源
+└─ Expedition  ⏳：主动、有风险的人口与资源来源
+```
+
+第一关闭环后再开发 Expedition Lodge。远征使用独立模拟，不让居民在巨大地图上长距离寻路：选择队伍、准备 FOOD / Tools / Medicine / Weapons、推进事件、返程，并通过 PopulationManager 统一转化为居民或奖励。
+
+远征物资应有明确作用：Tools 解决工程或遗迹事件，Medicine 降低伤病风险，Weapons 降低战斗风险，FOOD 决定远征持续能力。
+
+------------------------------------------------------------------------
+
+# 37. 文档职责
+
+```text
+README.md
+= 当前工程真实完成了什么
+= 如何运行和测试
+= 当前已确认的系统状态
+
+ROADMAP.md
+= 接下来做什么
+= 系统为什么这样连接
+= 长期方向与暂缓功能
+```
+
+以后不再维护独立的程序化小岛、人口与远征补充路线文档。
