@@ -1,6 +1,6 @@
-[gd_scene format=3 uid="uid://ck5uqtqyntnas"]
+[gd_scene format=3 uid="uid://pldnfotwf5gu"]
 
-[ext_resource type="Script" uid="uid://bu13103ayg7uo" path="res://Script/unit/game/villager.gd" id="1_eictv"]
+[ext_resource type="Script" path="res://Script/villager.gd" id="1_eictv"]
 
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_t2dwb"]
 radius = 0.3

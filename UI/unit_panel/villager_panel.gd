@@ -1,6 +1,9 @@
 class_name VillagerPanel
 extends UnitPanelBase
 
+const RESOURCE_DATABASE: ResourceDatabase = preload(
+	"res://data/resources/resource_database.tres"
+)
 const JOB_NAMES: PackedStringArray = ["NONE", "LUMBERJACK", "MINER"]
 const STATE_NAMES: PackedStringArray = [
 	"IDLE",
@@ -96,8 +99,11 @@ func refresh():
 	if carried_amount <= 0.0:
 		carry_label.text = "携带：无"
 	else:
+		var carried_resource_id: StringName = StringName(
+			villager.call("get_carried_resource_id")
+		)
 		carry_label.text = "携带：%s %.1f / %.1f" % [
-			ResourceType.Type.keys()[int(villager.call("get_carried_resource_type"))],
+			_get_resource_display_name(carried_resource_id),
 			carried_amount,
 			float(villager.get("carry_capacity"))
 		]
@@ -119,6 +125,13 @@ func _get_task_text(villager: UnitBase) -> String:
 
 func _get_node_name(node: Node) -> String:
 	return node.name if is_instance_valid(node) else "无"
+
+
+func _get_resource_display_name(resource_id: StringName) -> String:
+	var resource_data: ResourceData = RESOURCE_DATABASE.get_resource_data(resource_id)
+	if resource_data == null or resource_data.display_name.is_empty():
+		return str(resource_id)
+	return resource_data.display_name
 
 
 func _refresh_traits():

@@ -6,8 +6,15 @@ extends BuildingBase
 # 资源建筑配置
 # ============================================================
 
-## 当前建筑生产的资源类型
-@export var production_resource_type: ResourceType.Type = ResourceType.Type.WOOD
+## 当前建筑生产的资源 ID
+@export var production_resource_id: StringName = &"wood"
+
+## 旧资源类型接口，供尚未迁移的建造系统兼容使用。
+var production_resource_type: ResourceType.Type:
+	get:
+		return ResourceStorage.resource_type_from_id(production_resource_id)
+	set(value):
+		production_resource_id = ResourceStorage.resource_id_from_key(value)
 
 ## 最大工人数
 @export var max_workers: int = 3
@@ -180,7 +187,7 @@ func is_position_in_work_range(
 # ============================================================
 
 func deposit_resource(
-	resource_type: ResourceType.Type,
+	resource_key: Variant,
 	amount: float
 ) -> float:
 
@@ -189,13 +196,13 @@ func deposit_resource(
 
 
 	return storage.add(
-		resource_type,
+		resource_key,
 		amount
 	)
 
 
 func take_resource(
-	resource_type: ResourceType.Type,
+	resource_key: Variant,
 	amount: float
 ) -> float:
 
@@ -204,13 +211,13 @@ func take_resource(
 
 
 	return storage.take(
-		resource_type,
+		resource_key,
 		amount
 	)
 
 
 func has_resource(
-	resource_type: ResourceType.Type
+	resource_key: Variant
 ) -> bool:
 
 	if storage == null:
@@ -218,12 +225,12 @@ func has_resource(
 
 
 	return not storage.is_empty(
-		resource_type
+		resource_key
 	)
 
 
 func get_resource_amount(
-	resource_type: ResourceType.Type
+	resource_key: Variant
 ) -> float:
 
 	if storage == null:
@@ -231,12 +238,12 @@ func get_resource_amount(
 
 
 	return storage.get_amount(
-		resource_type
+		resource_key
 	)
 
 
 func get_resource_capacity(
-	resource_type: ResourceType.Type
+	resource_key: Variant
 ) -> float:
 
 	if storage == null:
@@ -244,7 +251,7 @@ func get_resource_capacity(
 
 
 	return storage.get_capacity(
-		resource_type
+		resource_key
 	)
 
 
@@ -259,7 +266,7 @@ func get_free_storage() -> float:
 
 
 	return storage.get_free_space(
-		production_resource_type
+		production_resource_id
 	)
 
 
@@ -270,7 +277,7 @@ func is_storage_full() -> bool:
 
 
 	return storage.is_full(
-		production_resource_type
+		production_resource_id
 	)
 
 
@@ -281,14 +288,14 @@ func is_storage_full() -> bool:
 func get_storage_amount() -> float:
 
 	return get_resource_amount(
-		production_resource_type
+		production_resource_id
 	)
 
 
 func get_storage_capacity() -> float:
 
 	return get_resource_capacity(
-		production_resource_type
+		production_resource_id
 	)
 # ============================================================
 # 子类负责分配具体职业

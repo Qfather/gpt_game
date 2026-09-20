@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="ResourceData" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="ResourceData" format=3 uid="uid://bqie777cu24jy"]
 
-[ext_resource type="Script" path="res://Script/resource/food_properties.gd" id="1_food_properties"]
-[ext_resource type="Script" path="res://Script/resource/resource_data.gd" id="2_resource_data"]
+[ext_resource type="Script" uid="uid://cvhho6n28x8cs" path="res://Script/resource/food_properties.gd" id="1_food_properties"]
+[ext_resource type="Script" uid="uid://j73mtdmdhsqu" path="res://Script/resource/resource_data.gd" id="2_resource_data"]
 
 [sub_resource type="Resource" id="FoodProperties_bread"]
 script = ExtResource("1_food_properties")

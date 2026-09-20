@@ -78,12 +78,19 @@ func _emit_resources_changed() -> void:
 # 获取某种资源的全局总量
 # ============================================================
 
-func get_total(resource_type: ResourceType.Type) -> float:
+func get_total(resource_key: Variant) -> float:
+
+	var resource_id: StringName = ResourceStorage.resource_id_from_key(
+		resource_key
+	)
+
+	if resource_id.is_empty():
+		return 0.0
 
 	var total: float = 0.0
 
-	total += get_storage_total(resource_type)
-	total += get_carried_total(resource_type)
+	total += get_storage_total(resource_id)
+	total += get_carried_total(resource_id)
 
 	return total
 
@@ -92,7 +99,14 @@ func get_total(resource_type: ResourceType.Type) -> float:
 # 所有 ResourceStorage 中的资源
 # ============================================================
 
-func get_storage_total(resource_type: ResourceType.Type) -> float:
+func get_storage_total(resource_key: Variant) -> float:
+
+	var resource_id: StringName = ResourceStorage.resource_id_from_key(
+		resource_key
+	)
+
+	if resource_id.is_empty():
+		return 0.0
 
 	var total: float = 0.0
 
@@ -106,7 +120,7 @@ func get_storage_total(resource_type: ResourceType.Type) -> float:
 			continue
 
 		total += float(
-			storage.get_amount(resource_type)
+			storage.get_amount(resource_id)
 		)
 
 	return total
@@ -116,7 +130,14 @@ func get_storage_total(resource_type: ResourceType.Type) -> float:
 # 所有居民正在携带的资源
 # ============================================================
 
-func get_carried_total(resource_type: ResourceType.Type) -> float:
+func get_carried_total(resource_key: Variant) -> float:
+
+	var resource_id: StringName = ResourceStorage.resource_id_from_key(
+		resource_key
+	)
+
+	if resource_id.is_empty():
+		return 0.0
 
 	var total: float = 0.0
 
@@ -130,15 +151,19 @@ func get_carried_total(resource_type: ResourceType.Type) -> float:
 		if not villager.has_method("get_carried_amount"):
 			continue
 
-		if not villager.has_method("get_carried_resource_type"):
+		var carried_resource_id: StringName = &""
+		if villager.has_method("get_carried_resource_id"):
+			carried_resource_id = StringName(
+				villager.get_carried_resource_id()
+			)
+		elif villager.has_method("get_carried_resource_type"):
+			carried_resource_id = ResourceStorage.resource_id_from_key(
+				villager.get_carried_resource_type()
+			)
+		else:
 			continue
 
-
-		var carried_type: ResourceType.Type = (
-			villager.get_carried_resource_type()
-		)
-
-		if carried_type != resource_type:
+		if carried_resource_id != resource_id:
 			continue
 
 

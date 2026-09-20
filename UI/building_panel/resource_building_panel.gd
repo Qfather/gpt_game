@@ -41,9 +41,9 @@ func refresh():
 		hire_button.hide()
 		fire_button.hide()
 		storage_label.text = "库存：\n木材：%d\n石材：%d\n食物：%d" % [
-			int(current_building.get_resource(ResourceType.Type.WOOD)),
-			int(current_building.get_resource(ResourceType.Type.STONE)),
-			int(current_building.get_resource(ResourceType.Type.FOOD))
+			int(current_building.get_resource(&"wood")),
+			int(current_building.get_resource(&"stone")),
+			int(current_building.get_resource(&"food"))
 		]
 		return
 
@@ -77,13 +77,13 @@ func refresh():
 	# 库存
 	# --------------------------------------------------------
 
-	var resource_type: Variant = current_building.get("production_resource_type")
+	var resource_id: Variant = current_building.get("production_resource_id")
 	var storage_amount: float
 	var storage_capacity: float
 
-	if resource_type != null and current_building.has_method("get_resource_amount"):
-		storage_amount = current_building.get_resource_amount(resource_type)
-		storage_capacity = current_building.get_resource_capacity(resource_type)
+	if resource_id != null and current_building.has_method("get_resource_amount"):
+		storage_amount = current_building.get_resource_amount(resource_id)
+		storage_capacity = current_building.get_resource_capacity(resource_id)
 	else:
 		# 兼容尚未迁移到通用接口的资源建筑。
 		storage_amount = float(current_building.get_storage_amount())

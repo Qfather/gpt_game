@@ -171,7 +171,7 @@ func _on_storage_resource_changed(
 func deposit_wood(amount: int):
 
 	var stored_amount: float = add_resource(
-		ResourceType.Type.WOOD,
+		&"wood",
 		float(amount)
 	)
 
@@ -179,5 +179,5 @@ func deposit_wood(amount: int):
 		"🏠 据点收到木材：",
 		stored_amount,
 		" 当前总木材：",
-		get_resource(ResourceType.Type.WOOD)
+		get_resource(&"wood")
 	)

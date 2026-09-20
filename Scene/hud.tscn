@@ -1,6 +1,6 @@
-[gd_scene format=3 uid="uid://cq8kxaoi8luhl"]
+[gd_scene format=3 uid="uid://dfst02iiqwqr3"]
 
-[ext_resource type="Script" uid="uid://dsvx88aiiacqp" path="res://Script/ui/hud.gd" id="1_cevek"]
+[ext_resource type="Script" path="res://Script/hud.gd" id="1_cevek"]
 
 [node name="HUD" type="CanvasLayer" unique_id=1924675286]
 process_mode = 3
@@ -13,18 +13,9 @@ offset_bottom = 40.0
 [node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer" unique_id=372903933]
 layout_mode = 2
 
-[node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer" unique_id=766175297]
-layout_mode = 2
-
-[node name="WoodLabel" type="Label" parent="PanelContainer/VBoxContainer/HBoxContainer2" unique_id=1611337460]
-unique_name_in_owner = true
+[node name="WoodLabel" type="Label" parent="PanelContainer/VBoxContainer" unique_id=1611337460]
 layout_mode = 2
 text = "木材：0"
-
-[node name="StoneLabel" type="Label" parent="PanelContainer/VBoxContainer/HBoxContainer2" unique_id=628230953]
-unique_name_in_owner = true
-layout_mode = 2
-text = "石头：0"
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer" unique_id=879828698]
 layout_mode = 2
@@ -44,32 +35,6 @@ text = "2X"
 [node name="Speed3Button" type="Button" parent="PanelContainer/VBoxContainer/HBoxContainer" unique_id=325766837]
 layout_mode = 2
 text = "3X"
-
-[node name="BuildMenu" type="PanelContainer" parent="." unique_id=2095081821]
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -125.0
-offset_top = -78.0
-offset_right = 125.0
-offset_bottom = -18.0
-grow_horizontal = 2
-grow_vertical = 0
-
-[node name="BuildButtons" type="HBoxContainer" parent="BuildMenu" unique_id=2095081822]
-layout_mode = 2
-
-[node name="LumberCampButton" type="Button" parent="BuildMenu/BuildButtons" unique_id=2095081823]
-custom_minimum_size = Vector2(115, 48)
-layout_mode = 2
-text = "伐木场"
-
-[node name="QuarryButton" type="Button" parent="BuildMenu/BuildButtons" unique_id=2095081824]
-custom_minimum_size = Vector2(115, 48)
-layout_mode = 2
-text = "采石场"
 
 [connection signal="pressed" from="PanelContainer/VBoxContainer/HBoxContainer/PauseButton" to="." method="_on_pause_button_pressed"]
 [connection signal="pressed" from="PanelContainer/VBoxContainer/HBoxContainer/Speed1Button" to="." method="_on_speed_1_button_pressed"]

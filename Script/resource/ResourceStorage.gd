@@ -68,6 +68,19 @@ static func resource_id_from_key(resource_key: Variant) -> StringName:
 	return &""
 
 
+static func resource_type_from_id(resource_key: Variant) -> ResourceType.Type:
+	var resource_id: StringName = resource_id_from_key(resource_key)
+	match resource_id:
+		&"wood":
+			return ResourceType.Type.WOOD
+		&"stone":
+			return ResourceType.Type.STONE
+		&"food":
+			return ResourceType.Type.FOOD
+
+	return -1
+
+
 # ============================================================
 # 初始化
 # ============================================================

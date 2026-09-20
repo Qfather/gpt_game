@@ -3,8 +3,7 @@ extends ResourceBase
 
 func _ready():
 
-	# 指定资源类型
-	resource_type = ResourceType.Type.WOOD
+	resource_id = &"wood"
 
 	# 自动加入通用资源组
 	add_to_group("resources")

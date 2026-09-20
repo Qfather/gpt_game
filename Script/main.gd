@@ -67,10 +67,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		event is InputEventKey
 		and event.pressed
 		and not event.echo
-		and event.keycode == KEY_H
+		and (event.keycode == KEY_H or event.keycode == KEY_J)
 	):
 		if DevMode.DEV_MODE:
-			_debug_add_wood()
+			if event.keycode == KEY_H:
+				_debug_add_wood()
+			else:
+				_debug_add_stone()
 			get_viewport().set_input_as_handled()
 		return
 
@@ -101,14 +104,35 @@ func _debug_add_wood() -> void:
 		return
 
 	var added_amount: float = base.add_resource(
-		ResourceType.Type.WOOD,
+		&"wood",
 		10.0
 	)
 	print(
 		"快捷测试：增加木材 ",
 		added_amount,
 		"，据点当前木材：",
-		base.get_resource(ResourceType.Type.WOOD)
+		base.get_resource(&"wood")
+	)
+
+
+func _debug_add_stone() -> void:
+	var bases: Array[Node] = get_tree().get_nodes_in_group("bases")
+	if bases.is_empty():
+		return
+
+	var base: Node = bases[0]
+	if not base.has_method("add_resource") or not base.has_method("get_resource"):
+		return
+
+	var added_amount: float = base.add_resource(
+		&"stone",
+		10.0
+	)
+	print(
+		"快捷测试：增加石头 ",
+		added_amount,
+		"，据点当前石头：",
+		base.get_resource(&"stone")
 	)
 
 
@@ -184,11 +208,11 @@ func _apply_level_config() -> void:
 		return
 
 	base.add_resource(
-		ResourceType.Type.WOOD,
+		&"wood",
 		level_config.initial_wood
 	)
 	base.add_resource(
-		ResourceType.Type.STONE,
+		&"stone",
 		level_config.initial_stone
 	)
 
@@ -293,10 +317,15 @@ func _select_world_object(target: Node3D) -> void:
 
 func _clear_selection_highlight() -> void:
 	for mesh_variant: Variant in selected_mesh_overlays.keys():
+		if not is_instance_valid(mesh_variant):
+			continue
+
 		var mesh_instance: MeshInstance3D = mesh_variant as MeshInstance3D
-		if is_instance_valid(mesh_instance):
-			mesh_instance.material_overlay = (
-				selected_mesh_overlays[mesh_variant] as Material
-			)
+		if mesh_instance == null:
+			continue
+
+		mesh_instance.material_overlay = (
+			selected_mesh_overlays[mesh_variant] as Material
+		)
 	selected_mesh_overlays.clear()
 	selected_object = null

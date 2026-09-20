@@ -60,13 +60,17 @@ enum Job {
 	MINER
 }
 
-func get_job_resource_type() -> Variant:
+func get_job_resource_id() -> StringName:
 
 	if workplace is ResourceBuildingBase:
 
-		return workplace.production_resource_type
+		return workplace.production_resource_id
 
-	return null
+	return &""
+
+
+func get_job_resource_type() -> ResourceType.Type:
+	return ResourceStorage.resource_type_from_id(get_job_resource_id())
 var job: Job = Job.NONE
 # 当前工作建筑
 var workplace: Node3D = null
@@ -88,15 +92,21 @@ var target_base: Node3D = null
 # 当前携带的资源类型和数量
 signal carried_resource_changed
 
-var carried_resource_type: ResourceType.Type = ResourceType.Type.WOOD
+var carried_resource_id: StringName = &"wood"
+
+var carried_resource_type: ResourceType.Type:
+	get:
+		return ResourceStorage.resource_type_from_id(carried_resource_id)
+	set(value):
+		carried_resource_id = ResourceStorage.resource_id_from_key(value)
 var carried_amount: float = 0.0
 
 # 旧字段仅保留给外部兼容，不参与正式运输流程。
 var carried_wood: int:
 	get:
-		return int(carried_amount) if carried_resource_type == ResourceType.Type.WOOD else 0
+		return int(carried_amount) if carried_resource_id == &"wood" else 0
 	set(value):
-		carried_resource_type = ResourceType.Type.WOOD
+		carried_resource_id = &"wood"
 		carried_amount = float(value)
 		carried_resource_changed.emit()
 
@@ -154,7 +164,14 @@ func start():
 
 func _physics_process(delta):
 
-	if (state == State.IDLE or state == State.WAIT_CONSTRUCTION_SITE) and current_task != null:
+	if (
+		(
+			state == State.IDLE
+			or state == State.RETURN_TO_IDLE
+			or state == State.WAIT_CONSTRUCTION_SITE
+		)
+		and current_task != null
+	):
 		_start_current_task()
 
 	match state:
@@ -245,13 +262,15 @@ func find_task_source() -> void:
 		state = State.IDLE
 		return
 
-	var resource_type: int = int(task.data.get("resource_type", -1))
+	var resource_id: StringName = ResourceStorage.resource_id_from_key(
+		task.data.get("resource_id", task.data.get("resource_type", &""))
+	)
 	var nearest: ResourceStorage = null
 	var nearest_distance: float = INF
 
 	for storage_node: Node in get_tree().get_nodes_in_group("resource_storages"):
 		var storage: ResourceStorage = storage_node as ResourceStorage
-		if storage == null or storage.get_amount(resource_type) <= 0.0:
+		if storage == null or storage.get_amount(resource_id) <= 0.0:
 			continue
 
 		var storage_parent: Node3D = storage.get_parent() as Node3D
@@ -273,7 +292,10 @@ func find_task_source() -> void:
 		_release_current_task()
 		return
 
-	navigation_agent.target_position = source_parent.global_position
+	var source_position: Vector3 = source_parent.global_position
+	if source_parent.has_method("get_interaction_position"):
+		source_position = source_parent.get_interaction_position(self)
+	navigation_agent.target_position = source_position
 	state = State.MOVE_TO_TASK_SOURCE
 
 
@@ -292,17 +314,19 @@ func move_to_task_source() -> void:
 		_release_current_task()
 		return
 
-	var resource_type: int = int(task.data.get("resource_type", -1))
+	var resource_id: StringName = ResourceStorage.resource_id_from_key(
+		task.data.get("resource_id", task.data.get("resource_type", &""))
+	)
 	var requested_amount: float = float(task.data.get("amount", 0.0))
-	var taken_amount: float = task_source.take(resource_type, minf(requested_amount, carry_capacity))
+	var taken_amount: float = task_source.take(resource_id, minf(requested_amount, carry_capacity))
 	if taken_amount <= 0.0:
 		_fail_delivery_task_and_return_to_idle()
 		return
 
-	carried_resource_type = resource_type
+	carried_resource_id = resource_id
 	carried_amount += taken_amount
 	carried_resource_changed.emit()
-	print("Villager 取出资源：", resource_type, " amount=", taken_amount)
+	print("Villager 取出资源：", resource_id, " amount=", taken_amount)
 
 	_set_task_site_navigation_target()
 	state = State.MOVE_TO_TASK_SITE
@@ -397,7 +421,7 @@ func move_to_task_site() -> void:
 		return
 
 	var delivered_amount: float = task_site.receive_delivery(
-		carried_resource_type,
+		carried_resource_id,
 		carried_amount
 	)
 	carried_amount -= delivered_amount
@@ -410,10 +434,40 @@ func move_to_task_site() -> void:
 	else:
 		clear_current_task()
 
+	var completed_site: Node = task_site
 	task_source = null
 	task_site = null
 	state = State.IDLE
+	call_deferred("_return_to_idle_if_task_finished", completed_site)
 	print("Villager 完成搬运任务：", task.id, " delivered=", delivered_amount)
+
+
+func _return_to_idle_if_task_finished(completed_site: Node) -> void:
+	if current_task != null or state != State.IDLE:
+		return
+
+	if carried_amount > 0.0:
+		go_to_base()
+		return
+
+	if is_instance_valid(completed_site):
+		var resource_id: StringName = &""
+		if completed_site.has_method("get_delivery_resource_id"):
+			resource_id = completed_site.get_delivery_resource_id()
+		elif completed_site.has_method("get_delivery_resource_type"):
+			resource_id = ResourceStorage.resource_id_from_key(
+				completed_site.get_delivery_resource_type()
+			)
+
+		if not resource_id.is_empty():
+			for storage_node: Node in get_tree().get_nodes_in_group(
+				"resource_storages"
+			):
+				var storage: ResourceStorage = storage_node as ResourceStorage
+				if storage != null and storage.get_amount(resource_id) > 0.0:
+					return
+
+	return_to_idle()
 
 
 func move_to_build_site() -> void:
@@ -482,9 +536,9 @@ func find_nearest_resource():
 	# 获取当前职业需要的资源类型
 	# --------------------------------------------------------
 
-	var wanted_type: Variant = get_job_resource_type()
+	var wanted_resource_id: StringName = get_job_resource_id()
 
-	if wanted_type == null:
+	if wanted_resource_id.is_empty():
 
 		return_to_idle()
 		return
@@ -516,7 +570,7 @@ func find_nearest_resource():
 			is_clearing_workplace_storage = true
 			print("📦 工作建筑已满，优先处理运输")
 
-			if try_transport_workplace_resource(wanted_type):
+			if try_transport_workplace_resource(wanted_resource_id):
 				return
 
 
@@ -546,7 +600,7 @@ func find_nearest_resource():
 		# 必须是当前职业需要的资源类型
 		# ----------------------------------------------------
 
-		if resource.resource_type != wanted_type:
+		if resource.get_resource_id() != wanted_resource_id:
 			continue
 
 
@@ -619,7 +673,7 @@ func find_nearest_resource():
 		# 看工作建筑还有没有库存需要运输
 		# --------------------------------------------------------
 
-		if try_transport_workplace_resource(wanted_type):
+		if try_transport_workplace_resource(wanted_resource_id):
 
 			print("📦 没有生产任务，改为运输库存")
 
@@ -770,9 +824,9 @@ func gather_resource(delta):
 			amount_to_gather
 		)
 
-		var gather_type: Variant = get_job_resource_type()
-		if gather_type != null:
-			carried_resource_type = gather_type
+		var gather_resource_id: StringName = get_job_resource_id()
+		if not gather_resource_id.is_empty():
+			carried_resource_id = gather_resource_id
 		carried_amount += float(gathered_amount)
 		if gathered_amount > 0:
 			carried_resource_changed.emit()
@@ -854,9 +908,10 @@ func go_to_base():
 		return
 
 
-	navigation_agent.target_position = (
-		target_base.global_position
-	)
+	var base_position: Vector3 = target_base.global_position
+	if target_base.has_method("get_interaction_position"):
+		base_position = target_base.get_interaction_position(self)
+	navigation_agent.target_position = base_position
 
 
 	state = State.MOVE_TO_BASE
@@ -908,7 +963,7 @@ func deposit_to_base():
 		if target_base.has_method("add_resource"):
 
 			var stored_amount: float = target_base.add_resource(
-				carried_resource_type,
+				carried_resource_id,
 				carried_amount
 			)
 
@@ -921,7 +976,7 @@ func deposit_to_base():
 		"📦 向据点卸货完成，剩余携带：",
 		carried_amount,
 		" | 资源类型：",
-		carried_resource_type
+		carried_resource_id
 	)
 
 	# Base 满仓时只扣除实际存入的数量，剩余资源继续保留。
@@ -954,7 +1009,7 @@ func deposit_to_base():
 
 			if workplace.has_method("has_resource"):
 
-				if workplace.has_resource(carried_resource_type):
+				if workplace.has_resource(carried_resource_id):
 
 					print("📦 仓库还有库存，继续回去搬运")
 
@@ -1110,7 +1165,7 @@ func assign_job(
 			" | 职业：",
 			job,
 			" | 资源：",
-			workplace.production_resource_type
+		workplace.production_resource_id
 		)
 
 		state = State.FIND_RESOURCE
@@ -1243,9 +1298,10 @@ func go_to_workplace():
 		return
 
 
-	navigation_agent.target_position = (
-		workplace.global_position
-	)
+	var workplace_position: Vector3 = workplace.global_position
+	if workplace.has_method("get_interaction_position"):
+		workplace_position = workplace.get_interaction_position(self)
+	navigation_agent.target_position = workplace_position
 
 	state = State.MOVE_TO_WORKPLACE
 
@@ -1322,7 +1378,7 @@ func deposit_to_workplace():
 
 
 	var deposited: float = workplace.deposit_resource(
-		carried_resource_type,
+		carried_resource_id,
 		carried_amount
 	)
 
@@ -1368,7 +1424,7 @@ func deposit_to_workplace():
 # ============================================================
 
 func try_transport_workplace_resource(
-	resource_type: ResourceType.Type
+	resource_key: Variant
 ) -> bool:
 
 	# --------------------------------------------------------
@@ -1410,7 +1466,7 @@ func try_transport_workplace_resource(
 
 	if workplace.has_method("has_resource"):
 
-		if not workplace.has_resource(resource_type):
+		if not workplace.has_resource(resource_key):
 			return false
 
 
@@ -1449,7 +1505,7 @@ func try_transport_workplace_resource(
 	is_transporting = true
 
 	var taken: float = workplace.take_resource(
-		resource_type,
+		resource_key,
 		free_space
 	)
 
@@ -1458,7 +1514,7 @@ func try_transport_workplace_resource(
 		return false
 
 
-	carried_resource_type = resource_type
+	carried_resource_id = ResourceStorage.resource_id_from_key(resource_key)
 	carried_amount += taken
 	carried_resource_changed.emit()
 
@@ -1479,7 +1535,7 @@ func try_transport_workplace_resource(
 
 func try_transport_workplace_wood() -> bool:
 
-	return try_transport_workplace_resource(ResourceType.Type.WOOD)
+	return try_transport_workplace_resource(&"wood")
 # ============================================================
 # 从工作建筑取货并运输到据点
 # ============================================================
@@ -1541,19 +1597,19 @@ func fill_carry_from_workplace():
 
 
 	# 从伐木场补货
-	var resource_type: Variant = get_job_resource_type()
-	if workplace.get("production_resource_type") != null:
-		resource_type = workplace.production_resource_type
+	var resource_id: Variant = get_job_resource_id()
+	if workplace.get("production_resource_id") != null:
+		resource_id = workplace.production_resource_id
 
-	if resource_type == null:
+	if resource_id == null or StringName(resource_id).is_empty():
 		return
 
 	var taken: float = workplace.take_resource(
-		resource_type,
+		resource_id,
 		free_space
 	)
 
-	carried_resource_type = resource_type
+	carried_resource_id = ResourceStorage.resource_id_from_key(resource_id)
 	carried_amount += taken
 	if taken > 0.0:
 		carried_resource_changed.emit()
@@ -1628,6 +1684,10 @@ func finish_quit_job():
 	target_resource = null
 
 	return_to_idle()
+
+	var managers: Array[Node] = get_tree().get_nodes_in_group("task_manager")
+	if not managers.is_empty() and managers[0].has_method("request_dispatch"):
+		managers[0].request_dispatch()
 # ============================================================
 # 公共任务资格
 # ============================================================
@@ -1666,7 +1726,7 @@ func return_carried_resource_to_base() -> void:
 		return
 
 	var returned_amount: float = target_base.add_resource(
-		carried_resource_type,
+		carried_resource_id,
 		carried_amount
 	)
 	carried_amount -= returned_amount
@@ -1684,6 +1744,11 @@ func get_carried_amount() -> float:
 	return carried_amount
 
 
+func get_carried_resource_id() -> StringName:
+
+	return carried_resource_id
+
+
 func get_carried_resource_type() -> ResourceType.Type:
 
-	return carried_resource_type
+	return ResourceStorage.resource_type_from_id(carried_resource_id)

@@ -1,6 +1,10 @@
 class_name ConstructionSite
 extends BuildingBase
 
+const RESOURCE_DATABASE: ResourceDatabase = preload(
+	"res://data/resources/resource_database.tres"
+)
+
 static var next_delivery_priority: int = 0
 
 enum State {
@@ -21,9 +25,9 @@ var grid_position: Vector2i
 var rotation_step: int = 0
 var mirrored: bool = false
 
-var required_resources: Dictionary = {}
-var delivered_resources: Dictionary = {}
-var reserved_resources: Dictionary = {}
+var required_resources: Dictionary[StringName, float] = {}
+var delivered_resources: Dictionary[StringName, float] = {}
+var reserved_resources: Dictionary[StringName, float] = {}
 var construction_progress: float = 0.0
 var builders: Array[Node] = []
 var delivery_workers: Array[Node] = []
@@ -58,7 +62,9 @@ func setup(
 	grid_position = placed_grid_position
 	rotation_step = placed_rotation_step
 	mirrored = placed_mirrored
-	required_resources = building_data.construction_cost.duplicate(true)
+	required_resources = _normalize_resource_dictionary(
+		building_data.construction_cost
+	)
 	delivered_resources = {}
 	reserved_resources = {}
 	delivery_workers = []
@@ -205,46 +211,59 @@ func get_state() -> State:
 	return state
 
 
-func get_required_amount(resource_type: ResourceType.Type) -> float:
+func get_required_amount(resource_key: Variant) -> float:
 
-	return float(required_resources.get(resource_type, 0.0))
-
-
-func get_delivered_amount(resource_type: ResourceType.Type) -> float:
-
-	return float(delivered_resources.get(resource_type, 0.0))
+	var resource_id: StringName = ResourceStorage.resource_id_from_key(resource_key)
+	return float(required_resources.get(resource_id, 0.0))
 
 
-func get_reserved_amount(resource_type: ResourceType.Type) -> float:
+func get_delivered_amount(resource_key: Variant) -> float:
 
-	return float(reserved_resources.get(resource_type, 0.0))
+	var resource_id: StringName = ResourceStorage.resource_id_from_key(resource_key)
+	return float(delivered_resources.get(resource_id, 0.0))
 
 
-func get_still_needed(resource_type: ResourceType.Type) -> float:
+func get_reserved_amount(resource_key: Variant) -> float:
+
+	var resource_id: StringName = ResourceStorage.resource_id_from_key(resource_key)
+	return float(reserved_resources.get(resource_id, 0.0))
+
+
+func get_still_needed(resource_key: Variant) -> float:
+
+	var resource_id: StringName = ResourceStorage.resource_id_from_key(resource_key)
 
 	return maxf(
-		get_required_amount(resource_type)
-		- get_delivered_amount(resource_type)
-		- get_reserved_amount(resource_type),
+		get_required_amount(resource_id)
+		- get_delivered_amount(resource_id)
+		- get_reserved_amount(resource_id),
 		0.0
 	)
 
 
-func get_next_needed_resource() -> int:
+func get_next_needed_resource_id() -> StringName:
 
-	for resource_type: int in required_resources.keys():
-		if get_still_needed(resource_type) > 0.0:
-			return resource_type
+	for resource_id: StringName in required_resources.keys():
+		if get_still_needed(resource_id) > 0.0:
+			return resource_id
 
-	return -1
+	return &""
 
 
-func get_delivery_resource_type() -> int:
-	for resource_type: int in required_resources.keys():
-		if get_delivered_amount(resource_type) < get_required_amount(resource_type):
-			return resource_type
+func get_delivery_resource_id() -> StringName:
+	for resource_id: StringName in required_resources.keys():
+		if get_delivered_amount(resource_id) < get_required_amount(resource_id):
+			return resource_id
 
-	return -1
+	return &""
+
+
+func get_next_needed_resource() -> ResourceType.Type:
+	return ResourceStorage.resource_type_from_id(get_next_needed_resource_id())
+
+
+func get_delivery_resource_type() -> ResourceType.Type:
+	return ResourceStorage.resource_type_from_id(get_delivery_resource_id())
 
 
 func get_max_construction_workers() -> int:
@@ -298,9 +317,9 @@ func _create_random_edge_offset(worker_index: int, worker_count: int) -> Vector3
 	var width: float = maxf(half_size.x * 2.0, 0.1)
 	var depth: float = maxf(half_size.y * 2.0, 0.1)
 	var perimeter: float = 2.0 * (width + depth)
-	var random_slot: float = randf_range(0.2, 0.8)
+	var slot_center: float = float(worker_index) + 0.5
 	var distance_on_perimeter: float = (
-		float(worker_index) + random_slot
+		slot_center
 	) / float(maxi(worker_count, 1)) * perimeter
 	var min_x: float = center.x - half_size.x
 	var max_x: float = center.x + half_size.x
@@ -391,15 +410,16 @@ func has_free_slot() -> bool:
 
 func get_construction_material_text() -> String:
 	var lines: PackedStringArray = []
-	for resource_type: int in required_resources.keys():
-		var resource_name: String = "木材" if resource_type == ResourceType.Type.WOOD else "石材"
-		if resource_type == ResourceType.Type.FOOD:
-			resource_name = "食物"
+	for resource_id: StringName in required_resources.keys():
+		var resource_name: String = str(resource_id)
+		var resource_data: ResourceData = RESOURCE_DATABASE.get_resource_data(resource_id)
+		if resource_data != null and not resource_data.display_name.is_empty():
+			resource_name = resource_data.display_name
 		lines.append(
 			"%s：%d / %d" % [
 				resource_name,
-				int(get_delivered_amount(resource_type)),
-				int(get_required_amount(resource_type))
+				int(get_delivered_amount(resource_id)),
+				int(get_required_amount(resource_id))
 			]
 		)
 	return "材料：\n" + "\n".join(lines)
@@ -512,47 +532,50 @@ func release_waiting_workers() -> void:
 
 
 func reserve_resource(
-	resource_type: ResourceType.Type,
+	resource_key: Variant,
 	amount: float
 ) -> float:
+	var resource_id: StringName = ResourceStorage.resource_id_from_key(resource_key)
 
-	var actual_amount: float = minf(amount, get_still_needed(resource_type))
+	var actual_amount: float = minf(amount, get_still_needed(resource_id))
 	if actual_amount <= 0.0:
 		return 0.0
 
-	reserved_resources[resource_type] = (
-		get_reserved_amount(resource_type) + actual_amount
+	reserved_resources[resource_id] = (
+		get_reserved_amount(resource_id) + actual_amount
 	)
 	_print_status()
 	return actual_amount
 
 
 func release_reserved_resource(
-	resource_type: ResourceType.Type,
+	resource_key: Variant,
 	amount: float
 ) -> void:
+	var resource_id: StringName = ResourceStorage.resource_id_from_key(resource_key)
 
 	var remaining: float = maxf(
-		get_reserved_amount(resource_type) - amount,
+		get_reserved_amount(resource_id) - amount,
 		0.0
 	)
 	if remaining <= 0.0:
-		reserved_resources.erase(resource_type)
+		reserved_resources.erase(resource_id)
 	else:
-		reserved_resources[resource_type] = remaining
+		reserved_resources[resource_id] = remaining
 
 
 func receive_delivery(
-	resource_type: ResourceType.Type,
+	resource_key: Variant,
 	amount: float
 ) -> float:
+	var resource_id: StringName = ResourceStorage.resource_id_from_key(resource_key)
 
-	var actual_amount: float = minf(amount, get_still_needed(resource_type) + get_reserved_amount(resource_type))
+	var actual_amount: float = minf(amount, get_still_needed(resource_id) + get_reserved_amount(resource_id))
 	if actual_amount <= 0.0:
 		return 0.0
 
-	delivered_resources[resource_type] = (
-		get_delivered_amount(resource_type) + actual_amount
+	delivered_resources[resource_id] = (
+		get_delivered_amount(resource_id) + actual_amount
 	)
 	_refresh_state()
 	_print_status()
@@ -564,9 +587,11 @@ func on_delivery_task_completed(task: GameTask) -> void:
 		delivery_workers.append(task.assigned_worker)
 	next_delivery_worker = task.assigned_worker
 
-	var resource_type: int = int(task.data.get("resource_type", -1))
+	var resource_id: StringName = ResourceStorage.resource_id_from_key(
+		task.data.get("resource_id", task.data.get("resource_type", &""))
+	)
 	var amount: float = float(task.data.get("amount", 0.0))
-	release_reserved_resource(resource_type, amount)
+	release_reserved_resource(resource_id, amount)
 	call_deferred("_request_delivery_task")
 
 
@@ -576,9 +601,11 @@ func on_delivery_task_released(task: GameTask) -> void:
 	if next_delivery_worker == task.assigned_worker:
 		next_delivery_worker = null
 
-	var resource_type: int = int(task.data.get("resource_type", -1))
+	var resource_id: StringName = ResourceStorage.resource_id_from_key(
+		task.data.get("resource_id", task.data.get("resource_type", &""))
+	)
 	var amount: float = float(task.data.get("amount", 0.0))
-	release_reserved_resource(resource_type, amount)
+	release_reserved_resource(resource_id, amount)
 	call_deferred("_request_delivery_task")
 
 
@@ -588,9 +615,11 @@ func on_delivery_task_failed(task: GameTask) -> void:
 	if next_delivery_worker == task.assigned_worker:
 		next_delivery_worker = null
 
-	var resource_type: int = int(task.data.get("resource_type", -1))
+	var resource_id: StringName = ResourceStorage.resource_id_from_key(
+		task.data.get("resource_id", task.data.get("resource_type", &""))
+	)
 	var amount: float = float(task.data.get("amount", 0.0))
-	release_reserved_resource(resource_type, amount)
+	release_reserved_resource(resource_id, amount)
 
 
 func _request_delivery_task() -> void:
@@ -676,23 +705,24 @@ func on_build_task_completed(task: GameTask) -> void:
 
 
 func debug_deliver_resource(
-	resource_type: ResourceType.Type,
+	resource_key: Variant,
 	amount: float
 ) -> float:
+	var resource_id: StringName = ResourceStorage.resource_id_from_key(resource_key)
 
 	if amount <= 0.0:
 		return 0.0
 
 	var actual_amount: float = minf(
 		amount,
-		get_still_needed(resource_type)
+		get_still_needed(resource_id)
 	)
 
 	if actual_amount <= 0.0:
 		return 0.0
 
-	delivered_resources[resource_type] = (
-		get_delivered_amount(resource_type)
+	delivered_resources[resource_id] = (
+		get_delivered_amount(resource_id)
 		+ actual_amount
 	)
 	_refresh_state()
@@ -703,11 +733,11 @@ func debug_deliver_resource(
 
 func debug_deliver_required_resources() -> void:
 
-	var resource_types: Array = required_resources.keys()
+	var resource_ids: Array = required_resources.keys()
 
-	for resource_type: int in resource_types:
+	for resource_id: StringName in resource_ids:
 		debug_deliver_resource(
-			resource_type,
+			resource_id,
 			debug_delivery_amount
 		)
 
@@ -745,11 +775,11 @@ func _request_task_dispatch() -> void:
 
 func _all_resources_delivered() -> bool:
 
-	var resource_types: Array = required_resources.keys()
+	var resource_ids: Array = required_resources.keys()
 
-	for resource_type: int in resource_types:
+	for resource_id: StringName in resource_ids:
 
-		if get_delivered_amount(resource_type) < get_required_amount(resource_type):
+		if get_delivered_amount(resource_id) < get_required_amount(resource_id):
 			return false
 
 	return true
@@ -779,12 +809,24 @@ func _print_status() -> void:
 func _get_still_needed_summary() -> Dictionary:
 
 	var result: Dictionary = {}
-	var resource_types: Array = required_resources.keys()
+	var resource_ids: Array = required_resources.keys()
 
-	for resource_type: int in resource_types:
-		result[resource_type] = get_still_needed(resource_type)
+	for resource_id: StringName in resource_ids:
+		result[resource_id] = get_still_needed(resource_id)
 
 	return result
+
+
+func _normalize_resource_dictionary(
+	source: Dictionary
+) -> Dictionary[StringName, float]:
+	var normalized: Dictionary[StringName, float] = {}
+	for resource_key: Variant in source.keys():
+		var resource_id: StringName = ResourceStorage.resource_id_from_key(resource_key)
+		if resource_id.is_empty():
+			continue
+		normalized[resource_id] = float(source[resource_key])
+	return normalized
 
 
 func _create_site_visual() -> void:

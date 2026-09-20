@@ -39,7 +39,7 @@ func assign_worker_job(worker: Node) -> void:
 func deposit_wood(amount: float) -> float:
 
 	return deposit_resource(
-		ResourceType.Type.WOOD,
+		&"wood",
 		amount
 	)
 
@@ -47,7 +47,7 @@ func deposit_wood(amount: float) -> float:
 func take_wood(amount: float) -> float:
 
 	return take_resource(
-		ResourceType.Type.WOOD,
+		&"wood",
 		amount
 	)
 
@@ -55,7 +55,7 @@ func take_wood(amount: float) -> float:
 func has_stored_wood() -> bool:
 
 	return has_resource(
-		ResourceType.Type.WOOD
+		&"wood"
 	)
 
 

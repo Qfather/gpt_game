@@ -46,7 +46,12 @@ func _run_dispatch() -> void:
 	dispatch_queued = false
 	dispatch_running = true
 
+	var construction_sites: Array[Node] = []
 	for site: Node in get_tree().get_nodes_in_group("construction_sites"):
+		construction_sites.append(site)
+	construction_sites.sort_custom(_sort_construction_sites_by_priority)
+
+	for site: Node in construction_sites:
 		if site.has_method("_create_delivery_tasks_now"):
 			site._create_delivery_tasks_now()
 		elif site.has_method("request_delivery_tasks"):
@@ -54,6 +59,23 @@ func _run_dispatch() -> void:
 
 	_dispatch_available_tasks()
 	dispatch_running = false
+
+
+func _sort_construction_sites_by_priority(a: Node, b: Node) -> bool:
+	var a_priority: int = (
+		int(a.get_delivery_priority())
+		if a.has_method("get_delivery_priority")
+		else 0
+	)
+	var b_priority: int = (
+		int(b.get_delivery_priority())
+		if b.has_method("get_delivery_priority")
+		else 0
+	)
+	if a_priority != b_priority:
+		return a_priority < b_priority
+
+	return a.get_instance_id() < b.get_instance_id()
 
 
 func _dispatch_available_tasks() -> void:
@@ -155,16 +177,29 @@ func create_construction_delivery_task(
 	if site == null:
 		return null
 
-	if not site.has_method("get_next_needed_resource"):
+	if (
+		not site.has_method("get_next_needed_resource_id")
+		and not site.has_method("get_next_needed_resource")
+	):
 		return null
 
-	var resource_type: int = site.get_next_needed_resource()
-	if resource_type < 0:
+	var resource_id: StringName = &""
+	if site.has_method("get_next_needed_resource_id"):
+		resource_id = site.get_next_needed_resource_id()
+	else:
+		resource_id = ResourceStorage.resource_id_from_key(
+			site.get_next_needed_resource()
+		)
+	if resource_id.is_empty():
 		return null
 
 	var amount: float = minf(
-		float(site.get_still_needed(resource_type)),
+		float(site.get_still_needed(resource_id)),
 		5.0
+	)
+	amount = minf(
+		amount,
+		_get_available_resource_amount(resource_id)
 	)
 	if amount <= 0.0:
 		return null
@@ -173,7 +208,7 @@ func create_construction_delivery_task(
 		return null
 
 	var reserved_amount: float = site.reserve_resource(
-		resource_type,
+		resource_id,
 		amount
 	)
 	if reserved_amount <= 0.0:
@@ -186,7 +221,7 @@ func create_construction_delivery_task(
 		_get_construction_task_priority(site)
 	)
 	task.data = {
-		"resource_type": resource_type,
+		"resource_id": resource_id,
 		"amount": reserved_amount,
 		"preferred_worker": preferred_worker
 	}
@@ -205,8 +240,14 @@ func create_construction_delivery_tasks(
 	var max_workers: int = site.get_max_construction_workers()
 	if site.has_method("get_construction_worker_limit"):
 		max_workers = site.get_construction_worker_limit()
-	var resource_type: int = site.get_delivery_resource_type()
-	if not _has_resource_source(resource_type):
+	var resource_id: StringName = &""
+	if site.has_method("get_delivery_resource_id"):
+		resource_id = site.get_delivery_resource_id()
+	else:
+		resource_id = ResourceStorage.resource_id_from_key(
+			site.get_delivery_resource_type()
+		)
+	if not _has_resource_source(resource_id):
 		if site.has_method("release_waiting_workers"):
 			site.release_waiting_workers()
 		return
@@ -235,7 +276,7 @@ func create_construction_delivery_tasks(
 		active_count += 1
 		preferred_assigned = true
 
-	if _has_resource_source(resource_type):
+	if _has_resource_source(resource_id):
 		if site.has_method("fill_waiting_workers"):
 			site.fill_waiting_workers()
 	elif site.has_method("release_waiting_workers"):
@@ -249,16 +290,39 @@ func _get_construction_task_priority(site: Node) -> int:
 	return 0
 
 
-func _has_resource_source(resource_type: int) -> bool:
-	if resource_type < 0:
-		return false
+func _has_resource_source(resource_key: Variant) -> bool:
+	var resource_id: StringName = ResourceStorage.resource_id_from_key(resource_key)
+	return not resource_id.is_empty() and _get_available_resource_amount(resource_id) > 0.0
+
+
+func _get_available_resource_amount(resource_id: StringName) -> float:
+	if resource_id.is_empty():
+		return 0.0
+
+	var total_amount: float = 0.0
 
 	for storage_node: Node in get_tree().get_nodes_in_group("resource_storages"):
 		var storage: ResourceStorage = storage_node as ResourceStorage
-		if storage != null and storage.get_amount(resource_type) > 0.0:
-			return true
+		if storage != null and storage.get_amount(resource_id) > 0.0:
+			total_amount += storage.get_amount(resource_id)
 
-	return false
+	var reserved_by_tasks: float = 0.0
+	for task_variant in tasks.values():
+		var task: GameTask = task_variant as GameTask
+		if (
+			task == null
+			or task.type != GameTask.TaskType.DELIVER_CONSTRUCTION_RESOURCE
+			or task.state == GameTask.State.COMPLETED
+			or task.state == GameTask.State.CANCELLED
+		):
+			continue
+		var task_resource_id: StringName = ResourceStorage.resource_id_from_key(
+			task.data.get("resource_id", task.data.get("resource_type", &""))
+		)
+		if task_resource_id == resource_id:
+			reserved_by_tasks += float(task.data.get("amount", 0.0))
+
+	return maxf(total_amount - reserved_by_tasks, 0.0)
 
 
 func create_construction_build_tasks(

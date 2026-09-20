@@ -7,8 +7,18 @@ signal resource_clicked(resource: ResourceBase)
 # 参数
 # ============================================================
 
-# 资源类型统一使用全局 ResourceType
-var resource_type: ResourceType.Type = ResourceType.Type.WOOD
+var resource_id: StringName = &"wood"
+
+# 旧资源类型接口，仅保留兼容。
+var resource_type: ResourceType.Type:
+	get:
+		return ResourceStorage.resource_type_from_id(resource_id)
+	set(value):
+		resource_id = ResourceStorage.resource_id_from_key(value)
+
+
+func get_resource_id() -> StringName:
+	return resource_id
 
 @export var min_amount: int = 5
 @export var max_amount: int = 10
@@ -39,8 +49,8 @@ func _ready():
 		name,
 		" | groups = ",
 		get_groups(),
-		" | type = ",
-		resource_type
+		" | resource_id = ",
+		resource_id
 	)
 
 	var click_body: CollisionObject3D = get_node_or_null("StaticBody3D")
