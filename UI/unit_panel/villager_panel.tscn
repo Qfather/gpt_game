@@ -41,6 +41,11 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "职业：NONE"
 
+[node name="CombatRoleLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "军事职业：无"
+
 [node name="StateLabel" type="Label" parent="VBox"]
 unique_name_in_owner = true
 layout_mode = 2

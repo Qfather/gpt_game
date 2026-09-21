@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://Script/building_data.gd" id="1_building_data"]
+[ext_resource type="PackedScene" path="res://Scene/building/game/swordsman_camp.tscn" id="2_swordsman_camp"]
+
+[resource]
+script = ExtResource("1_building_data")
+id = &"swordsman_camp"
+display_name = "剑士营"
+description = "为普通居民提供剑士训练场所。"
+function_text = "点击训练剑士后，自动安排空闲居民前往训练位。"
+building_scene = ExtResource("2_swordsman_camp")
+grid_size = Vector2i(3, 3)
+construction_cost = Dictionary[StringName, float]({
+&"wood": 25.0,
+&"stone": 10.0
+})
+training_cost = Dictionary[StringName, float]({
+&"wood": 5.0,
+&"stone": 5.0
+})
+construction_time = 20.0
+max_construction_workers = 3
+allow_rotation = true
+allow_mirror = true

@@ -15,15 +15,19 @@ const FARM_DATA: BuildingData = preload(
 const HOUSE_DATA: BuildingData = preload(
 	"res://data/buildings/HouseData.tres"
 )
+const SWORDSMAN_CAMP_DATA: BuildingData = preload(
+	"res://data/buildings/SwordsmanCampData.tres"
+)
 const RESOURCE_DATABASE: ResourceDatabase = preload(
 	"res://data/resources/resource_database.tres"
 )
-const BUILDING_OPTIONS: Array[BuildingData] = [
+const PRODUCTION_BUILDINGS: Array[BuildingData] = [
 	LUMBER_CAMP_DATA,
 	QUARRY_DATA,
 	FARM_DATA,
 	HOUSE_DATA
 ]
+const MILITARY_BUILDINGS: Array[BuildingData] = [SWORDSMAN_CAMP_DATA]
 
 
 # ============================================================
@@ -37,7 +41,8 @@ const BUILDING_OPTIONS: Array[BuildingData] = [
 @onready var immigration_status_label: Label = %ImmigrationStatusLabel
 @onready var immigration_requirement_label: Label = %ImmigrationRequirementLabel
 @onready var immigration_progress_bar: ProgressBar = %ImmigrationProgressBar
-@onready var build_buttons: HBoxContainer = $BuildMenu/BuildButtons
+@onready var build_buttons: HBoxContainer = $BuildMenu/BuildMenuContent/BuildButtons
+@onready var building_tabs: TabBar = $BuildMenu/BuildMenuContent/BuildingTabs
 
 
 # ============================================================
@@ -54,6 +59,7 @@ var debug_resource_labels: Dictionary = {}
 var debug_villager_section: VBoxContainer = null
 var debug_villager_label: Label = null
 var debug_villager: Node = null
+var selected_building_category: int = 0
 
 
 # ============================================================
@@ -309,31 +315,38 @@ func _on_debug_villager_adjust(property_name: String, amount: float) -> void:
 
 
 func _configure_building_menu() -> void:
-	var buttons: Array[Node] = build_buttons.get_children()
-	for index in range(BUILDING_OPTIONS.size()):
-		var building_data: BuildingData = BUILDING_OPTIONS[index]
-		var button: Button
-		if index < buttons.size():
-			button = buttons[index] as Button
-		else:
-			button = Button.new()
-			build_buttons.add_child(button)
+	building_tabs.tab_count = 2
+	building_tabs.set_tab_title(0, "生产建筑")
+	building_tabs.set_tab_title(1, "军事建筑")
+	if not building_tabs.tab_changed.is_connected(_on_building_tab_changed):
+		building_tabs.tab_changed.connect(_on_building_tab_changed)
+	_refresh_building_buttons()
 
-		if button == null:
-			continue
+
+func _on_building_tab_changed(tab_index: int) -> void:
+	selected_building_category = clampi(tab_index, 0, 1)
+	_refresh_building_buttons()
+
+
+func _refresh_building_buttons() -> void:
+	for child: Node in build_buttons.get_children():
+		child.free()
+
+	var building_options: Array[BuildingData] = (
+		PRODUCTION_BUILDINGS
+		if selected_building_category == 0
+		else MILITARY_BUILDINGS
+	)
+	for building_data: BuildingData in building_options:
+		var button := Button.new()
+		button.custom_minimum_size = Vector2(115.0, 48.0)
 		button.text = building_data.display_name
-		button.tooltip_text = ""
-		if not button.pressed.is_connected(_on_building_button_pressed):
-			button.pressed.connect(_on_building_button_pressed.bind(building_data))
+		button.pressed.connect(_on_building_button_pressed.bind(building_data))
 		button.mouse_entered.connect(
 			_on_building_button_mouse_entered.bind(button, building_data)
 		)
 		button.mouse_exited.connect(_on_building_button_mouse_exited)
-
-	for index: int in range(BUILDING_OPTIONS.size(), buttons.size()):
-		var unused_button: Button = buttons[index] as Button
-		if unused_button != null:
-			unused_button.hide()
+		build_buttons.add_child(button)
 
 
 func _create_building_popup() -> void:

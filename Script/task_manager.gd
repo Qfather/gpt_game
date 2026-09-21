@@ -144,7 +144,8 @@ func find_task(task_id: StringName) -> GameTask:
 
 func create_construction_delivery_task(
 	site: Node,
-	preferred_worker: Node = null
+	preferred_worker: Node = null,
+	preferred_resource_id: StringName = &""
 ) -> GameTask:
 
 	if site == null:
@@ -156,13 +157,14 @@ func create_construction_delivery_task(
 	):
 		return null
 
-	var resource_id: StringName = &""
-	if site.has_method("get_next_needed_resource_id"):
-		resource_id = site.get_next_needed_resource_id()
-	else:
-		resource_id = ResourceStorage.resource_id_from_key(
-			site.get_next_needed_resource()
-		)
+	var resource_id: StringName = preferred_resource_id
+	if resource_id.is_empty():
+		if site.has_method("get_next_needed_resource_id"):
+			resource_id = site.get_next_needed_resource_id()
+		else:
+			resource_id = ResourceStorage.resource_id_from_key(
+				site.get_next_needed_resource()
+			)
 	if resource_id.is_empty():
 		return null
 
@@ -213,23 +215,10 @@ func create_construction_delivery_tasks(
 	var max_workers: int = site.get_max_construction_workers()
 	if site.has_method("get_construction_worker_limit"):
 		max_workers = site.get_construction_worker_limit()
-	var resource_id: StringName = &""
-	if site.has_method("get_delivery_resource_id"):
-		resource_id = site.get_delivery_resource_id()
-	else:
-		resource_id = ResourceStorage.resource_id_from_key(
-			site.get_delivery_resource_type()
-		)
 	var resources_already_reserved: bool = (
 		site.has_method("has_all_reserved_construction_resources")
 		and site.has_all_reserved_construction_resources()
 	)
-	if not _has_resource_source(resource_id):
-		if resources_already_reserved and site.has_method("fill_waiting_workers"):
-			site.fill_waiting_workers()
-		elif site.has_method("release_waiting_workers"):
-			site.release_waiting_workers()
-		return
 	var active_count: int = 0
 	var preferred_assigned: bool = false
 
@@ -246,9 +235,13 @@ func create_construction_delivery_tasks(
 			active_count += 1
 
 	while active_count < max_workers:
+		var resource_id: StringName = _get_next_available_construction_resource(site)
+		if resource_id.is_empty():
+			break
 		var task: GameTask = create_construction_delivery_task(
 			site,
-			preferred_worker if not preferred_assigned else null
+			preferred_worker if not preferred_assigned else null,
+			resource_id
 		)
 		if task == null:
 			break
@@ -264,6 +257,31 @@ func create_construction_delivery_tasks(
 			site.fill_waiting_workers()
 	elif site.has_method("release_waiting_workers"):
 		site.release_waiting_workers()
+
+
+func _get_next_available_construction_resource(site: Node) -> StringName:
+	if site == null:
+		return &""
+	var resource_ids: Array[StringName] = []
+	if site.has_method("get_delivery_resource_ids"):
+		resource_ids = site.get_delivery_resource_ids()
+	elif site.has_method("get_delivery_resource_id"):
+		var resource_id: StringName = site.get_delivery_resource_id()
+		if not resource_id.is_empty():
+			resource_ids.append(resource_id)
+	else:
+		var fallback_id: StringName = ResourceStorage.resource_id_from_key(
+			site.get_delivery_resource_type()
+		)
+		if not fallback_id.is_empty():
+			resource_ids.append(fallback_id)
+
+	for resource_id: StringName in resource_ids:
+		if site.has_method("get_still_needed") and site.get_still_needed(resource_id) <= 0.0:
+			continue
+		if _has_resource_source(resource_id):
+			return resource_id
+	return &""
 
 
 func _get_construction_task_priority(site: Node) -> int:
@@ -395,6 +413,13 @@ func claim_task(task: GameTask, worker: Node) -> bool:
 
 	if not worker.can_take_task(task):
 		return false
+	if (
+		task.type == GameTask.TaskType.TRAIN_SWORDSMAN
+		and task.target != null
+		and task.target.has_method("register_training_worker")
+		and not task.target.register_training_worker(worker)
+	):
+		return false
 
 	task.state = GameTask.State.CLAIMED
 	task.assigned_worker = worker
@@ -473,6 +498,12 @@ func release_task(task: GameTask) -> bool:
 		and task.target.has_method("on_build_task_released")
 	):
 		task.target.on_build_task_released(task)
+	elif (
+		task.type == GameTask.TaskType.TRAIN_SWORDSMAN
+		and task.target != null
+		and task.target.has_method("on_training_task_released")
+	):
+		task.target.on_training_task_released(task)
 
 	_return_worker_resources(task)
 	task.data["resource_taken_amount"] = 0.0
@@ -510,6 +541,12 @@ func complete_task(task: GameTask) -> bool:
 		and task.target.has_method("on_build_task_completed")
 	):
 		task.target.on_build_task_completed(task)
+	elif (
+		task.type == GameTask.TaskType.TRAIN_SWORDSMAN
+		and task.target != null
+		and task.target.has_method("on_training_task_completed")
+	):
+		task.target.on_training_task_completed(task)
 
 	_clear_worker_task(task)
 	task.state = GameTask.State.COMPLETED
@@ -543,6 +580,12 @@ func cancel_task(task: GameTask, return_worker: bool = true) -> bool:
 		and task.target.has_method("on_build_task_released")
 	):
 		task.target.on_build_task_released(task)
+	elif (
+		task.type == GameTask.TaskType.TRAIN_SWORDSMAN
+		and task.target != null
+		and task.target.has_method("on_training_task_released")
+	):
+		task.target.on_training_task_released(task)
 
 	_return_worker_resources(task)
 	task.data["resource_taken_amount"] = 0.0
@@ -574,6 +617,12 @@ func fail_task(task: GameTask) -> bool:
 		and task.target.has_method("on_delivery_task_failed")
 	):
 		task.target.on_delivery_task_failed(task)
+	elif (
+		task.type == GameTask.TaskType.TRAIN_SWORDSMAN
+		and task.target != null
+		and task.target.has_method("on_training_task_released")
+	):
+		task.target.on_training_task_released(task)
 
 	_clear_worker_task(task)
 	_return_worker_resources(task)

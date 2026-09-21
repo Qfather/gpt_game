@@ -21,6 +21,12 @@ const STATE_DISPLAY_NAMES: PackedStringArray = [
 	"存入工作建筑",
 	"返回据点",
 	"存入据点",
+	"前往训练",
+	"正在训练",
+	"前往拆除",
+	"正在拆除",
+	"运送拆除材料",
+	"在据点存入拆除材料",
 	"寻找任务材料",
 	"前往取货",
 	"前往工地",
@@ -32,13 +38,14 @@ const STATE_DISPLAY_NAMES: PackedStringArray = [
 	"前往田地",
 	"正在处理田地"
 ]
-const TASK_DISPLAY_NAMES: PackedStringArray = ["运输建造材料", "建筑施工"]
+const TASK_DISPLAY_NAMES: PackedStringArray = ["运输建造材料", "建筑施工", "训练剑士"]
 
 @onready var health_label: Label = %HealthLabel
 @onready var move_speed_label: Label = %MoveSpeedLabel
 @onready var work_speed_label: Label = %WorkSpeedLabel
 @onready var gather_speed_label: Label = %GatherSpeedLabel
 @onready var job_label: Label = %JobLabel
+@onready var combat_role_label: Label = %CombatRoleLabel
 @onready var state_label: Label = %StateLabel
 @onready var task_label: Label = %TaskLabel
 @onready var workplace_label: Label = %WorkplaceLabel
@@ -110,8 +117,10 @@ func refresh():
 	# ========================================================
 
 	var job_index: int = int(villager.get("job"))
+	var combat_role_index: int = int(villager.get("combat_role"))
 	var state_index: int = int(villager.get("state"))
 	job_label.text = "职业：" + _get_display_name(JOB_DISPLAY_NAMES, job_index)
+	combat_role_label.text = "军事职业：" + CombatRole.get_display_name(combat_role_index)
 	state_label.text = "状态：" + _get_display_name(STATE_DISPLAY_NAMES, state_index)
 	task_label.text = "当前任务：" + _get_task_text(villager)
 	workplace_label.text = "工作地点：" + _get_node_name(villager.get("workplace") as Node)

@@ -12,7 +12,12 @@ extends Resource
 
 @export_category("建造参数")
 @export var grid_size: Vector2i = Vector2i(1, 1)
+
+@export_category("资源消耗")
 @export var construction_cost: Dictionary[StringName, float] = {}
+@export var training_cost: Dictionary[StringName, float] = {}
+
+@export_category("建造参数")
 @export var construction_time: float = 0.0
 @export var max_construction_workers: int = 1
 

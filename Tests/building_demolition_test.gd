@@ -31,15 +31,16 @@ func _initialize() -> void:
 	building.set_building_data(data)
 
 	_expect(building.can_be_demolished(), "正式建筑可以拆除")
-	_expect(building.demolish(), "拆除方法可以执行")
+	_expect(building.demolish(), "拆除请求可以执行")
 	_expect(
-		float(base.refunded.get(&"wood", 0.0)) == 6.0,
-		"20 木材拆除后返还 30%"
+		float(base.refunded.get(&"wood", 0.0)) == 0.0,
+		"拆除完成前不会瞬间返还木材"
 	)
 	_expect(
-		float(base.refunded.get(&"stone", 0.0)) == 3.0,
-		"10 石材拆除后返还 30%"
+		float(base.refunded.get(&"stone", 0.0)) == 0.0,
+		"拆除完成前不会瞬间返还石材"
 	)
+	_expect(building.is_demolition_in_progress(), "拆除请求进入进行中状态")
 
 	var base_building: BuildingBase = BuildingBase.new()
 	base_building.add_to_group("bases")

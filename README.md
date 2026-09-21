@@ -372,6 +372,7 @@ res://Tests/house_population_stage5_test.gd
 res://Tests/house_population_stage6_test.gd
 res://Tests/house_population_stage8_test.gd
 res://Tests/building_demolition_test.gd
+res://Tests/military_stage5_test.gd
 ```
 
 当前验证状态：
@@ -383,6 +384,7 @@ res://Tests/building_demolition_test.gd
 - House / Population V1 阶段 3～8 已完成代码检查、自动测试和主场景回归；
 - 移民 HUD 已确认显示需求住房、当前空房、需求 FOOD、当前 FOOD 和倒计时进度；
 - 建筑拆除返还功能已确认可用。
+- Military Daily Loop V1 阶段 1～5 已完成，阶段 5 回归测试已新增，等待在 Godot 中运行确认；
 - Resource Editor 已通过 Godot 编辑器插件加载测试并扫描到 7 个资源；
 - 多工地任务生成与顺序优先级测试通过；
 - Godot 主场景无界面启动通过；

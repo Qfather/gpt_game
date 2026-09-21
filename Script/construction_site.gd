@@ -266,6 +266,14 @@ func get_delivery_resource_id() -> StringName:
 	return &""
 
 
+func get_delivery_resource_ids() -> Array[StringName]:
+	var resource_ids: Array[StringName] = []
+	for resource_id: StringName in required_resources.keys():
+		if get_delivered_amount(resource_id) < get_required_amount(resource_id):
+			resource_ids.append(resource_id)
+	return resource_ids
+
+
 func get_next_needed_resource() -> ResourceType.Type:
 	return ResourceStorage.resource_type_from_id(get_next_needed_resource_id())
 

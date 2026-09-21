@@ -1,0 +1,30 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://Script/building/game/swordsman_camp.gd" id="1_swordsman_camp"]
+
+[sub_resource type="StandardMaterial3D" id="Material_SwordsmanCamp"]
+albedo_color = Color(0.22, 0.28, 0.42, 1)
+
+[sub_resource type="BoxMesh" id="Mesh_SwordsmanCamp"]
+material = SubResource("Material_SwordsmanCamp")
+size = Vector3(2.5, 1.4, 2.5)
+
+[sub_resource type="BoxShape3D" id="Shape_SwordsmanCamp"]
+size = Vector3(2.5, 1.4, 2.5)
+
+[node name="SwordsmanCamp" type="Node3D" groups=["buildings"]]
+script = ExtResource("1_swordsman_camp")
+training_slots = 2
+training_time = 10.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.7, 0)
+mesh = SubResource("Mesh_SwordsmanCamp")
+
+[node name="ClickArea" type="Area3D" parent="."]
+collision_layer = 1
+input_ray_pickable = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ClickArea"]
+position = Vector3(0, 0.7, 0)
+shape = SubResource("Shape_SwordsmanCamp")

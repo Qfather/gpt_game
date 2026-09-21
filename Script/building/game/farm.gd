@@ -15,6 +15,7 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	super._process(_delta)
 	dispatch_available_farmers()
 
 

@@ -52,6 +52,12 @@ enum State {
 	
 	MOVE_TO_BASE,
 	DEPOSIT_TO_BASE,
+	MOVE_TO_TRAINING,
+	TRAINING,
+	MOVE_TO_DEMOLITION,
+	DEMOLISHING,
+	MOVE_TO_DEMOLITION_BASE,
+	DEPOSIT_DEMOLITION_TO_BASE,
 
 	FIND_TASK_SOURCE,
 	MOVE_TO_TASK_SOURCE,
@@ -73,6 +79,35 @@ enum Job {
 	MINER,
 	FARMER
 }
+
+@export_category("军事职业")
+@export_enum("无", "剑士") var combat_role: int = CombatRole.Type.NONE
+@onready var body_mesh: MeshInstance3D = get_node_or_null("MeshInstance3D")
+
+
+func set_combat_role(role: int) -> void:
+	combat_role = role
+	_update_combat_visual()
+
+
+func get_combat_role() -> int:
+	return combat_role
+
+
+func has_combat_role() -> bool:
+	return combat_role != CombatRole.Type.NONE
+
+
+func _update_combat_visual() -> void:
+	if body_mesh == null:
+		return
+	if combat_role == CombatRole.Type.SWORDSMAN:
+		var swordsman_material := StandardMaterial3D.new()
+		swordsman_material.albedo_color = Color(0.85, 0.05, 0.03, 1.0)
+		swordsman_material.roughness = 0.8
+		body_mesh.material_override = swordsman_material
+	else:
+		body_mesh.material_override = null
 
 enum ActivityLevel {
 	RESTING,
@@ -128,6 +163,10 @@ func get_activity_level() -> ActivityLevel:
 		State.MOVE_TO_WORKPLACE, State.DEPOSIT_TO_WORKPLACE:
 			return ActivityLevel.WORKING
 		State.MOVE_TO_BASE, State.DEPOSIT_TO_BASE:
+			return ActivityLevel.WORKING
+		State.MOVE_TO_DEMOLITION, State.DEMOLISHING, State.MOVE_TO_DEMOLITION_BASE, State.DEPOSIT_DEMOLITION_TO_BASE:
+			return ActivityLevel.WORKING
+		State.MOVE_TO_TRAINING, State.TRAINING:
 			return ActivityLevel.WORKING
 		State.FIND_TASK_SOURCE, State.MOVE_TO_TASK_SOURCE:
 			return ActivityLevel.WORKING
@@ -193,6 +232,8 @@ func evaluate_needs() -> void:
 		or state == State.RESTING
 		or is_quitting_job
 	):
+		return
+	if is_instance_valid(demolition_target):
 		return
 	if carried_amount > 0.0:
 		return
@@ -415,6 +456,12 @@ var field_work_timer: float = 0.0
 # 据点
 var target_base: Node3D = null
 
+# 当前训练进度。训练时间由剑士营配置，单位为秒。
+var training_elapsed: float = 0.0
+
+# 当前拆除任务。拆除材料必须由居民实际运回据点。
+var demolition_target: Node = null
+
 # 当前携带的资源类型和数量
 signal carried_resource_changed
 
@@ -446,6 +493,7 @@ var chop_timer: float = 0.0
 
 func _ready():
 	super._ready()
+	_update_combat_visual()
 	input_event.connect(_on_input_event)
 	call_deferred("start")
 	
@@ -549,6 +597,24 @@ func _physics_process(delta):
 		State.DEPOSIT_TO_BASE:
 			deposit_to_base()
 
+		State.MOVE_TO_TRAINING:
+			move_to_training()
+
+		State.TRAINING:
+			process_training(delta)
+
+		State.MOVE_TO_DEMOLITION:
+			move_to_demolition()
+
+		State.DEMOLISHING:
+			velocity = Vector3.ZERO
+
+		State.MOVE_TO_DEMOLITION_BASE:
+			move_to_demolition_base()
+
+		State.DEPOSIT_DEMOLITION_TO_BASE:
+			deposit_demolition_to_base()
+
 		State.FIND_TASK_SOURCE:
 			find_task_source()
 
@@ -600,6 +666,17 @@ func _start_current_task() -> void:
 		_set_task_site_navigation_target()
 		state = State.MOVE_TO_BUILD_SITE
 		print("Villager 前往施工：", task.id, " target=", task_site.name)
+		return
+
+	if task.type == GameTask.TaskType.TRAIN_SWORDSMAN:
+		task.state = GameTask.State.IN_PROGRESS
+		task_site = task.target as Node3D
+		if task_site == null or not task_site.has_method("get_training_position"):
+			_release_current_task()
+			return
+		navigation_agent.target_position = task_site.get_training_position(self)
+		state = State.MOVE_TO_TRAINING
+		print("Villager 前往训练：", task.id, " target=", task_site.name)
 		return
 
 	if task.type != GameTask.TaskType.DELIVER_CONSTRUCTION_RESOURCE:
@@ -853,6 +930,50 @@ func move_to_build_site() -> void:
 
 	state = State.BUILDING
 	print("Villager 已加入施工：", task.id)
+
+
+func move_to_training() -> void:
+	if not is_instance_valid(task_site):
+		_release_current_task()
+		return
+	if not navigation_agent.is_navigation_finished():
+		move_along_navigation()
+		return
+
+	var task: GameTask = current_task as GameTask
+	if task == null or not task_site.has_method("begin_training"):
+		_release_current_task()
+		return
+	if not task_site.begin_training(self):
+		_release_current_task()
+		return
+	training_elapsed = 0.0
+	state = State.TRAINING
+	print("Villager 开始训练：", task.id)
+
+
+func process_training(delta: float) -> void:
+	velocity = Vector3.ZERO
+	if not is_instance_valid(task_site):
+		_release_current_task()
+		return
+	training_elapsed += delta
+	var training_time: float = 10.0
+	if task_site.has_method("get_training_time"):
+		training_time = task_site.get_training_time()
+	if training_elapsed < training_time:
+		return
+	if not task_site.complete_training(self):
+		_release_current_task()
+
+
+func get_training_progress() -> float:
+	if state != State.TRAINING or not is_instance_valid(task_site):
+		return 0.0
+	var training_time: float = 10.0
+	if task_site.has_method("get_training_time"):
+		training_time = task_site.get_training_time()
+	return clampf(training_elapsed / maxf(training_time, 0.1), 0.0, 1.0)
 
 
 func _release_current_task() -> void:
@@ -1497,6 +1618,144 @@ func move_along_navigation():
 
 
 	move_and_slide()
+# ============================================================
+# 拆除建筑
+# ============================================================
+
+func assign_demolition(building: Node, take_over_current_job: bool = false) -> bool:
+	if building == null:
+		return false
+	if not take_over_current_job and not is_idle():
+		return false
+	if take_over_current_job:
+		current_task = null
+		task_source = null
+		task_site = null
+		job = Job.NONE
+		workplace = null
+		is_quitting_job = false
+		target_resource = null
+		release_target_field()
+
+	demolition_target = building
+	if target_base == null:
+		find_base()
+	var target_position: Vector3 = building.global_position
+	if building.has_method("get_interaction_position"):
+		target_position = building.get_interaction_position(self)
+	navigation_agent.target_position = target_position
+	if global_position.distance_to(target_position) <= 1.0:
+		if building.begin_demolition_work(self):
+			return true
+	state = State.MOVE_TO_DEMOLITION
+	return true
+
+
+func move_to_demolition() -> void:
+	if not is_instance_valid(demolition_target):
+		finish_demolition()
+		return
+	if not navigation_agent.is_navigation_finished():
+		move_along_navigation()
+		return
+
+	velocity = Vector3.ZERO
+	if not demolition_target.arrive_at_demolition_site(self):
+		finish_demolition()
+
+
+func set_demolition_working() -> void:
+	state = State.DEMOLISHING
+
+
+func begin_demolition_transport(
+	building: Node,
+	resource_id: StringName,
+	amount: float
+) -> void:
+	if amount <= 0.0:
+		return
+	demolition_target = building
+	carried_resource_id = resource_id
+	carried_amount = amount
+	carried_resource_changed.emit()
+	if target_base == null:
+		find_base()
+	if target_base == null:
+		return
+	var target_position: Vector3 = target_base.global_position
+	if target_base.has_method("get_interaction_position"):
+		target_position = target_base.get_interaction_position(self)
+	navigation_agent.target_position = target_position
+	state = State.MOVE_TO_DEMOLITION_BASE
+
+
+func return_to_demolition_site(building: Node) -> void:
+	if building == null or not is_instance_valid(building):
+		finish_demolition()
+		return
+	demolition_target = building
+	var target_position: Vector3 = building.global_position
+	if building.has_method("get_interaction_position"):
+		target_position = building.get_interaction_position(self)
+	navigation_agent.target_position = target_position
+	state = State.MOVE_TO_DEMOLITION
+
+
+func move_to_demolition_base() -> void:
+	if not is_instance_valid(target_base):
+		find_base()
+	if target_base == null:
+		return
+	if not navigation_agent.is_navigation_finished():
+		move_along_navigation()
+		return
+	velocity = Vector3.ZERO
+	state = State.DEPOSIT_DEMOLITION_TO_BASE
+
+
+func deposit_demolition_to_base() -> void:
+	if target_base == null or not target_base.has_method("add_resource"):
+		return
+	if carried_amount <= 0.0:
+		if is_instance_valid(demolition_target):
+			demolition_target.demolition_delivery_completed(self)
+		else:
+			finish_demolition()
+		return
+
+	var stored_amount: float = target_base.add_resource(
+		carried_resource_id,
+		carried_amount
+	)
+	carried_amount -= stored_amount
+	if stored_amount > 0.0:
+		carried_resource_changed.emit()
+	if carried_amount > 0.0:
+		return
+
+	if is_instance_valid(demolition_target):
+		demolition_target.demolition_delivery_completed(self)
+	else:
+		finish_demolition()
+
+
+func finish_demolition() -> void:
+	demolition_target = null
+	carried_amount = 0.0
+	carried_resource_changed.emit()
+	state = State.IDLE
+	return_to_idle()
+
+
+func finish_demolition_pickup() -> void:
+	# 建筑在最后一批材料被拿起时删除，但手上的材料仍要继续运回据点。
+	demolition_target = null
+	if carried_amount <= 0.0:
+		state = State.IDLE
+		return_to_idle()
+
+
 # ============================================================
 # 分配工作
 # ============================================================
@@ -2216,6 +2475,7 @@ func can_take_task(_task: Object) -> bool:
 		job == Job.NONE
 		and current_task == null
 		and not is_quitting_job
+		and not has_combat_role()
 	)
 
 
@@ -2226,10 +2486,16 @@ func set_current_task(task: Object) -> void:
 
 func clear_current_task() -> void:
 
+	var was_training: bool = (
+		state == State.MOVE_TO_TRAINING or state == State.TRAINING
+	)
 	current_task = null
-	if state == State.BUILDING:
+	if state == State.BUILDING or was_training:
 		task_site = null
-		state = State.IDLE
+		if was_training:
+			return_to_idle()
+		else:
+			state = State.IDLE
 
 
 func return_carried_resource_to_base() -> void:

@@ -1,6 +1,9 @@
 class_name ResourceBuildingPanel
 extends BuildingPanelBase
 
+const RESOURCE_DATABASE: ResourceDatabase = preload(
+	"res://data/resources/resource_database.tres"
+)
 
 # ============================================================
 # UI 节点
@@ -35,11 +38,36 @@ func refresh():
 
 	if current_building == null:
 		return
+	hire_button.disabled = false
+	fire_button.disabled = false
 
 	demolish_button.visible = (
-		current_building.has_method("can_be_demolished")
-		and current_building.can_be_demolished()
+		(
+			current_building.has_method("can_be_demolished")
+			and current_building.can_be_demolished()
+		)
+		or (
+			current_building.has_method("is_demolition_in_progress")
+			and current_building.is_demolition_in_progress()
+		)
 	)
+	demolish_button.disabled = (
+		current_building.has_method("is_demolition_in_progress")
+		and current_building.is_demolition_in_progress()
+	)
+	if (
+		current_building.has_method("get_demolition_status_text")
+		and current_building.has_method("is_demolition_in_progress")
+		and current_building.is_demolition_in_progress()
+	):
+		demolish_button.text = current_building.get_demolition_status_text()
+	else:
+		var refund_resources: Dictionary = {}
+		if current_building.has_method("get_demolition_refund_resources"):
+			refund_resources = current_building.get_demolition_refund_resources()
+		demolish_button.text = "拆除（返还：%s）" % _format_resource_dictionary(
+			refund_resources
+		)
 
 	if current_building.is_in_group("bases"):
 		storage_label.show()
@@ -53,6 +81,38 @@ func refresh():
 			int(current_building.get_resource(&"grain")),
 			int(current_building.get_resource(&"food"))
 		]
+		return
+
+	if (
+		current_building.has_method("is_demolition_in_progress")
+		and current_building.is_demolition_in_progress()
+	):
+		storage_label.hide()
+		material_label.show()
+		worker_label.show()
+		hire_button.show()
+		fire_button.show()
+		hire_button.text = "增加拆除人员"
+		fire_button.text = "减少拆除人员"
+		worker_label.text = "拆除人员：%d / %d" % [
+			int(current_building.get_demolition_worker_count()),
+			int(current_building.get_max_demolition_workers())
+		]
+		var remaining: Dictionary = (
+			current_building.get_demolition_remaining_resources()
+		)
+		var remaining_text: String = _format_resource_dictionary(remaining)
+		if remaining_text.is_empty():
+			remaining_text = "拆除完成后生成"
+		material_label.text = (
+			"返还材料：%s\n尚未搬运：%s"
+			% [
+				_format_resource_dictionary(
+					current_building.get_demolition_refund_resources()
+				),
+				remaining_text
+			]
+		)
 		return
 
 	worker_label.show()
@@ -85,6 +145,30 @@ func refresh():
 			int(current_building.get_housing_capacity()),
 			int(current_building.get_housing_capacity())
 		]
+		return
+
+	if current_building.has_method("get_training_slots"):
+		storage_label.show()
+		storage_label.text = "剑士营"
+		material_label.hide()
+		worker_label.show()
+		hire_button.show()
+		fire_button.hide()
+		worker_label.text = "训练位：%d / %d" % [
+			int(current_building.get_training_worker_count()),
+			int(current_building.get_training_slots())
+		]
+		if current_building.has_method("get_training_slot_status_text"):
+			worker_label.text += "\n" + current_building.get_training_slot_status_text()
+		hire_button.text = "训练剑士"
+		if current_building.has_method("get_training_cost"):
+			hire_button.text += "（%s）" % _format_resource_dictionary(
+				current_building.get_training_cost()
+			)
+		hire_button.disabled = (
+			current_building.has_method("can_request_training")
+			and not current_building.can_request_training()
+		)
 		return
 
 	storage_label.show()
@@ -142,6 +226,14 @@ func _on_hire_pressed():
 
 	if current_building == null:
 		return
+	if current_building.has_method("request_training"):
+		current_building.request_training()
+		refresh()
+		return
+	if current_building.has_method("is_demolition_in_progress") and current_building.is_demolition_in_progress():
+		current_building.request_additional_demolition_worker()
+		refresh()
+		return
 
 	if current_building.has_method("request_additional_worker"):
 		current_building.request_additional_worker()
@@ -187,6 +279,10 @@ func _on_fire_pressed():
 
 	if current_building == null:
 		return
+	if current_building.has_method("is_demolition_in_progress") and current_building.is_demolition_in_progress():
+		current_building.cancel_one_demolition_worker()
+		refresh()
+		return
 
 	if current_building.has_method("cancel_one_worker"):
 		current_building.cancel_one_worker()
@@ -217,12 +313,29 @@ func _on_demolish_pressed() -> void:
 
 	if not current_building.demolish():
 		return
+	refresh()
 
-	var main: Node = get_tree().current_scene
-	if main != null and main.has_method("clear_selection"):
-		main.clear_selection()
-	else:
-		close_panel()
+
+func _format_resource_dictionary(resources: Dictionary) -> String:
+	var parts: PackedStringArray = []
+	for resource_key: Variant in resources.keys():
+		var resource_id: StringName = ResourceStorage.resource_id_from_key(
+			resource_key
+		)
+		var resource_name: String = str(resource_id)
+		var resource_data: ResourceData = RESOURCE_DATABASE.get_resource_data(
+			resource_id
+		)
+		if resource_data != null and not resource_data.display_name.is_empty():
+			resource_name = resource_data.display_name
+		var amount: float = float(resources[resource_key])
+		var amount_text: String = (
+			str(int(round(amount)))
+			if is_equal_approx(amount, round(amount))
+			else "%.1f" % amount
+		)
+		parts.append("%s %s" % [resource_name, amount_text])
+	return "、".join(parts)
 # ============================================================
 # 面板打开期间实时刷新
 # ============================================================
