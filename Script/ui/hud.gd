@@ -2,6 +2,7 @@ class_name GameHUD
 extends CanvasLayer
 
 signal build_requested(building_data: BuildingData)
+signal enemy_placement_requested(enemy_data: EnemyData)
 
 const LUMBER_CAMP_DATA: BuildingData = preload(
 	"res://data/buildings/LumberCampData.tres"
@@ -24,6 +25,8 @@ const BARRACKS_DATA: BuildingData = preload(
 const RESOURCE_DATABASE: ResourceDatabase = preload(
 	"res://data/resources/resource_database.tres"
 )
+const SLIME_DATA: EnemyData = preload("res://data/combat/SlimeData.tres")
+const WOLF_DATA: EnemyData = preload("res://data/combat/WolfData.tres")
 const PRODUCTION_BUILDINGS: Array[BuildingData] = [
 	LUMBER_CAMP_DATA,
 	QUARRY_DATA,
@@ -66,6 +69,7 @@ var debug_resource_labels: Dictionary = {}
 var debug_villager_section: VBoxContainer = null
 var debug_villager_label: Label = null
 var debug_villager: Node = null
+var enemy_placement_button: Button = null
 var selected_building_category: int = 0
 
 
@@ -216,6 +220,20 @@ func _create_debug_panel() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(title)
 
+	enemy_placement_button = Button.new()
+	enemy_placement_button.text = "放置史莱姆"
+	enemy_placement_button.pressed.connect(
+		_on_debug_enemy_placement_pressed.bind(SLIME_DATA)
+	)
+	content.add_child(enemy_placement_button)
+
+	var wolf_placement_button: Button = Button.new()
+	wolf_placement_button.text = "放置狼"
+	wolf_placement_button.pressed.connect(
+		_on_debug_enemy_placement_pressed.bind(WOLF_DATA)
+	)
+	content.add_child(wolf_placement_button)
+
 	var resource_title := Label.new()
 	resource_title.text = "资源调整（据点库存）"
 	content.add_child(resource_title)
@@ -302,6 +320,16 @@ func _create_debug_need_row(
 func set_debug_villager(villager: Node) -> void:
 	debug_villager = villager
 	_refresh_debug_panel()
+
+
+func set_enemy_placement_active(active: bool) -> void:
+	if enemy_placement_button == null:
+		return
+	enemy_placement_button.text = "点击地面放置史莱姆" if active else "放置史莱姆"
+
+
+func _on_debug_enemy_placement_pressed(enemy_data: EnemyData) -> void:
+	enemy_placement_requested.emit(enemy_data)
 
 
 func _refresh_debug_panel() -> void:

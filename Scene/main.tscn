@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://hblm4xs2qdre" path="res://Scene/ui/resource_building_panel.tscn" id="6_1xcnr"]
 [ext_resource type="PackedScene" path="res://UI/unit_panel/villager_panel.tscn" id="7_villager_panel"]
 [ext_resource type="PackedScene" path="res://UI/resource_panel/resource_node_panel.tscn" id="8_resource_panel"]
+[ext_resource type="PackedScene" path="res://Scene/ui/enemy_panel.tscn" id="9_enemy_panel"]
 [ext_resource type="PackedScene" uid="uid://b35h0wuf0qn8a" path="res://Scene/resource/stone.tscn" id="10_3pt4j"]
 [ext_resource type="Script" uid="uid://bl6icvg1k0815" path="res://Script/resource/ResourceManager.gd" id="12_mxd2g"]
 [ext_resource type="Script" uid="uid://bli0u0op8xduv" path="res://Script/build_grid.gd" id="13_build_grid"]
@@ -47,11 +48,15 @@ process_mode = 3
 
 [node name="ResourceNodePanel" parent="UI" unique_id=1208896687 instance=ExtResource("8_resource_panel")]
 
+[node name="EnemyPanel" parent="UI" instance=ExtResource("9_enemy_panel")]
+
 [node name="HUD" parent="UI" unique_id=1924675286 instance=ExtResource("4_2wwxx")]
 
 [node name="Villagers" type="Node" parent="." unique_id=1530581502]
 
 [node name="Migrants" type="Node" parent="." unique_id=1839020001]
+
+[node name="Enemies" type="Node" parent="." unique_id=1839020003]
 
 [node name="ArrivalPoints" type="Node3D" parent="." unique_id=1839020002]
 

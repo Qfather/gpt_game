@@ -1,0 +1,43 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://Script/combat/enemy_base.gd" id="1_enemy_base"]
+[ext_resource type="Resource" path="res://data/combat/SlimeData.tres" id="2_slime_data"]
+[ext_resource type="Script" path="res://Script/combat/health_component.gd" id="3_health_component"]
+[ext_resource type="Script" path="res://Script/combat/health_bar_3d.gd" id="4_health_bar"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_slime"]
+albedo_color = Color(0.2, 0.75, 0.35, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_slime"]
+material = SubResource("StandardMaterial3D_slime")
+radius = 0.6
+height = 1.2
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_slime"]
+radius = 0.6
+
+[node name="EnemyBase" type="CharacterBody3D" groups=["enemies"]]
+script = ExtResource("1_enemy_base")
+enemy_data = ExtResource("2_slime_data")
+collision_layer = 2
+collision_mask = 3
+
+[node name="VisualRoot" type="Node3D" parent="."]
+
+[node name="PlaceholderMesh" type="MeshInstance3D" parent="VisualRoot"]
+mesh = SubResource("SphereMesh_slime")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("SphereShape3D_slime")
+
+[node name="HealthComponent" type="Node" parent="."]
+script = ExtResource("3_health_component")
+
+[node name="HealthBar3D" type="Node3D" parent="."]
+position = Vector3(0, 1.35, 0)
+script = ExtResource("4_health_bar")
+bar_color = Color(0.9, 0.15, 0.12, 1)
+
+[node name="NavigationAgent3D" type="NavigationAgent3D" parent="."]
+path_desired_distance = 0.5
+target_desired_distance = 1.2

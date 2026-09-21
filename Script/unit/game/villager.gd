@@ -63,6 +63,8 @@ enum State {
 	MOVE_TO_PATROL_POINT,
 	PATROLLING,
 	RETURN_TO_BARRACKS,
+	COMBAT_MOVE,
+	COMBAT_ATTACK,
 	MOVE_TO_DEMOLITION,
 	DEMOLISHING,
 	MOVE_TO_DEMOLITION_BASE,
@@ -103,6 +105,18 @@ var resupply_barracks: Node = null
 var resupply_food_id: StringName = &""
 var returning_resupply_surplus: bool = false
 var idle_reposition_timer: float = 0.0
+
+@export_category("剑士战斗")
+@export var combat_damage: float = 10.0
+@export var combat_attack_range: float = 1.5
+@export var combat_attack_interval: float = 1.0
+@export var combat_detection_range: float = 10.0
+
+var combat_target: Node3D = null
+var combat_resume_state: int = -1
+var combat_resume_target_position: Vector3 = Vector3.ZERO
+var combat_resume_navigation_target: Vector3 = Vector3.ZERO
+var combat_attack_cooldown: float = 0.0
 
 enum Job {
 	NONE,
@@ -563,8 +577,34 @@ func _ready():
 	super._ready()
 	idle_reposition_timer = randf_range(3.0, 10.0)
 	_update_combat_visual()
+	_create_aggro_range_display()
 	input_event.connect(_on_input_event)
 	call_deferred("start")
+
+
+func _create_aggro_range_display() -> void:
+	var range_display: MeshInstance3D = MeshInstance3D.new()
+	range_display.name = "SwordsmanAggroRange"
+	range_display.set_script(preload("res://Script/combat/aggro_range_3d.gd"))
+	range_display.set("radius", combat_detection_range)
+	range_display.set("ring_color", Color(0.1, 1.0, 0.2, 0.45))
+	range_display.set("combat_only", true)
+	range_display.position.y = 0.03
+	add_child(range_display)
+
+
+func _on_unit_died(_source: Node) -> void:
+	remove_from_group("villagers")
+	var population_manager: Node = get_tree().get_first_node_in_group(
+		"population_manager"
+	)
+	if population_manager != null and population_manager.has_method(
+		"refresh_population"
+	):
+		population_manager.refresh_population()
+	for building: Node in get_tree().get_nodes_in_group("buildings"):
+		if building.has_method("remove_unit_from_rosters"):
+			building.remove_unit_from_rosters(self)
 	
 
 func _on_input_event(
@@ -606,6 +646,8 @@ func start():
 # ============================================================
 
 func _physics_process(delta):
+	if _process_combat(delta):
+		return
 	update_needs(delta)
 	evaluate_needs()
 
@@ -700,6 +742,9 @@ func _physics_process(delta):
 		State.RETURN_TO_BARRACKS:
 			return_to_patrol_barracks()
 
+		State.COMBAT_MOVE, State.COMBAT_ATTACK:
+			_process_combat(delta)
+
 		State.MOVE_TO_DEMOLITION:
 			move_to_demolition()
 
@@ -748,6 +793,112 @@ func _physics_process(delta):
 
 		State.WORKING_FIELD:
 			work_field(delta)
+
+
+func _process_combat(delta: float) -> bool:
+	if combat_role != CombatRole.Type.SWORDSMAN:
+		return false
+	var combat_state: bool = (
+		state == State.COMBAT_MOVE
+		or state == State.COMBAT_ATTACK
+	)
+
+	if (
+		combat_target == null
+		or not is_instance_valid(combat_target)
+		or combat_target.has_method("is_dead") and combat_target.is_dead()
+	):
+		combat_target = _find_nearest_hostile()
+		if combat_target == null:
+			if combat_state:
+				_finish_combat()
+			return false
+		if combat_resume_state < 0:
+			combat_resume_state = int(state)
+			combat_resume_target_position = patrol_target_position
+			combat_resume_navigation_target = navigation_agent.target_position
+		combat_attack_cooldown = 0.0
+		print("⚔️ 战斗：剑士切换目标：", combat_target.name)
+
+	var target_position: Vector3 = combat_target.global_position
+	var flat_target: Vector3 = Vector3(
+		target_position.x,
+		global_position.y,
+		target_position.z
+	)
+	var distance: float = global_position.distance_to(flat_target)
+	if distance > combat_attack_range:
+		state = State.COMBAT_MOVE
+		velocity = global_position.direction_to(flat_target) * get_move_speed()
+		move_and_slide()
+		return true
+
+	state = State.COMBAT_ATTACK
+	velocity = Vector3.ZERO
+	combat_attack_cooldown = maxf(combat_attack_cooldown - delta, 0.0)
+	if combat_attack_cooldown > 0.0:
+		return true
+	if combat_target.has_method("take_damage"):
+		var actual_damage: float = float(
+			combat_target.take_damage(combat_damage, self)
+		)
+		print(
+			"⚔️ 战斗：剑士攻击 %s，造成 %.1f 伤害"
+			% [combat_target.name, actual_damage]
+		)
+	combat_attack_cooldown = combat_attack_interval
+	return true
+
+
+func _find_nearest_hostile() -> Node3D:
+	var nearest: Node3D = null
+	var nearest_distance: float = combat_detection_range
+	for candidate: Node in get_tree().get_nodes_in_group("enemies"):
+		if not candidate is Node3D or not is_instance_valid(candidate):
+			continue
+		if candidate.has_method("is_dead") and candidate.is_dead():
+			continue
+		if not candidate.is_visible_in_tree():
+			continue
+		if candidate.has_method("get_faction") and int(candidate.get_faction()) == get_faction():
+			continue
+		var candidate_node: Node3D = candidate as Node3D
+		var distance: float = global_position.distance_to(candidate_node.global_position)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest = candidate_node
+	return nearest
+
+
+func _finish_combat() -> void:
+	if combat_target != null:
+		print("⚔️ 战斗：剑士目标结束，恢复之前的军事任务")
+	var resume_state: int = combat_resume_state
+	var resume_target: Vector3 = combat_resume_target_position
+	var resume_navigation_target: Vector3 = combat_resume_navigation_target
+	combat_target = null
+	combat_resume_state = -1
+	combat_resume_target_position = Vector3.ZERO
+	combat_resume_navigation_target = Vector3.ZERO
+	combat_attack_cooldown = 0.0
+	velocity = Vector3.ZERO
+	if resume_state == State.PATROLLING or resume_state == State.MOVE_TO_PATROL_POINT:
+		patrol_target_position = resume_target
+		navigation_agent.target_position = resume_target
+		state = State.MOVE_TO_PATROL_POINT
+		return
+	if resume_state == State.MOVE_TO_PATROL_ASSEMBLE:
+		navigation_agent.target_position = resume_navigation_target
+		state = State.MOVE_TO_PATROL_ASSEMBLE
+		return
+	if resume_state == State.PATROL_ASSEMBLING:
+		state = State.PATROL_ASSEMBLING
+		return
+	if resume_state == State.RETURN_TO_BARRACKS:
+		navigation_agent.target_position = resume_navigation_target
+		state = State.RETURN_TO_BARRACKS
+		return
+	state = State.IDLE
 
 
 func _start_current_task() -> void:
@@ -1288,6 +1439,7 @@ func begin_barracks_resupply(barracks: Node, base: Node) -> bool:
 	garrisoned_in = null
 	garrison_target = null
 	visible = true
+	_refresh_health_bar_display()
 	collision_layer = 2
 	collision_mask = 3
 	if base.has_method("get_interaction_position"):
@@ -1354,6 +1506,7 @@ func leave_garrison_for_patrol(barracks: Node, assemble_position: Vector3) -> bo
 	patrol_barracks = barracks
 	patrol_previous_target_desired_distance = navigation_agent.target_desired_distance
 	visible = true
+	_refresh_health_bar_display()
 	collision_layer = 2
 	# 巡逻队成员之间不互相阻挡，只保留与场景障碍的碰撞。
 	collision_mask = 1
@@ -1492,9 +1645,16 @@ func leave_garrison() -> void:
 	navigation_agent.target_desired_distance = patrol_previous_target_desired_distance
 	patrol_resume_state = -1
 	visible = true
+	_refresh_health_bar_display()
 	collision_layer = 2
 	collision_mask = 3
 	return_to_idle()
+
+
+func _refresh_health_bar_display() -> void:
+	var health_bar: Node = get_node_or_null("HealthBar3D")
+	if health_bar != null and health_bar.has_method("refresh_display"):
+		health_bar.call("refresh_display")
 
 
 func _release_current_task() -> void:
@@ -2499,9 +2659,6 @@ func return_to_idle():
 		find_base()
 
 	if target_base != null:
-
-		print("👨 无业居民返回据点附近待命")
-
 		navigation_agent.target_position = get_random_idle_position(
 			target_base.global_position,target_base.idle_radius
 		)
@@ -2585,9 +2742,7 @@ func move_to_idle_area():
 		velocity = Vector3.ZERO
 		state = State.IDLE
 
-		if job == Job.NONE:
-			print("👨 已回到据点附近待命")
-		else:
+		if job != Job.NONE:
 			print("💤 已回到工作地点附近待命：", workplace.name)
 		idle_reposition_timer = randf_range(3.0, 10.0)
 

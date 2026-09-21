@@ -1,6 +1,9 @@
 class_name UnitBase
 extends CharacterBody3D
 
+signal health_changed(current_health: float, max_health: float)
+signal damaged(amount: float, source: Node)
+signal died(source: Node)
 
 # ============================================================
 # 基础属性
@@ -12,6 +15,8 @@ extends CharacterBody3D
 @export var base_health_regen: float = 1.0
 
 var health: float = 100.0
+
+@onready var health_component: Node = get_node_or_null("HealthComponent")
 
 
 @export_category("移动 / 生存")
@@ -44,6 +49,17 @@ var health: float = 100.0
 # 初始化
 # ============================================================
 func _ready():
+	if health_component != null:
+		health_component.connect(
+		"health_changed",
+		_on_health_component_changed
+	)
+		health_component.connect("damaged", _on_health_component_damaged)
+		health_component.connect("died", _on_health_component_died)
+		health_component.call("setup", get_max_health())
+		health = float(health_component.get("current_health"))
+		health_changed.emit(health, get_max_health())
+		return
 
 	health = get_max_health()
 	
@@ -185,3 +201,60 @@ func get_attack_speed() -> float:
 
 func get_health() -> float:
 	return health
+
+
+func get_faction() -> int:
+	return 0
+
+
+func take_damage(amount: float, source: Node = null) -> float:
+	if health_component != null:
+		return float(health_component.call("take_damage", amount, source))
+
+	var actual_damage: float = minf(maxf(amount, 0.0), health)
+	health = maxf(health - actual_damage, 0.0)
+	health_changed.emit(health, get_max_health())
+	if health <= 0.0:
+		died.emit(source)
+	return actual_damage
+
+
+func is_dead() -> bool:
+	if health_component != null:
+		return bool(health_component.call("is_dead"))
+	return health <= 0.0
+
+
+func _on_health_component_changed(
+	next_health: float,
+	next_max_health: float
+) -> void:
+	health = next_health
+	health_changed.emit(next_health, next_max_health)
+
+
+func _on_health_component_damaged(amount: float, source: Node) -> void:
+	damaged.emit(amount, source)
+
+
+func _on_health_component_died(source: Node) -> void:
+	velocity = Vector3.ZERO
+	collision_layer = 0
+	collision_mask = 0
+	if has_method("_on_unit_died"):
+		call("_on_unit_died", source)
+	var unit_name: String = str(name)
+	if has_method("get_combat_role"):
+		if int(call("get_combat_role")) == 1:
+			unit_name = "剑士"
+	print("⚔️ 战斗：%s 生命归零，单位死亡" % unit_name)
+	died.emit(source)
+	var death_timer: SceneTreeTimer = get_tree().create_timer(0.35)
+	death_timer.timeout.connect(_finish_death_cleanup)
+
+
+func _finish_death_cleanup() -> void:
+	if not is_instance_valid(self):
+		return
+	hide()
+	queue_free()

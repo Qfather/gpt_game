@@ -835,7 +835,6 @@ func _create_modifier_editor(level_row: Dictionary, modifier: StatModifier):
 	stat_option.add_item("最大生命", StatModifier.StatType.MAX_HEALTH)
 	stat_option.add_item("生命恢复速度", StatModifier.StatType.HEALTH_REGEN)
 	stat_option.add_item("移动速度", StatModifier.StatType.MOVE_SPEED)
-	stat_option.add_item("食物消耗", StatModifier.StatType.FOOD_CONSUMPTION)
 	stat_option.add_item("工作效率", StatModifier.StatType.WORK_SPEED)
 	stat_option.add_item("采集速度", StatModifier.StatType.GATHER_SPEED)
 	stat_option.add_item("攻击力", StatModifier.StatType.ATTACK_DAMAGE)

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Script/combat/enemy_data.gd" id="1_enemy_data"]
+
+[resource]
+script = ExtResource("1_enemy_data")
+id = &"slime"
+display_name = "史莱姆"
+max_health = 30.0
+damage = 5.0
+move_speed = 2.5
+attack_range = 1.2
+attack_interval = 1.0
+detection_range = 8.0
+is_boss = false
+faction = 1

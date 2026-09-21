@@ -1,0 +1,17 @@
+[gd_scene format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wolf"]
+albedo_color = Color(0.35, 0.38, 0.42, 1)
+roughness = 0.85
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_wolf"]
+material = SubResource("StandardMaterial3D_wolf")
+radius = 0.48
+height = 1.5
+
+[node name="WolfVisual" type="Node3D"]
+
+[node name="Body" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.75, 0)
+scale = Vector3(1.15, 1.0, 1.6)
+mesh = SubResource("CapsuleMesh_wolf")

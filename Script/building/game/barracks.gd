@@ -180,6 +180,20 @@ func unregister_garrison(unit: Node) -> void:
 	garrison_reservations.erase(unit)
 
 
+func remove_unit_from_rosters(unit: Node) -> void:
+	garrisoned_units.erase(unit)
+	garrison_reservations.erase(unit)
+	active_patrol_units.erase(unit)
+	patrol_assembled_units.erase(unit)
+	patrol_point_reached_units.erase(unit)
+	resupply_workers.erase(unit)
+	patrol_routes.erase(unit)
+	if active_patrol_units.is_empty():
+		patrol_assembled_units.clear()
+		patrol_point_reached_units.clear()
+		patrol_routes.clear()
+
+
 func receive_resupply_return(unit: Node) -> void:
 	resupply_workers.erase(unit)
 	if is_instance_valid(unit) and has_free_garrison_slot():
