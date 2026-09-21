@@ -2,10 +2,19 @@ class_name Barracks
 extends BuildingBase
 
 
+const RESOURCE_DATABASE: ResourceDatabase = preload(
+	"res://data/resources/resource_database.tres"
+)
+
 @export var patrol_point_reach_radius: float = 0.5
+@export var garrison_entry_reach_radius: float = 1.8
+@export_category("军粮")
+@export var food_capacity: float = 30.0
+@export var resupply_trigger: float = 10.0
 
 
 var garrisoned_units: Array[Node] = []
+var garrison_reservations: Array[Node] = []
 var active_patrol_units: Array[Node] = []
 var patrol_group_started: bool = false
 var patrol_points: Array[Vector3] = []
@@ -14,6 +23,11 @@ var patrol_assembled_units: Array[Node] = []
 var patrol_point_reached_units: Array[Node] = []
 var patrol_group_start_index: int = 0
 var patrol_routes: Dictionary = {}
+var food_inventory: Dictionary[StringName, float] = {}
+var resupply_workers: Array[Node] = []
+var food_resupply_requested: bool = false
+
+signal food_changed(current_amount: float, capacity: float)
 
 
 func _ready() -> void:
@@ -25,6 +39,8 @@ func _process(_delta: float) -> void:
 	super._process(_delta)
 	if not is_demolition_in_progress():
 		dispatch_available_swordsmen()
+		_try_start_food_resupply()
+		_try_start_auto_patrol()
 
 
 func demolish() -> bool:
@@ -33,6 +49,8 @@ func demolish() -> bool:
 		return false
 	var units_to_release: Array[Node] = garrisoned_units.duplicate()
 	garrisoned_units.clear()
+	units_to_release.append_array(garrison_reservations)
+	garrison_reservations.clear()
 	for unit: Node in units_to_release:
 		if is_instance_valid(unit) and unit.has_method("leave_garrison"):
 			unit.leave_garrison()
@@ -47,30 +65,165 @@ func get_garrison_capacity() -> int:
 
 func get_garrison_count() -> int:
 	for unit: Node in garrisoned_units.duplicate():
-		if not is_instance_valid(unit):
+		if (
+			not is_instance_valid(unit)
+			or not unit.has_method("is_garrisoned")
+			or not unit.is_garrisoned()
+			or unit.get("garrisoned_in") != self
+		):
 			garrisoned_units.erase(unit)
-	return garrisoned_units.size()
+	for unit: Node in active_patrol_units.duplicate():
+		if not is_instance_valid(unit):
+			active_patrol_units.erase(unit)
+	for unit: Node in resupply_workers.duplicate():
+		if not is_instance_valid(unit):
+			resupply_workers.erase(unit)
+	var assigned_units: Array[Node] = []
+	for unit: Node in garrisoned_units + active_patrol_units + resupply_workers:
+		if is_instance_valid(unit) and not assigned_units.has(unit):
+			assigned_units.append(unit)
+	return assigned_units.size()
+
+
+func get_garrison_occupancy_count() -> int:
+	for unit: Node in garrison_reservations.duplicate():
+		if (
+			not is_instance_valid(unit)
+			or not unit.has_method("get")
+			or unit.get("garrison_target") != self
+			or unit.get("state") != unit.State.MOVE_TO_BARRACKS
+		):
+			garrison_reservations.erase(unit)
+	return get_garrison_count() + garrison_reservations.size()
 
 
 func has_free_garrison_slot() -> bool:
-	return get_garrison_count() < get_garrison_capacity()
+	return get_garrison_occupancy_count() < get_garrison_capacity()
+
+
+func get_food_amount() -> float:
+	var total: float = 0.0
+	for amount: float in food_inventory.values():
+		total += amount
+	return total
+
+
+func get_food_capacity() -> float:
+	return maxf(food_capacity, 0.0)
+
+
+func get_food_ratio() -> float:
+	var capacity: float = get_food_capacity()
+	if capacity <= 0.0:
+		return 0.0
+	return clampf(get_food_amount() / capacity, 0.0, 1.0)
+
+
+func add_food(resource_id: StringName, amount: float) -> float:
+	if amount <= 0.0:
+		return 0.0
+	var resource_data: ResourceData = RESOURCE_DATABASE.get_resource_data(resource_id)
+	if resource_data == null or not resource_data.is_food():
+		return 0.0
+	var accepted_amount: float = minf(
+		amount,
+		maxf(get_food_capacity() - get_food_amount(), 0.0)
+	)
+	if accepted_amount <= 0.0:
+		return 0.0
+	food_inventory[resource_id] = (
+		float(food_inventory.get(resource_id, 0.0)) + accepted_amount
+	)
+	if get_food_amount() >= get_food_capacity():
+		food_resupply_requested = false
+	food_changed.emit(get_food_amount(), get_food_capacity())
+	return accepted_amount
+
+
+func get_food_resource_ids() -> Array[StringName]:
+	var resource_ids: Array[StringName] = []
+	for resource_id: StringName in food_inventory.keys():
+		if float(food_inventory[resource_id]) > 0.0:
+			resource_ids.append(resource_id)
+	return resource_ids
+
+
+func take_food(resource_id: StringName, amount: float) -> float:
+	if amount <= 0.0:
+		return 0.0
+	var available_amount: float = float(food_inventory.get(resource_id, 0.0))
+	var taken_amount: float = minf(amount, available_amount)
+	if taken_amount <= 0.0:
+		return 0.0
+	food_inventory[resource_id] = available_amount - taken_amount
+	if food_inventory[resource_id] <= 0.0:
+		food_inventory.erase(resource_id)
+	food_changed.emit(get_food_amount(), get_food_capacity())
+	return taken_amount
+
+
+func debug_add_food(amount: float = 10.0) -> float:
+	return add_food(&"grain", amount)
 
 
 func register_garrison(unit: Node) -> bool:
-	if unit == null or garrisoned_units.has(unit):
+	if unit == null or garrisoned_units.has(unit) or garrison_reservations.has(unit):
 		return false
 	if not has_free_garrison_slot():
 		return false
-	garrisoned_units.append(unit)
+	garrison_reservations.append(unit)
 	return true
 
 
 func unregister_garrison(unit: Node) -> void:
 	garrisoned_units.erase(unit)
+	garrison_reservations.erase(unit)
+
+
+func receive_resupply_return(unit: Node) -> void:
+	resupply_workers.erase(unit)
+	if is_instance_valid(unit) and has_free_garrison_slot():
+		garrisoned_units.append(unit)
+		unit.enter_garrison(self)
+
+
+func _try_start_food_resupply() -> void:
+	for worker: Node in resupply_workers.duplicate():
+		if not is_instance_valid(worker):
+			resupply_workers.erase(worker)
+	if get_food_amount() < maxf(resupply_trigger, 0.0):
+		food_resupply_requested = true
+	if not food_resupply_requested:
+		return
+	if get_food_amount() >= get_food_capacity():
+		food_resupply_requested = false
+		return
+	var total_garrison_count: int = get_garrison_count()
+	var max_resupply_workers: int = maxi(1, floori(float(total_garrison_count) / 2.0))
+	if resupply_workers.size() >= max_resupply_workers:
+		return
+	var bases: Array[Node] = get_tree().get_nodes_in_group("bases")
+	if bases.is_empty():
+		return
+	var base: Node = bases[0]
+	for unit: Node in garrisoned_units.duplicate():
+		if resupply_workers.size() >= max_resupply_workers:
+			return
+		if not is_instance_valid(unit):
+			garrisoned_units.erase(unit)
+			continue
+		if unit.get("state") != unit.State.GARRISONED:
+			continue
+		if unit.has_method("begin_barracks_resupply") and unit.begin_barracks_resupply(self, base):
+			resupply_workers.append(unit)
 
 
 func get_garrison_entrance_position(_unit: Node = null) -> Vector3:
 	return global_position + Vector3(0.0, 0.0, 2.0)
+
+
+func get_garrison_entry_reach_radius() -> float:
+	return maxf(garrison_entry_reach_radius, 0.1)
 
 
 func get_patrol_assemble_position(index: int) -> Vector3:
@@ -99,7 +252,10 @@ func get_patrol_point_reach_radius() -> float:
 
 
 func enter_garrison(unit: Node) -> void:
-	if not garrisoned_units.has(unit):
+	if garrison_reservations.has(unit):
+		garrison_reservations.erase(unit)
+		garrisoned_units.append(unit)
+	elif not garrisoned_units.has(unit):
 		return
 	if unit.has_method("enter_garrison"):
 		unit.enter_garrison(self)
@@ -121,6 +277,10 @@ func can_start_patrol() -> bool:
 	)
 
 
+func is_patrol_in_progress() -> bool:
+	return not active_patrol_units.is_empty() or not patrol_assembled_units.is_empty()
+
+
 func request_patrol() -> bool:
 	if not can_start_patrol():
 		print("军营暂时无法开始巡逻：没有可出巡的待命驻军")
@@ -128,6 +288,18 @@ func request_patrol() -> bool:
 
 	patrol_group_started = true
 	return _start_next_patrol_group()
+
+
+func _try_start_auto_patrol() -> void:
+	if is_patrol_in_progress():
+		return
+	if get_food_amount() < maxf(resupply_trigger, 0.0):
+		return
+	var ready_units: Array[Node] = _get_ready_garrison_units()
+	if ready_units.is_empty():
+		return
+	patrol_group_started = true
+	_start_next_patrol_group()
 
 
 func _start_next_patrol_group() -> bool:
@@ -146,12 +318,12 @@ func _start_next_patrol_group() -> bool:
 		) % ready_units.size()
 	for index: int in range(selected_units.size()):
 		var unit: Node = selected_units[index]
-		active_patrol_units.append(unit)
-		if unit.has_method("leave_garrison_for_patrol"):
-			unit.leave_garrison_for_patrol(
+		if unit.has_method("leave_garrison_for_patrol") and unit.leave_garrison_for_patrol(
 				self,
 				get_patrol_assemble_position(index)
-			)
+			):
+			garrisoned_units.erase(unit)
+			active_patrol_units.append(unit)
 	return not active_patrol_units.is_empty()
 
 
@@ -160,7 +332,7 @@ func _get_ready_garrison_units() -> Array[Node]:
 	for unit: Node in garrisoned_units:
 		if not is_instance_valid(unit) or not unit.has_method("get"):
 			continue
-		if unit.has_method("is_garrisoned") and unit.is_garrisoned():
+		if unit.has_method("is_ready_for_patrol") and unit.is_ready_for_patrol():
 			ready_units.append(unit)
 	return ready_units
 
@@ -274,6 +446,8 @@ func receive_patrol_return(unit: Node) -> void:
 		return
 	active_patrol_units.erase(unit)
 	if is_instance_valid(unit) and unit.has_method("enter_garrison"):
+		if not garrisoned_units.has(unit):
+			garrisoned_units.append(unit)
 		unit.enter_garrison(self)
 	if active_patrol_units.is_empty():
 		patrol_assembled_units.clear()

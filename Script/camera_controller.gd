@@ -8,6 +8,7 @@ extends Camera3D
 @export var pan_speed: float = 0.035
 @export var keyboard_pan_speed: float = 10.0
 @export var rotate_speed: float = 0.008
+@export var keyboard_rotate_speed: float = 2.5
 @export var focus_smooth_speed: float = 8.0
 
 var focus_target: Vector3 = Vector3.ZERO
@@ -36,6 +37,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_process_keyboard_pan(delta)
+	_process_keyboard_rotate(delta)
 	if not focus_target.is_equal_approx(focus_destination):
 		focus_target = focus_target.lerp(
 			focus_destination,
@@ -77,7 +79,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event is InputEventKey:
 		var key_event := event as InputEventKey
-		if key_event.pressed and not key_event.echo and key_event.keycode == KEY_F:
+		if not key_event.pressed or key_event.echo:
+			return
+		if key_event.keycode == KEY_F:
 			_focus_selected_object()
 			get_viewport().set_input_as_handled()
 
@@ -103,6 +107,17 @@ func _process_keyboard_pan(delta: float) -> void:
 	right = right.normalized()
 	_move_focus((right * movement.x + forward * movement.y)
 		* keyboard_pan_speed * delta)
+
+
+func _process_keyboard_rotate(delta: float) -> void:
+	var direction: float = 0.0
+	if Input.is_key_pressed(KEY_Q):
+		direction -= 1.0
+	if Input.is_key_pressed(KEY_E):
+		direction += 1.0
+	if is_zero_approx(direction):
+		return
+	orbit_yaw += direction * keyboard_rotate_speed * delta
 
 
 func _pan_by_mouse(relative: Vector2) -> void:

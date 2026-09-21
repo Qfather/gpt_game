@@ -43,6 +43,15 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "解雇"
 
+[node name="BarracksFoodButton" type="Button" parent="Vbox/Content/WorkerButtons" index="2"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 28)
+text = "军粮 +10"
+visible = false
+mouse_filter = 0
+focus_mode = 2
+z_index = 10
+
 [node name="DemolishButton" type="Button" parent="Vbox/Content" unique_id=946615292]
 unique_name_in_owner = true
 layout_mode = 2
@@ -54,3 +63,5 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "开始巡逻"
 visible = false
+
+[connection signal="pressed" from="Vbox/Content/WorkerButtons/BarracksFoodButton" to="." method="_on_barracks_food_button_pressed"]

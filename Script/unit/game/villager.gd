@@ -56,6 +56,8 @@ enum State {
 	TRAINING,
 	MOVE_TO_BARRACKS,
 	GARRISONED,
+	GARRISON_EATING,
+	GARRISON_RESTING,
 	MOVE_TO_PATROL_ASSEMBLE,
 	PATROL_ASSEMBLING,
 	MOVE_TO_PATROL_POINT,
@@ -97,6 +99,10 @@ var navigation_last_position: Vector3 = Vector3.ZERO
 var navigation_stuck_time: float = 0.0
 var garrison_resume_state: int = -1
 var garrison_resume_target_position: Vector3 = Vector3.ZERO
+var resupply_barracks: Node = null
+var resupply_food_id: StringName = &""
+var returning_resupply_surplus: bool = false
+var idle_reposition_timer: float = 0.0
 
 enum Job {
 	NONE,
@@ -159,7 +165,7 @@ const ACTIVITY_MULTIPLIERS: Dictionary = {
 
 var activity_level: ActivityLevel = ActivityLevel.NORMAL
 const EATING_TIME: float = 5.0
-const SATIATED_HUNGER_THRESHOLD: float = 10.0
+const SATIATED_HUNGER_THRESHOLD: float = 30.0
 var eating_timer: float = 0.0
 var resting_timer: float = 0.0
 var selected_food_id: StringName = &""
@@ -197,6 +203,10 @@ func get_activity_level() -> ActivityLevel:
 			return ActivityLevel.WORKING
 		State.GARRISONED:
 			return ActivityLevel.NORMAL
+		State.GARRISON_EATING:
+			return ActivityLevel.NORMAL
+		State.GARRISON_RESTING:
+			return ActivityLevel.RESTING
 		State.FIND_TASK_SOURCE, State.MOVE_TO_TASK_SOURCE:
 			return ActivityLevel.WORKING
 		State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.BUILDING, State.FIND_FIELD_WORK, State.MOVE_TO_FIELD, State.WORKING_FIELD:
@@ -266,7 +276,7 @@ func evaluate_needs() -> void:
 		return
 	if is_instance_valid(construction_cancellation_target):
 		return
-	if is_instance_valid(garrisoned_in):
+	if is_instance_valid(garrisoned_in) or is_instance_valid(patrol_barracks) or is_instance_valid(resupply_barracks):
 		return
 	if (
 		state == State.MOVE_TO_PATROL_POINT
@@ -551,6 +561,7 @@ var chop_timer: float = 0.0
 
 func _ready():
 	super._ready()
+	idle_reposition_timer = randf_range(3.0, 10.0)
 	_update_combat_visual()
 	input_event.connect(_on_input_event)
 	call_deferred("start")
@@ -612,6 +623,7 @@ func _physics_process(delta):
 
 		State.IDLE:
 			velocity = Vector3.ZERO
+			process_idle_reposition(delta)
 
 		State.NEED_EAT:
 			state = State.MOVE_TO_EAT
@@ -665,7 +677,13 @@ func _physics_process(delta):
 			move_to_barracks()
 
 		State.GARRISONED:
-			velocity = Vector3.ZERO
+			process_garrison_needs()
+
+		State.GARRISON_EATING:
+			process_garrison_eating(delta)
+
+		State.GARRISON_RESTING:
+			process_garrison_resting(delta)
 
 		State.MOVE_TO_PATROL_ASSEMBLE:
 			move_to_patrol_assemble()
@@ -1121,13 +1139,27 @@ func move_to_barracks() -> void:
 		garrison_target = null
 		return_to_idle()
 		return
-	if not navigation_agent.is_navigation_finished():
+	if not _has_reached_garrison_entry(garrison_target):
+		if navigation_agent.is_navigation_finished():
+			_repath_current_navigation_target()
 		move_along_navigation()
+		return
+	if is_instance_valid(resupply_barracks):
+		finish_barracks_resupply()
 		return
 	if garrison_target.has_method("enter_garrison"):
 		garrison_target.enter_garrison(self)
 		return
 	enter_garrison(garrison_target)
+
+
+func _has_reached_garrison_entry(barracks: Node) -> bool:
+	var reach_radius: float = 1.8
+	if barracks != null and barracks.has_method("get_garrison_entry_reach_radius"):
+		reach_radius = float(barracks.get_garrison_entry_reach_radius())
+	var target_delta: Vector3 = navigation_agent.target_position - global_position
+	target_delta.y = 0.0
+	return target_delta.length() <= reach_radius
 
 
 func enter_garrison(barracks: Node) -> void:
@@ -1142,8 +1174,176 @@ func enter_garrison(barracks: Node) -> void:
 	state = State.GARRISONED
 
 
+func process_garrison_needs() -> void:
+	if state != State.GARRISONED or not is_instance_valid(garrisoned_in):
+		return
+	if hunger > SATIATED_HUNGER_THRESHOLD and begin_garrison_eating():
+		return
+	if fatigue > RESTED_THRESHOLD:
+		state = State.GARRISON_RESTING
+
+
+func process_garrison_resting(delta: float) -> void:
+	if not is_instance_valid(garrisoned_in):
+		state = State.IDLE
+		return
+	fatigue = clampf(fatigue - delta * rest_recovery_rate, 0.0, 100.0)
+	velocity = Vector3.ZERO
+	if fatigue <= RESTED_THRESHOLD:
+		if hunger > SATIATED_HUNGER_THRESHOLD and begin_garrison_eating():
+			return
+		state = State.GARRISONED
+
+
+func begin_garrison_eating() -> bool:
+	if not is_instance_valid(garrisoned_in):
+		return false
+	if not garrisoned_in.has_method("get_food_resource_ids"):
+		return false
+	var food_ids: Array[StringName] = garrisoned_in.get_food_resource_ids()
+	if food_ids.is_empty():
+		return false
+	selected_food_id = food_ids[0]
+	eating_timer = 0.0
+	state = State.GARRISON_EATING
+	return true
+
+
+func process_garrison_eating(delta: float) -> void:
+	if not is_instance_valid(garrisoned_in):
+		selected_food_id = &""
+		eating_timer = 0.0
+		state = State.IDLE
+		return
+	eating_timer += delta
+	velocity = Vector3.ZERO
+	if eating_timer < EATING_TIME:
+		return
+	var consumed_amount: float = 0.0
+	if garrisoned_in.has_method("take_food"):
+		consumed_amount = garrisoned_in.take_food(selected_food_id, 1.0)
+	if consumed_amount <= 0.0:
+		if begin_garrison_eating():
+			return
+		selected_food_id = &""
+		eating_timer = 0.0
+		state = State.GARRISONED
+		return
+	var food_data: ResourceData = RESOURCE_DATABASE.get_resource_data(selected_food_id)
+	if food_data != null and food_data.food_properties != null:
+		hunger = clampf(
+			hunger - food_data.food_properties.nutrition,
+			0.0,
+			100.0
+		)
+	if hunger > SATIATED_HUNGER_THRESHOLD:
+		if begin_garrison_eating():
+			return
+	selected_food_id = &""
+	eating_timer = 0.0
+	state = State.GARRISONED
+
+
 func is_garrisoned() -> bool:
-	return is_instance_valid(garrisoned_in) and state == State.GARRISONED
+	return (
+		is_instance_valid(garrisoned_in)
+		and (
+			state == State.GARRISONED
+			or state == State.GARRISON_EATING
+			or state == State.GARRISON_RESTING
+		)
+	)
+
+
+func is_ready_for_patrol() -> bool:
+	return (
+		is_instance_valid(garrisoned_in)
+		and state == State.GARRISONED
+		and hunger <= SATIATED_HUNGER_THRESHOLD
+		and fatigue <= RESTED_THRESHOLD
+	)
+
+
+func begin_barracks_resupply(barracks: Node, base: Node) -> bool:
+	if (
+		barracks == null
+		or base == null
+		or not is_instance_valid(garrisoned_in)
+		or garrisoned_in != barracks
+		or state != State.GARRISONED
+	):
+		return false
+	var base_storage: ResourceStorage = base.get("storage") as ResourceStorage
+	if base_storage == null:
+		base_storage = base.get_node_or_null("ResourceStorage") as ResourceStorage
+	if base_storage == null:
+		return false
+	resupply_food_id = choose_food(base_storage)
+	if resupply_food_id.is_empty():
+		return false
+	resupply_barracks = barracks
+	returning_resupply_surplus = false
+	if barracks.has_method("unregister_garrison"):
+		barracks.unregister_garrison(self)
+	garrisoned_in = null
+	garrison_target = null
+	visible = true
+	collision_layer = 2
+	collision_mask = 3
+	if base.has_method("get_interaction_position"):
+		navigation_agent.target_position = base.get_interaction_position(self)
+	else:
+		navigation_agent.target_position = base.global_position
+	state = State.MOVE_TO_BASE
+	return true
+
+
+func _load_barracks_resupply_from_base() -> void:
+	if not is_instance_valid(target_base) or not is_instance_valid(resupply_barracks):
+		return_to_idle()
+		return
+	var base_storage: ResourceStorage = target_base.get("storage") as ResourceStorage
+	if base_storage == null:
+		base_storage = target_base.get_node_or_null("ResourceStorage") as ResourceStorage
+	if base_storage == null:
+		return_to_idle()
+		return
+	var taken: float = base_storage.take(resupply_food_id, carry_capacity)
+	if taken <= 0.0:
+		return_to_idle()
+		return
+	carried_resource_id = resupply_food_id
+	carried_amount = taken
+	carried_resource_changed.emit()
+	garrison_target = resupply_barracks
+	navigation_agent.target_position = resupply_barracks.get_interaction_position(self)
+	state = State.MOVE_TO_BARRACKS
+
+
+func finish_barracks_resupply() -> void:
+	if not is_instance_valid(resupply_barracks):
+		resupply_food_id = &""
+		returning_resupply_surplus = false
+		return_to_idle()
+		return
+	var delivered: float = resupply_barracks.add_food(
+		resupply_food_id,
+		carried_amount
+	)
+	carried_amount -= delivered
+	if carried_amount > 0.0:
+		returning_resupply_surplus = true
+		go_to_base()
+		return
+	carried_resource_id = &""
+	resupply_food_id = &""
+	returning_resupply_surplus = false
+	var barracks: Node = resupply_barracks
+	resupply_barracks = null
+	if barracks.has_method("receive_resupply_return"):
+		barracks.receive_resupply_return(self)
+	else:
+		enter_garrison(barracks)
 
 
 func leave_garrison_for_patrol(barracks: Node, assemble_position: Vector3) -> bool:
@@ -1263,7 +1463,9 @@ func start_return_to_patrol_barracks() -> void:
 
 
 func return_to_patrol_barracks() -> void:
-	if not navigation_agent.is_navigation_finished():
+	if not _has_reached_garrison_entry(patrol_barracks):
+		if navigation_agent.is_navigation_finished():
+			_repath_current_navigation_target()
 		move_along_navigation()
 		return
 	velocity = Vector3.ZERO
@@ -1771,6 +1973,9 @@ func move_to_base():
 # 存入 Base
 # ============================================================
 func deposit_to_base():
+	if is_instance_valid(resupply_barracks) and carried_amount <= 0.0:
+		_load_barracks_resupply_from_base()
+		return
 
 	if carried_amount <= 0.0:
 		start_current_job()
@@ -1805,6 +2010,19 @@ func deposit_to_base():
 	# Base 满仓时只扣除实际存入的数量，剩余资源继续保留。
 	if carried_amount > 0.0:
 		print("⚠️ Base 已满，居民仍携带：", carried_amount)
+		return
+
+	if returning_resupply_surplus and is_instance_valid(resupply_barracks):
+		returning_resupply_surplus = false
+		carried_resource_id = &""
+		garrison_target = resupply_barracks
+		if resupply_barracks.has_method("get_garrison_entrance_position"):
+			navigation_agent.target_position = (
+				resupply_barracks.get_garrison_entrance_position(self)
+			)
+		else:
+			navigation_agent.target_position = resupply_barracks.global_position
+		state = State.MOVE_TO_BARRACKS
 		return
 
 
@@ -2371,11 +2589,36 @@ func move_to_idle_area():
 			print("👨 已回到据点附近待命")
 		else:
 			print("💤 已回到工作地点附近待命：", workplace.name)
+		idle_reposition_timer = randf_range(3.0, 10.0)
 
 		return
 
 
 	move_along_navigation()
+
+
+func process_idle_reposition(delta: float) -> void:
+	if current_task != null or job != Job.NONE and workplace == null:
+		return
+	idle_reposition_timer -= delta
+	if idle_reposition_timer > 0.0:
+		return
+	if job != Job.NONE and workplace != null:
+		navigation_agent.target_position = get_random_idle_position(
+			workplace.global_position,
+			workplace.idle_radius
+		)
+	else:
+		if target_base == null or not is_instance_valid(target_base):
+			find_base()
+		if target_base == null:
+			idle_reposition_timer = randf_range(3.0, 10.0)
+			return
+		navigation_agent.target_position = get_random_idle_position(
+			target_base.global_position,
+			target_base.idle_radius
+		)
+	state = State.RETURN_TO_IDLE
 
 
 func start_farm_work() -> void:

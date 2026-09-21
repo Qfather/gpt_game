@@ -25,6 +25,8 @@ const STATE_DISPLAY_NAMES: PackedStringArray = [
 	"正在训练",
 	"前往军营",
 	"已驻扎军营",
+	"军营内吃饭",
+	"军营内休息",
 	"前往巡逻集合点",
 	"等待巡逻队集合",
 	"前往巡逻点",

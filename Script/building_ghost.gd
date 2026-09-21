@@ -68,7 +68,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		var key_event := event as InputEventKey
 
 		if key_event.keycode == KEY_R:
-			_rotate_preview()
+			_rotate_preview(1)
 			get_viewport().set_input_as_handled()
 			return
 
@@ -219,10 +219,10 @@ func _get_mouse_world_position(camera: Camera3D) -> Vector3:
 	return ray_origin + ray_direction * distance
 
 
-func _rotate_preview() -> void:
+func _rotate_preview(direction: int) -> void:
 
 	if building_data.allow_rotation:
-		rotation_step = posmod(rotation_step + 1, 4)
+		rotation_step = posmod(rotation_step + direction, 4)
 		_update_preview()
 		print("BuildingGhost rotation_step: ", rotation_step)
 
@@ -246,8 +246,10 @@ func _confirm_preview() -> void:
 	var placed_mirrored: bool = mirrored
 	var placed_transform: Transform3D = global_transform
 
+	var keep_placing: bool = Input.is_key_pressed(KEY_SHIFT)
+	var created: bool = false
 	if get_tree().paused:
-		_create_construction_site(
+		created = _create_construction_site(
 			placed_data,
 			placed_grid_position,
 			placed_rotation_step,
@@ -256,12 +258,15 @@ func _confirm_preview() -> void:
 			false,
 			true
 		)
+		if not created:
+			return
 		print("BuildingGhost 暂停期间记录放置：", placed_data.id)
-		start_preview = false
-		visible = false
+		if not keep_placing:
+			start_preview = false
+			visible = false
 		return
 
-	_create_construction_site(
+	created = _create_construction_site(
 		placed_data,
 		placed_grid_position,
 		placed_rotation_step,
@@ -270,8 +275,14 @@ func _confirm_preview() -> void:
 		false,
 		false
 	)
-	start_preview = false
-	visible = false
+	if not created:
+		return
+	if keep_placing:
+		start_preview = true
+		_update_preview()
+	else:
+		start_preview = false
+		visible = false
 
 
 func _create_construction_site(
@@ -282,9 +293,9 @@ func _create_construction_site(
 	placed_transform: Transform3D,
 	area_already_occupied: bool,
 	defer_activation_until_unpause: bool
-) -> void:
+) -> bool:
 	if placed_data == null:
-		return
+		return false
 	if (
 		not area_already_occupied
 		and not build_grid.occupy_area(
@@ -294,7 +305,7 @@ func _create_construction_site(
 		)
 	):
 		print("BuildingGhost 放置时网格已被占用：", placed_grid_position)
-		return
+		return false
 
 	var site: ConstructionSite = (
 		CONSTRUCTION_SITE_SCENE.instantiate()
@@ -324,6 +335,7 @@ func _create_construction_site(
 		" mirrored=",
 		placed_mirrored
 	)
+	return true
 
 
 func cancel_preview() -> void:

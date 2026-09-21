@@ -16,6 +16,7 @@ const RESOURCE_DATABASE: ResourceDatabase = preload(
 @onready var fire_button: Button = %FireButton
 @onready var demolish_button: Button = %DemolishButton
 @onready var patrol_button: Button = $Vbox/Content/PatrolButton
+@onready var barracks_food_button: Button = $Vbox/Content/WorkerButtons/BarracksFoodButton
 @onready var demolition_progress_bar: ProgressBar = %DemolitionProgressBar
 # ============================================================
 # 初始化
@@ -27,6 +28,9 @@ func _ready():
 
 	print("HireButton = ", hire_button)
 	print("FireButton = ", fire_button)
+	barracks_food_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	barracks_food_button.focus_mode = Control.FOCUS_ALL
+	barracks_food_button.z_index = 10
 
 	hire_button.pressed.connect(_on_hire_pressed)
 	fire_button.pressed.connect(_on_fire_pressed)
@@ -44,6 +48,8 @@ func refresh():
 	hire_button.disabled = false
 	fire_button.disabled = false
 	demolition_progress_bar.hide()
+	if not current_building.has_method("get_garrison_capacity"):
+		barracks_food_button.hide()
 	var demolition_in_progress: bool = (
 		current_building.has_method("is_demolition_in_progress")
 		and current_building.is_demolition_in_progress()
@@ -222,11 +228,18 @@ func refresh():
 
 	if current_building.has_method("get_garrison_capacity"):
 		storage_label.show()
-		storage_label.text = "军营"
+		storage_label.text = "军营\n军粮：%d / %d" % [
+			int(current_building.get_food_amount()),
+			int(current_building.get_food_capacity())
+		]
 		material_label.hide()
 		worker_label.show()
 		hire_button.hide()
 		fire_button.hide()
+		if not barracks_food_button.visible:
+			barracks_food_button.show()
+		barracks_food_button.disabled = false
+		barracks_food_button.text = "军粮 +10"
 		worker_label.text = "驻军：%d / %d" % [
 			int(current_building.get_garrison_count()),
 			int(current_building.get_garrison_capacity())
@@ -235,11 +248,14 @@ func refresh():
 			current_building.has_method("can_start_patrol")
 			and not current_building.can_start_patrol()
 		)
-		patrol_button.text = (
-			"开始巡逻"
-			if not patrol_button.disabled
-			else "巡逻进行中"
-		)
+		if current_building.has_method("is_patrol_in_progress") and current_building.is_patrol_in_progress():
+			patrol_button.text = "巡逻进行中"
+		elif current_building.get_food_amount() < current_building.resupply_trigger:
+			patrol_button.text = "等待军粮"
+		elif patrol_button.disabled:
+			patrol_button.text = "等待战备"
+		else:
+			patrol_button.text = "开始巡逻"
 		return
 
 	if current_building.has_method("get_training_slots"):
@@ -446,6 +462,17 @@ func _on_patrol_pressed() -> void:
 	if _queue_building_panel_action("_on_patrol_pressed"):
 		return
 	if current_building.request_patrol():
+		refresh()
+
+
+func _on_barracks_food_button_pressed() -> void:
+	if current_building == null:
+		return
+	if _queue_building_panel_action("_on_barracks_food_button_pressed"):
+		return
+	if current_building.has_method("debug_add_food"):
+		var added_amount: float = current_building.debug_add_food(10.0)
+		print("军营调试增加军粮：", added_amount)
 		refresh()
 
 
