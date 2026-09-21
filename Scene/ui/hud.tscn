@@ -50,6 +50,11 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "人口：0 / 0"
 
+[node name="SwordsmanLabel" type="Label" parent="PanelContainer/VBoxContainer/HBoxContainer2"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "剑士：0"
+
 [node name="ImmigrationPanel" type="PanelContainer" parent="." unique_id=1924680001]
 anchors_preset = 1
 anchor_left = 1.0
@@ -103,6 +108,14 @@ text = "2X"
 layout_mode = 2
 text = "3X"
 
+[node name="Speed5Button" type="Button" parent="PanelContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "5X"
+
+[node name="Speed10Button" type="Button" parent="PanelContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "10X"
+
 [node name="BuildMenu" type="PanelContainer" parent="." unique_id=2095081821]
 anchors_preset = 7
 anchor_left = 0.5
@@ -131,3 +144,5 @@ current_tab = 0
 [connection signal="pressed" from="PanelContainer/VBoxContainer/HBoxContainer/Speed1Button" to="." method="_on_speed_1_button_pressed"]
 [connection signal="pressed" from="PanelContainer/VBoxContainer/HBoxContainer/Speed2Button" to="." method="_on_speed_2_button_pressed"]
 [connection signal="pressed" from="PanelContainer/VBoxContainer/HBoxContainer/Speed3Button" to="." method="_on_speed_3_button_pressed"]
+[connection signal="pressed" from="PanelContainer/VBoxContainer/HBoxContainer/Speed5Button" to="." method="_on_speed_5_button_pressed"]
+[connection signal="pressed" from="PanelContainer/VBoxContainer/HBoxContainer/Speed10Button" to="." method="_on_speed_10_button_pressed"]

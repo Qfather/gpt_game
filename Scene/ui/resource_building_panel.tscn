@@ -22,7 +22,15 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "工人：0 / 0"
 
-[node name="WorkerButtons" type="HBoxContainer" parent="Vbox/Content" parent_id_path=PackedInt32Array(911553784) index="3" unique_id=1603885267]
+[node name="DemolitionProgressBar" type="ProgressBar" parent="Vbox/Content" parent_id_path=PackedInt32Array(911553784) index="3" unique_id=946615294]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+value = 0.0
+show_percentage = true
+visible = false
+
+[node name="WorkerButtons" type="HBoxContainer" parent="Vbox/Content" parent_id_path=PackedInt32Array(911553784) index="4" unique_id=1603885267]
 layout_mode = 2
 
 [node name="HireButton" type="Button" parent="Vbox/Content/WorkerButtons" index="0" unique_id=946615291]
@@ -39,4 +47,10 @@ text = "解雇"
 unique_name_in_owner = true
 layout_mode = 2
 text = "拆除（返还 30%）"
+visible = false
+
+[node name="PatrolButton" type="Button" parent="Vbox/Content" unique_id=946615293]
+unique_name_in_owner = true
+layout_mode = 2
+text = "开始巡逻"
 visible = false

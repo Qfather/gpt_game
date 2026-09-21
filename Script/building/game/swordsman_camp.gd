@@ -104,7 +104,15 @@ func complete_training(worker: Node) -> bool:
 		return false
 	if not managers[0].complete_task(task):
 		return false
+	var previous_workplace: Node = worker.get("workplace") as Node
 	worker.set_combat_role(CombatRole.Type.SWORDSMAN)
+	if worker.has_method("assign_job"):
+		worker.assign_job(worker.Job.NONE)
+	if (
+		is_instance_valid(previous_workplace)
+		and previous_workplace.has_method("remove_worker")
+	):
+		previous_workplace.remove_worker(worker)
 	return true
 
 

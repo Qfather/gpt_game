@@ -22,6 +22,23 @@ var world_object_clicked: bool = false
 var selected_object: Node3D = null
 var selected_mesh_overlays: Dictionary = {}
 var selection_outline_material: ShaderMaterial
+var paused_game_commands: Array[Callable] = []
+
+
+func execute_game_command(command: Callable) -> void:
+	if get_tree().paused:
+		paused_game_commands.append(command)
+		print("游戏暂停，操作已排队，当前队列：", paused_game_commands.size())
+		return
+	command.call()
+
+
+func flush_paused_game_commands() -> void:
+	var commands: Array[Callable] = paused_game_commands.duplicate()
+	paused_game_commands.clear()
+	for command: Callable in commands:
+		if command.is_valid():
+			command.call()
 
 
 # ============================================================

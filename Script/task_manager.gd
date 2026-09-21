@@ -56,10 +56,15 @@ func _run_dispatch() -> void:
 			site._create_delivery_tasks_now()
 		elif site.has_method("request_delivery_tasks"):
 			site.request_delivery_tasks()
+
+	_dispatch_available_tasks()
+
+	# 先让运输任务领取并登记运输居民，再补充施工等待居民，
+	# 避免运输居民和施工居民同时占用名额导致人数超过上限。
+	for site: Node in construction_sites:
 		if site.has_method("prepare_construction_workers"):
 			site.prepare_construction_workers()
 
-	_dispatch_available_tasks()
 	dispatch_running = false
 
 
@@ -252,10 +257,7 @@ func create_construction_delivery_tasks(
 		site.has_method("has_all_reserved_construction_resources")
 		and site.has_all_reserved_construction_resources()
 	)
-	if resources_already_reserved:
-		if site.has_method("fill_waiting_workers"):
-			site.fill_waiting_workers()
-	elif site.has_method("release_waiting_workers"):
+	if not resources_already_reserved and site.has_method("release_waiting_workers"):
 		site.release_waiting_workers()
 
 
@@ -414,6 +416,13 @@ func claim_task(task: GameTask, worker: Node) -> bool:
 	if not worker.can_take_task(task):
 		return false
 	if (
+		task.type == GameTask.TaskType.BUILD
+		and task.target != null
+		and task.target.has_method("can_register_construction_worker")
+		and not task.target.can_register_construction_worker(worker)
+	):
+		return false
+	if (
 		task.type == GameTask.TaskType.TRAIN_SWORDSMAN
 		and task.target != null
 		and task.target.has_method("register_training_worker")
@@ -505,10 +514,11 @@ func release_task(task: GameTask) -> bool:
 	):
 		task.target.on_training_task_released(task)
 
-	_return_worker_resources(task)
+	var returning_resources: bool = _return_worker_resources(task)
 	task.data["resource_taken_amount"] = 0.0
 	_clear_worker_task(task)
-	_return_worker_to_idle(task)
+	if not returning_resources:
+		_return_worker_to_idle(task)
 	task.data["preferred_worker"] = null
 	task.state = GameTask.State.AVAILABLE
 	task.assigned_worker = null
@@ -587,10 +597,10 @@ func cancel_task(task: GameTask, return_worker: bool = true) -> bool:
 	):
 		task.target.on_training_task_released(task)
 
-	_return_worker_resources(task)
+	var returning_resources: bool = _return_worker_resources(task)
 	task.data["resource_taken_amount"] = 0.0
 	_clear_worker_task(task)
-	if return_worker:
+	if return_worker and not returning_resources:
 		_return_worker_to_idle(task)
 	task.data["preferred_worker"] = null
 	task.state = GameTask.State.CANCELLED
@@ -625,9 +635,10 @@ func fail_task(task: GameTask) -> bool:
 		task.target.on_training_task_released(task)
 
 	_clear_worker_task(task)
-	_return_worker_resources(task)
+	var returning_resources: bool = _return_worker_resources(task)
 	task.data["resource_taken_amount"] = 0.0
-	_return_worker_to_idle(task)
+	if not returning_resources:
+		_return_worker_to_idle(task)
 	task.data["preferred_worker"] = null
 	task.state = GameTask.State.CANCELLED
 	task.assigned_worker = null
@@ -660,14 +671,15 @@ func _return_worker_to_idle(task: GameTask) -> void:
 		task.assigned_worker.return_to_idle()
 
 
-func _return_worker_resources(task: GameTask) -> void:
+func _return_worker_resources(task: GameTask) -> bool:
 
 	if (
 		task.assigned_worker != null
 		and task.assigned_worker.has_method("return_carried_resource_to_base")
 	):
 		print("📦 取消任务，检查居民携带资源：", task.assigned_worker)
-		task.assigned_worker.return_carried_resource_to_base()
+		return bool(task.assigned_worker.return_carried_resource_to_base())
+	return false
 
 
 func _debug_create_task() -> void:

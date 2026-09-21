@@ -22,6 +22,10 @@ var demolition_worker_target_count: int = 0
 var demolition_progress: float = 0.0
 var demolition_duration: float = 0.0
 var demolition_resources: Dictionary[StringName, float] = {}
+var build_grid_position: Vector2i = Vector2i.ZERO
+var build_grid_size: Vector2i = Vector2i.ZERO
+var build_grid_rotation_step: int = 0
+var build_grid_area_registered: bool = false
 
 
 # ============================================================
@@ -101,6 +105,38 @@ func set_building_data(data: BuildingData) -> void:
 	building_data = data
 
 
+func set_build_grid_occupancy(
+	grid_position: Vector2i,
+	grid_size: Vector2i,
+	rotation_step: int
+) -> void:
+	build_grid_position = grid_position
+	build_grid_size = grid_size
+	build_grid_rotation_step = rotation_step
+	build_grid_area_registered = true
+
+
+func release_build_grid_area() -> bool:
+	if not build_grid_area_registered:
+		return false
+
+	var current_scene: Node = get_tree().current_scene
+	var build_grid: Node = null
+	if current_scene != null:
+		build_grid = current_scene.get_node_or_null("Systems/BuildGrid")
+	if build_grid == null or not build_grid.has_method("release_area"):
+		return false
+
+	var released: bool = build_grid.release_area(
+		build_grid_position,
+		build_grid_size,
+		build_grid_rotation_step
+	)
+	if released:
+		build_grid_area_registered = false
+	return released
+
+
 func get_building_data() -> BuildingData:
 	return building_data
 
@@ -171,6 +207,34 @@ func is_demolition_in_progress() -> bool:
 	return demolition_state != DemolitionState.NONE
 
 
+func can_cancel_demolition() -> bool:
+	return (
+		demolition_state == DemolitionState.WAITING_FOR_WORKER
+		or demolition_state == DemolitionState.WORKING
+	)
+
+
+func cancel_demolition() -> bool:
+	if not can_cancel_demolition():
+		print("当前拆除阶段不能取消：", demolition_state)
+		return false
+
+	var workers_to_release: Array[Node] = demolition_workers.duplicate()
+	demolition_state = DemolitionState.NONE
+	demolition_workers.clear()
+	demolition_carrier = null
+	for worker: Node in workers_to_release:
+		if is_instance_valid(worker) and worker.has_method("finish_demolition"):
+			worker.finish_demolition()
+
+	demolition_worker_target_count = 0
+	demolition_progress = 0.0
+	demolition_duration = 0.0
+	demolition_resources.clear()
+	print("已取消拆除建筑：", name)
+	return true
+
+
 func get_demolition_status_text() -> String:
 	match demolition_state:
 		DemolitionState.WAITING_FOR_WORKER:
@@ -198,6 +262,12 @@ func get_demolition_worker_count() -> int:
 
 func get_demolition_worker_target_count() -> int:
 	return demolition_worker_target_count
+
+
+func get_demolition_progress_ratio() -> float:
+	if demolition_duration <= 0.0:
+		return 0.0
+	return clampf(demolition_progress / demolition_duration, 0.0, 1.0)
 
 
 func request_additional_demolition_worker() -> bool:
@@ -252,6 +322,8 @@ func _try_assign_demolition_worker() -> void:
 	for villager: Node in get_tree().get_nodes_in_group("villagers"):
 		if not villager.has_method("is_idle"):
 			continue
+		if villager.has_method("has_combat_role") and villager.has_combat_role():
+			continue
 		if not villager.is_idle():
 			continue
 		if not villager.has_method("assign_demolition"):
@@ -264,6 +336,8 @@ func _try_assign_demolition_worker() -> void:
 				demolition_carrier = villager
 			if not demolition_workers.has(villager):
 				demolition_workers.append(villager)
+			if demolition_workers.size() >= demolition_worker_target_count:
+				return
 
 
 func begin_demolition_work(worker: Node) -> bool:
@@ -354,6 +428,7 @@ func _finish_demolition_pickup() -> void:
 		demolition_carrier.finish_demolition_pickup()
 	print("拆除材料已全部取出，建筑删除：", name)
 	building_demolished.emit(self)
+	release_build_grid_area()
 	queue_free()
 
 
@@ -377,6 +452,7 @@ func _complete_demolition() -> void:
 		demolition_carrier.finish_demolition()
 	print("建筑拆除完成，材料已运回据点：", name)
 	building_demolished.emit(self)
+	release_build_grid_area()
 	queue_free()
 
 

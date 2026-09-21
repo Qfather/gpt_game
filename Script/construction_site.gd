@@ -11,6 +11,8 @@ enum State {
 	WAITING_RESOURCES,
 	READY_TO_BUILD,
 	BUILDING,
+	CANCELLING,
+	WAITING_CANCELLATION_DELIVERY,
 	COMPLETED,
 	CANCELLED
 }
@@ -28,6 +30,14 @@ var required_resources: Dictionary[StringName, float] = {}
 var delivered_resources: Dictionary[StringName, float] = {}
 var reserved_resources: Dictionary[StringName, float] = {}
 var construction_progress: float = 0.0
+var cancellation_progress: float = 0.0
+var cancellation_duration: float = 0.0
+var cancellation_refund_resources: Dictionary[StringName, float] = {}
+var cancellation_workers: Array[Node] = []
+var returning_cancellation_workers: Array[Node] = []
+var cancellation_carriers: Array[Node] = []
+var last_active_cancellation_worker_count: int = -1
+var activation_deferred_until_unpause: bool = false
 var builders: Array[Node] = []
 var delivery_workers: Array[Node] = []
 var construction_workers: Array[Node] = []
@@ -62,6 +72,11 @@ func setup(
 	grid_position = placed_grid_position
 	rotation_step = placed_rotation_step
 	mirrored = placed_mirrored
+	set_build_grid_occupancy(
+		placed_grid_position,
+		building_data.grid_size,
+		placed_rotation_step
+	)
 	required_resources = _normalize_resource_dictionary(
 		building_data.construction_cost
 	)
@@ -79,6 +94,10 @@ func setup(
 	_refresh_state()
 
 
+func set_activation_deferred_until_unpause(deferred: bool) -> void:
+	activation_deferred_until_unpause = deferred
+
+
 func _ready() -> void:
 
 	_create_click_area()
@@ -87,11 +106,42 @@ func _ready() -> void:
 	_calculate_model_bounds()
 	_create_site_visual()
 	_print_status()
-	call_deferred("_request_delivery_task")
+	if not activation_deferred_until_unpause:
+		call_deferred("_request_delivery_task")
 	call_deferred("_register_with_main")
 
 
 func _process(delta: float) -> void:
+	if activation_deferred_until_unpause:
+		activation_deferred_until_unpause = false
+		call_deferred("_request_delivery_task")
+		_request_task_dispatch()
+
+	if state == State.CANCELLING:
+		if building_data == null:
+			return
+		_fill_cancellation_workers()
+		var active_workers: int = _get_active_cancellation_worker_count()
+		if active_workers != last_active_cancellation_worker_count:
+			last_active_cancellation_worker_count = active_workers
+			print(
+				"ConstructionSite 取消居民已到达：",
+				active_workers,
+				" / ",
+				cancellation_workers.size()
+			)
+		if active_workers <= 0:
+			return
+		cancellation_progress = minf(
+			cancellation_progress + delta * float(active_workers),
+			cancellation_duration
+		)
+		if cancellation_progress >= cancellation_duration:
+			if not returning_cancellation_workers.is_empty():
+				return
+			_complete_construction_cancellation()
+		return
+
 	if (
 		state == State.WAITING_RESOURCES
 		and worker_replenishment_requested
@@ -161,8 +211,16 @@ func _complete_construction() -> void:
 	var parent_node: Node = get_parent()
 	parent_node.add_child(building)
 	building.global_transform = global_transform
+	building.rotation.y = float(rotation_step) * PI * 0.5
+	building.scale.x = -1.0 if mirrored else 1.0
 	if building.has_method("set_building_data"):
 		building.set_building_data(building_data)
+	if building.has_method("set_build_grid_occupancy"):
+		building.set_build_grid_occupancy(
+			grid_position,
+			building_data.grid_size,
+			rotation_step
+		)
 	if keep_workers_at_building:
 		for worker: Node in completed_workers:
 			if is_instance_valid(worker):
@@ -187,6 +245,324 @@ func get_construction_progress_text() -> String:
 	]
 
 
+func get_construction_progress_ratio() -> float:
+	if building_data == null or building_data.construction_time <= 0.0:
+		return 0.0
+	return clampf(
+		construction_progress / float(building_data.construction_time),
+		0.0,
+		1.0
+	)
+
+
+func can_cancel_construction() -> bool:
+	return (
+		state == State.WAITING_RESOURCES
+		or state == State.READY_TO_BUILD
+		or state == State.BUILDING
+	)
+
+
+func is_construction_cancellation_in_progress() -> bool:
+	return (
+		state == State.CANCELLING
+		or state == State.WAITING_CANCELLATION_DELIVERY
+	)
+
+
+func get_construction_cancellation_progress_ratio() -> float:
+	if state == State.WAITING_CANCELLATION_DELIVERY:
+		return 1.0
+	if cancellation_duration <= 0.0:
+		return 0.0
+	return clampf(cancellation_progress / cancellation_duration, 0.0, 1.0)
+
+
+func get_construction_cancellation_status_text() -> String:
+	if state == State.WAITING_CANCELLATION_DELIVERY:
+		return "取消建造完成，正在搬回材料"
+	return "取消建造：%d / %d" % [
+		int(cancellation_progress),
+		int(ceil(cancellation_duration))
+	]
+
+
+func get_cancellation_worker_count() -> int:
+	var count: int = 0
+	for worker: Node in cancellation_workers:
+		if is_instance_valid(worker):
+			count += 1
+	for worker: Node in returning_cancellation_workers:
+		if is_instance_valid(worker):
+			count += 1
+	return count
+
+
+func get_max_cancellation_workers() -> int:
+	return get_max_construction_workers()
+
+
+func get_cancellation_remaining_resources() -> Dictionary[StringName, float]:
+	return cancellation_refund_resources.duplicate()
+
+
+func cancel_construction() -> bool:
+	if not can_cancel_construction() or building_data == null:
+		return false
+
+	var construction_time: float = maxf(float(building_data.construction_time), 0.1)
+	var construction_ratio: float = clampf(
+		construction_progress / construction_time,
+		0.0,
+		1.0
+	)
+	cancellation_duration = maxf(construction_time * construction_ratio, 0.1)
+	cancellation_progress = 0.0
+	cancellation_refund_resources = {}
+	for resource_id: StringName in required_resources.keys():
+		var consumed_amount: float = (
+			get_required_amount(resource_id) * construction_ratio
+		)
+		var refund_amount: float = maxf(
+			get_delivered_amount(resource_id) - consumed_amount,
+			0.0
+		)
+		if refund_amount > 0.0:
+			cancellation_refund_resources[resource_id] = refund_amount
+
+	state = State.CANCELLING
+	state_changed.emit(state)
+	print(
+		"ConstructionSite 开始取消建造：进度 ",
+		construction_ratio * 100.0,
+		"%，取消时间：",
+		cancellation_duration
+	)
+	returning_cancellation_workers.clear()
+	var cancellation_candidates: Array[Node] = construction_workers.duplicate()
+	for worker: Node in delivery_workers:
+		if not cancellation_candidates.has(worker):
+			cancellation_candidates.append(worker)
+	for worker: Node in cancellation_candidates:
+		if (
+			is_instance_valid(worker)
+			and float(worker.get("carried_amount")) > 0.0
+			and not returning_cancellation_workers.has(worker)
+		):
+			returning_cancellation_workers.append(worker)
+
+	var managers: Array[Node] = get_tree().get_nodes_in_group("task_manager")
+	if not managers.is_empty() and managers[0].has_method("cancel_tasks_for_target"):
+		managers[0].cancel_tasks_for_target(self, true)
+	release_waiting_workers()
+	for worker: Node in delivery_workers.duplicate():
+		if (
+			is_instance_valid(worker)
+			and float(worker.get("carried_amount")) <= 0.0
+			and worker.has_method("return_to_idle")
+		):
+			worker.return_to_idle()
+	builders.clear()
+	construction_workers.clear()
+	delivery_workers.clear()
+	waiting_workers.clear()
+	next_delivery_worker = null
+	cancellation_workers.clear()
+	cancellation_carriers.clear()
+	last_active_cancellation_worker_count = -1
+	_fill_cancellation_workers()
+	return true
+
+
+func _complete_construction_cancellation() -> void:
+	if state != State.CANCELLING:
+		return
+
+	state = State.WAITING_CANCELLATION_DELIVERY
+	state_changed.emit(state)
+	for worker: Node in cancellation_workers.duplicate():
+		if not is_instance_valid(worker):
+			cancellation_workers.erase(worker)
+	if cancellation_workers.is_empty():
+		_complete_cancellation_delivery()
+		return
+	for worker: Node in cancellation_workers.duplicate():
+		if not is_instance_valid(worker):
+			continue
+		if worker.has_method("finish_construction_cancellation"):
+			worker.finish_construction_cancellation()
+		cancellation_carriers.append(worker)
+	cancellation_workers = cancellation_carriers.duplicate()
+	for carrier: Node in cancellation_carriers.duplicate():
+		_load_next_cancellation_resource(carrier)
+		if state == State.CANCELLED:
+			return
+
+
+func _fill_cancellation_workers() -> void:
+	if state != State.CANCELLING:
+		return
+	for worker: Node in cancellation_workers.duplicate():
+		if not is_instance_valid(worker):
+			cancellation_workers.erase(worker)
+			continue
+		if (
+			worker.has_method("is_assigned_to_construction_cancellation")
+			and not worker.is_assigned_to_construction_cancellation(self)
+			and worker.has_method("is_idle")
+			and worker.is_idle()
+		):
+			worker.assign_construction_cancellation(self)
+	for worker: Node in returning_cancellation_workers.duplicate():
+		if not is_instance_valid(worker):
+			returning_cancellation_workers.erase(worker)
+			continue
+		if (
+			float(worker.get("carried_amount")) <= 0.0
+			and worker.has_method("is_idle")
+			and worker.is_idle()
+		):
+			returning_cancellation_workers.erase(worker)
+			if not cancellation_workers.has(worker):
+				cancellation_workers.append(worker)
+			if worker.has_method("assign_construction_cancellation"):
+				worker.assign_construction_cancellation(self)
+			print("ConstructionSite 返料居民回库后加入取消：", worker)
+	var villagers: Array[Node] = get_tree().get_nodes_in_group("villagers")
+	while (
+		cancellation_workers.size() + returning_cancellation_workers.size()
+		< get_max_construction_workers()
+	):
+		var assigned: bool = false
+		for villager: Node in villagers:
+			if (
+				_is_combat_unit(villager)
+				or cancellation_workers.has(villager)
+				or returning_cancellation_workers.has(villager)
+				or not villager.has_method("is_idle")
+				or not villager.is_idle()
+			):
+				continue
+			cancellation_workers.append(villager)
+			if villager.has_method("assign_construction_cancellation"):
+				villager.assign_construction_cancellation(self)
+			print("ConstructionSite 分配取消居民：", villager)
+			assigned = true
+			break
+		if not assigned:
+			break
+
+
+func _get_active_cancellation_worker_count() -> int:
+	var active_count: int = 0
+	for worker: Node in cancellation_workers:
+		if not is_instance_valid(worker):
+			continue
+		if (
+			worker.has_method("has_reached_construction_cancellation_site")
+			and worker.has_reached_construction_cancellation_site(self)
+		):
+			active_count += 1
+	return active_count
+
+
+func _load_next_cancellation_resource(carrier: Node) -> void:
+	if not is_instance_valid(carrier):
+		cancellation_carriers.erase(carrier)
+		if cancellation_carriers.is_empty():
+			_complete_cancellation_delivery()
+		return
+	for resource_id: StringName in cancellation_refund_resources.keys():
+		var amount: float = float(cancellation_refund_resources[resource_id])
+		if amount <= 0.0:
+			continue
+		var load_amount: float = minf(
+			amount,
+			float(carrier.get("carry_capacity"))
+		)
+		cancellation_refund_resources[resource_id] = amount - load_amount
+		print(
+			"ConstructionSite 取消返料取货：",
+			carrier,
+			" ",
+			resource_id,
+			" ",
+			load_amount,
+			"，工地剩余：",
+			cancellation_refund_resources[resource_id]
+		)
+		if carrier.has_method("begin_demolition_transport"):
+			carrier.begin_demolition_transport(
+				self,
+				resource_id,
+				load_amount
+			)
+		if _cancellation_resources_loaded():
+			_finish_cancellation_pickup()
+		return
+	_complete_cancellation_delivery()
+
+
+func _cancellation_resources_loaded() -> bool:
+	for amount: float in cancellation_refund_resources.values():
+		if amount > 0.0:
+			return false
+	return true
+
+
+func demolition_delivery_completed(worker: Node) -> void:
+	if not cancellation_carriers.has(worker):
+		return
+	if worker.has_method("return_to_demolition_site"):
+		worker.return_to_demolition_site(self)
+
+
+func arrive_at_demolition_site(worker: Node) -> bool:
+	if (
+		state != State.WAITING_CANCELLATION_DELIVERY
+		or not cancellation_carriers.has(worker)
+	):
+		return false
+	_load_next_cancellation_resource(worker)
+	return true
+
+
+func _finish_cancellation_pickup() -> void:
+	for carrier: Node in cancellation_carriers:
+		if is_instance_valid(carrier) and carrier.has_method(
+			"finish_demolition_pickup"
+		):
+			carrier.finish_demolition_pickup()
+	cancellation_workers.clear()
+	returning_cancellation_workers.clear()
+	cancellation_carriers.clear()
+	state = State.CANCELLED
+	state_changed.emit(state)
+	print("ConstructionSite 返还材料已全部取出，工地删除")
+	release_build_grid_area()
+	_request_task_dispatch()
+	queue_free()
+
+
+func _complete_cancellation_delivery() -> void:
+	for carrier: Node in cancellation_carriers:
+		if is_instance_valid(carrier) and carrier.has_method("finish_demolition"):
+			carrier.finish_demolition()
+	_finish_cancellation_site()
+
+
+func _finish_cancellation_site() -> void:
+	cancellation_workers.clear()
+	returning_cancellation_workers.clear()
+	cancellation_carriers.clear()
+	state = State.CANCELLED
+	state_changed.emit(state)
+	print("ConstructionSite 取消建造完成，材料已运回据点")
+	release_build_grid_area()
+	_request_task_dispatch()
+	queue_free()
+
+
 func _create_click_area() -> void:
 	if get_node_or_null("ClickArea") != null:
 		return
@@ -198,11 +574,11 @@ func _create_click_area() -> void:
 
 	var collision: CollisionShape3D = CollisionShape3D.new()
 	var shape: BoxShape3D = BoxShape3D.new()
-	var rotated_size: Vector2i = Vector2i(
-		building_data.grid_size.y,
-		building_data.grid_size.x
-	) if posmod(rotation_step, 2) == 1 else building_data.grid_size
-	shape.size = Vector3(float(rotated_size.x), 1.0, float(rotated_size.y))
+	shape.size = Vector3(
+		float(building_data.grid_size.x),
+		1.0,
+		float(building_data.grid_size.y)
+	)
 	collision.shape = shape
 	collision.position.y = 0.5
 	click_area_node.add_child(collision)
@@ -445,6 +821,18 @@ func get_worker_count() -> int:
 	return assigned_workers.size()
 
 
+func can_register_construction_worker(worker: Node) -> bool:
+	if worker == null or _is_combat_unit(worker):
+		return false
+	if (
+		construction_workers.has(worker)
+		or waiting_workers.has(worker)
+		or delivery_workers.has(worker)
+	):
+		return true
+	return get_worker_count() < construction_worker_limit
+
+
 func get_max_worker_count() -> int:
 	return get_max_construction_workers()
 
@@ -486,6 +874,8 @@ func request_additional_worker() -> void:
 	var villagers: Array[Node] = get_tree().get_nodes_in_group("villagers")
 	var preferred_workers: Array[Node] = []
 	for villager: Node in villagers:
+		if _is_combat_unit(villager):
+			continue
 		if not villager.has_method("is_idle") or not villager.is_idle():
 			continue
 		if construction_workers.has(villager) or waiting_workers.has(villager):
@@ -568,7 +958,7 @@ func cancel_one_worker() -> void:
 
 
 func register_construction_worker(worker: Node) -> void:
-	if worker != null and not construction_workers.has(worker):
+	if can_register_construction_worker(worker) and not construction_workers.has(worker):
 		waiting_workers.erase(worker)
 		construction_workers.append(worker)
 
@@ -582,10 +972,18 @@ func fill_waiting_workers() -> void:
 	if state != State.WAITING_RESOURCES:
 		return
 
+	for worker: Node in waiting_workers.duplicate():
+		if _is_combat_unit(worker):
+			waiting_workers.erase(worker)
+			if is_instance_valid(worker) and worker.has_method("return_to_idle"):
+				worker.return_to_idle()
+
 	var villagers: Array[Node] = get_tree().get_nodes_in_group("villagers")
 	while get_worker_count() < construction_worker_limit:
 		var assigned: bool = false
 		for villager: Node in villagers:
+			if _is_combat_unit(villager):
+				continue
 			if not villager.has_method("is_idle") or not villager.is_idle():
 				continue
 			if construction_workers.has(villager) or waiting_workers.has(villager):
@@ -596,6 +994,14 @@ func fill_waiting_workers() -> void:
 			break
 		if not assigned:
 			break
+
+
+func _is_combat_unit(worker: Node) -> bool:
+	return (
+		worker != null
+		and worker.has_method("has_combat_role")
+		and worker.has_combat_role()
+	)
 
 
 func release_waiting_workers() -> void:
@@ -747,9 +1153,9 @@ func _request_build_tasks() -> void:
 
 
 func add_builder(worker: Node) -> bool:
-	if worker == null or builders.has(worker):
+	if worker == null or _is_combat_unit(worker) or builders.has(worker):
 		return false
-	if builders.size() >= get_max_construction_workers():
+	if not can_register_construction_worker(worker):
 		return false
 
 	builders.append(worker)
@@ -765,7 +1171,12 @@ func remove_builder(worker: Node) -> void:
 	if builders.has(worker):
 		builders.erase(worker)
 		print("ConstructionSite 施工人员离开：", worker)
-		if builders.is_empty() and construction_progress < float(building_data.construction_time):
+		if (
+			state != State.CANCELLING
+			and state != State.CANCELLED
+			and builders.is_empty()
+			and construction_progress < float(building_data.construction_time)
+		):
 			state = State.READY_TO_BUILD
 			state_changed.emit(state)
 
@@ -821,6 +1232,8 @@ func _refresh_state() -> void:
 
 	if (
 		state == State.CANCELLED
+		or state == State.CANCELLING
+		or state == State.WAITING_CANCELLATION_DELIVERY
 		or state == State.COMPLETED
 	):
 		return
@@ -913,16 +1326,11 @@ func _create_site_visual() -> void:
 	site_mesh.name = "ConstructionSiteMarker"
 	add_child(site_mesh)
 
-	var rotated_size: Vector2i = Vector2i(
-		building_data.grid_size.y,
-		building_data.grid_size.x
-	) if posmod(rotation_step, 2) == 1 else building_data.grid_size
-
 	var box_mesh: BoxMesh = BoxMesh.new()
 	box_mesh.size = Vector3(
-		float(rotated_size.x),
+		float(building_data.grid_size.x),
 		0.25,
-		float(rotated_size.y)
+		float(building_data.grid_size.y)
 	)
 	site_mesh.mesh = box_mesh
 

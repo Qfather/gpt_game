@@ -24,3 +24,6 @@ extends Resource
 @export_category("放置选项")
 @export var allow_rotation: bool = true
 @export var allow_mirror: bool = true
+
+@export_category("军事参数")
+@export var garrison_capacity: int = 0

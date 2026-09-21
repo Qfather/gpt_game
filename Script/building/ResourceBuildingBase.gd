@@ -110,6 +110,9 @@ func add_worker(worker: Node) -> bool:
 
 	if worker == null:
 		return false
+	if worker.has_method("has_combat_role") and worker.has_combat_role():
+		print("❌ ", worker.name, " 是军事单位，不能加入资源建筑")
+		return false
 
 
 	if not has_free_slot():

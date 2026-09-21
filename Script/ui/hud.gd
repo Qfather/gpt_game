@@ -18,6 +18,9 @@ const HOUSE_DATA: BuildingData = preload(
 const SWORDSMAN_CAMP_DATA: BuildingData = preload(
 	"res://data/buildings/SwordsmanCampData.tres"
 )
+const BARRACKS_DATA: BuildingData = preload(
+	"res://data/buildings/BarracksData.tres"
+)
 const RESOURCE_DATABASE: ResourceDatabase = preload(
 	"res://data/resources/resource_database.tres"
 )
@@ -27,7 +30,10 @@ const PRODUCTION_BUILDINGS: Array[BuildingData] = [
 	FARM_DATA,
 	HOUSE_DATA
 ]
-const MILITARY_BUILDINGS: Array[BuildingData] = [SWORDSMAN_CAMP_DATA]
+const MILITARY_BUILDINGS: Array[BuildingData] = [
+	SWORDSMAN_CAMP_DATA,
+	BARRACKS_DATA
+]
 
 
 # ============================================================
@@ -38,6 +44,7 @@ const MILITARY_BUILDINGS: Array[BuildingData] = [SWORDSMAN_CAMP_DATA]
 @onready var stone_label: Label = %StoneLabel
 @onready var grain_label: Label = %GrainLabel
 @onready var population_label: Label = %PopulationLabel
+@onready var swordsman_label: Label = %SwordsmanLabel
 @onready var immigration_status_label: Label = %ImmigrationStatusLabel
 @onready var immigration_requirement_label: Label = %ImmigrationRequirementLabel
 @onready var immigration_progress_bar: ProgressBar = %ImmigrationProgressBar
@@ -112,8 +119,46 @@ func _process(_delta: float) -> void:
 		_refresh_immigration_display()
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	if not event is InputEventKey or not event.pressed or event.echo:
+		return
+
+	match event.keycode:
+		KEY_1:
+			speed_1()
+		KEY_2:
+			speed_2()
+		KEY_3:
+			speed_3()
+		KEY_4:
+			speed_5()
+		KEY_5:
+			speed_10()
+		KEY_SPACE:
+			if get_tree().paused:
+				resume_game()
+			else:
+				pause_game()
+		_:
+			return
+
+	get_viewport().set_input_as_handled()
+
+
 func _refresh_population_display(current_population: int, housing_capacity: int) -> void:
 	population_label.text = "人口：%d / %d" % [current_population, housing_capacity]
+	swordsman_label.text = "剑士：%d" % _get_swordsman_count()
+
+
+func _get_swordsman_count() -> int:
+	var count: int = 0
+	for villager: Node in get_tree().get_nodes_in_group("villagers"):
+		if (
+			villager.has_method("get_combat_role")
+			and villager.get_combat_role() == CombatRole.Type.SWORDSMAN
+		):
+			count += 1
+	return count
 
 
 func _refresh_immigration_display() -> void:
@@ -295,6 +340,16 @@ func _refresh_debug_panel() -> void:
 
 
 func _on_debug_resource_adjust(resource_id: StringName, amount: float) -> void:
+	if get_tree().paused:
+		var main_node: Node = get_tree().current_scene
+		if main_node != null and main_node.has_method("execute_game_command"):
+			main_node.execute_game_command(
+				Callable(self, "_on_debug_resource_adjust").bind(
+					resource_id,
+					amount
+				)
+			)
+		return
 	var bases: Array[Node] = get_tree().get_nodes_in_group("bases")
 	if bases.is_empty():
 		return
@@ -307,10 +362,29 @@ func _on_debug_resource_adjust(resource_id: StringName, amount: float) -> void:
 
 
 func _on_debug_villager_adjust(property_name: String, amount: float) -> void:
-	if not is_instance_valid(debug_villager):
+	if get_tree().paused:
+		var main_node: Node = get_tree().current_scene
+		if main_node != null and main_node.has_method("execute_game_command"):
+			main_node.execute_game_command(
+				Callable(self, "_apply_debug_villager_adjust").bind(
+					debug_villager,
+					property_name,
+					amount
+				)
+			)
 		return
-	var current_value: float = float(debug_villager.get(property_name))
-	debug_villager.set(property_name, clampf(current_value + amount, 0.0, 100.0))
+	_apply_debug_villager_adjust(debug_villager, property_name, amount)
+
+
+func _apply_debug_villager_adjust(
+	villager: Node,
+	property_name: String,
+	amount: float
+) -> void:
+	if not is_instance_valid(villager):
+		return
+	var current_value: float = float(villager.get(property_name))
+	villager.set(property_name, clampf(current_value + amount, 0.0, 100.0))
 	_refresh_debug_panel()
 
 
@@ -531,20 +605,39 @@ func pause_game() -> void:
 
 func speed_1() -> void:
 
-	get_tree().paused = false
 	Engine.time_scale = 1.0
+	resume_game()
 
 
 func speed_2() -> void:
 
-	get_tree().paused = false
 	Engine.time_scale = 2.0
+	resume_game()
 
 
 func speed_3() -> void:
 
-	get_tree().paused = false
 	Engine.time_scale = 3.0
+	resume_game()
+
+
+func speed_5() -> void:
+
+	Engine.time_scale = 5.0
+	resume_game()
+
+
+func speed_10() -> void:
+
+	Engine.time_scale = 10.0
+	resume_game()
+
+
+func resume_game() -> void:
+	get_tree().paused = false
+	var main_node: Node = get_tree().current_scene
+	if main_node != null and main_node.has_method("flush_paused_game_commands"):
+		main_node.flush_paused_game_commands()
 
 
 # ============================================================
@@ -569,3 +662,13 @@ func _on_speed_2_button_pressed() -> void:
 func _on_speed_3_button_pressed() -> void:
 
 	speed_3()
+
+
+func _on_speed_5_button_pressed() -> void:
+
+	speed_5()
+
+
+func _on_speed_10_button_pressed() -> void:
+
+	speed_10()

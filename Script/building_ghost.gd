@@ -240,38 +240,90 @@ func _confirm_preview() -> void:
 	if not is_valid_position:
 		print("BuildingGhost 放置非法：", grid_position)
 		return
+	var placed_data: BuildingData = building_data
+	var placed_grid_position: Vector2i = grid_position
+	var placed_rotation_step: int = rotation_step
+	var placed_mirrored: bool = mirrored
+	var placed_transform: Transform3D = global_transform
+
+	if get_tree().paused:
+		_create_construction_site(
+			placed_data,
+			placed_grid_position,
+			placed_rotation_step,
+			placed_mirrored,
+			placed_transform,
+			false,
+			true
+		)
+		print("BuildingGhost 暂停期间记录放置：", placed_data.id)
+		start_preview = false
+		visible = false
+		return
+
+	_create_construction_site(
+		placed_data,
+		placed_grid_position,
+		placed_rotation_step,
+		placed_mirrored,
+		placed_transform,
+		false,
+		false
+	)
+	start_preview = false
+	visible = false
+
+
+func _create_construction_site(
+	placed_data: BuildingData,
+	placed_grid_position: Vector2i,
+	placed_rotation_step: int,
+	placed_mirrored: bool,
+	placed_transform: Transform3D,
+	area_already_occupied: bool,
+	defer_activation_until_unpause: bool
+) -> void:
+	if placed_data == null:
+		return
+	if (
+		not area_already_occupied
+		and not build_grid.occupy_area(
+			placed_grid_position,
+			placed_data.grid_size,
+			placed_rotation_step
+		)
+	):
+		print("BuildingGhost 放置时网格已被占用：", placed_grid_position)
+		return
 
 	var site: ConstructionSite = (
 		CONSTRUCTION_SITE_SCENE.instantiate()
 		as ConstructionSite
 	)
 	site.setup(
-		building_data,
-		grid_position,
-		rotation_step,
-		mirrored
+		placed_data,
+		placed_grid_position,
+		placed_rotation_step,
+		placed_mirrored
+	)
+	site.set_activation_deferred_until_unpause(
+		defer_activation_until_unpause
 	)
 	get_parent().add_child(site)
-	site.global_transform = global_transform
-	build_grid.occupy_area(
-		grid_position,
-		building_data.grid_size,
-		rotation_step
-	)
+	site.global_transform = placed_transform
+	site.rotation.y = float(placed_rotation_step) * PI * 0.5
+	site.scale.x = -1.0 if placed_mirrored else 1.0
 
 	print(
 		"BuildingGhost 确认：",
-		building_data.id,
+		placed_data.id,
 		" grid=",
-		grid_position,
+		placed_grid_position,
 		" rotation_step=",
-		rotation_step,
+		placed_rotation_step,
 		" mirrored=",
-		mirrored
+		placed_mirrored
 	)
-
-	start_preview = false
-	visible = false
 
 
 func cancel_preview() -> void:

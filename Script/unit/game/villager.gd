@@ -54,6 +54,13 @@ enum State {
 	DEPOSIT_TO_BASE,
 	MOVE_TO_TRAINING,
 	TRAINING,
+	MOVE_TO_BARRACKS,
+	GARRISONED,
+	MOVE_TO_PATROL_ASSEMBLE,
+	PATROL_ASSEMBLING,
+	MOVE_TO_PATROL_POINT,
+	PATROLLING,
+	RETURN_TO_BARRACKS,
 	MOVE_TO_DEMOLITION,
 	DEMOLISHING,
 	MOVE_TO_DEMOLITION_BASE,
@@ -72,6 +79,24 @@ enum State {
 }
 
 var state: State = State.IDLE
+var patrol_barracks: Node = null
+var patrol_resume_state: int = -1
+var patrol_resume_target_position: Vector3 = Vector3.ZERO
+var patrol_target_position: Vector3 = Vector3.ZERO
+var patrol_last_position: Vector3 = Vector3.ZERO
+var patrol_stuck_time: float = 0.0
+var patrol_repath_attempt: int = 0
+var patrol_collision_avoid_direction: Vector3 = Vector3.ZERO
+var patrol_collision_avoid_time: float = 0.0
+var patrol_route: Array[Vector3] = []
+var patrol_route_index: int = -1
+var patrol_queue_slot: int = 0
+var patrol_queue_delay: float = 0.0
+var patrol_previous_target_desired_distance: float = 1.5
+var navigation_last_position: Vector3 = Vector3.ZERO
+var navigation_stuck_time: float = 0.0
+var garrison_resume_state: int = -1
+var garrison_resume_target_position: Vector3 = Vector3.ZERO
 
 enum Job {
 	NONE,
@@ -119,7 +144,7 @@ enum ActivityLevel {
 @export_category("居民需求")
 @export_range(0.0, 100.0, 0.1) var hunger: float = 0.0
 @export_range(0.0, 100.0, 0.1) var fatigue: float = 0.0
-@export_range(0.0, 10.0, 0.01) var hunger_rate: float = 0.6
+@export_range(0.0, 10.0, 0.01) var hunger_rate: float = 0.12
 @export_range(0.0, 10.0, 0.01) var fatigue_rate: float = 0.6
 @export_range(0.0, 20.0, 0.1) var rest_recovery_rate: float = 4.0
 const HUNGRY_THRESHOLD: float = 70.0
@@ -168,6 +193,10 @@ func get_activity_level() -> ActivityLevel:
 			return ActivityLevel.WORKING
 		State.MOVE_TO_TRAINING, State.TRAINING:
 			return ActivityLevel.WORKING
+		State.MOVE_TO_PATROL_POINT, State.PATROLLING, State.RETURN_TO_BARRACKS:
+			return ActivityLevel.WORKING
+		State.GARRISONED:
+			return ActivityLevel.NORMAL
 		State.FIND_TASK_SOURCE, State.MOVE_TO_TASK_SOURCE:
 			return ActivityLevel.WORKING
 		State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.BUILDING, State.FIND_FIELD_WORK, State.MOVE_TO_FIELD, State.WORKING_FIELD:
@@ -235,6 +264,18 @@ func evaluate_needs() -> void:
 		return
 	if is_instance_valid(demolition_target):
 		return
+	if is_instance_valid(construction_cancellation_target):
+		return
+	if is_instance_valid(garrisoned_in):
+		return
+	if (
+		state == State.MOVE_TO_PATROL_POINT
+		or state == State.PATROLLING
+		or state == State.RETURN_TO_BARRACKS
+		or state == State.MOVE_TO_TRAINING
+		or state == State.TRAINING
+	):
+		return
 	if carried_amount > 0.0:
 		return
 	if not is_hungry() and not is_tired():
@@ -271,6 +312,8 @@ func move_to_eat() -> void:
 func begin_resting() -> void:
 	if target_base == null or not is_instance_valid(target_base):
 		return
+	_remember_garrison_state_before_needs()
+	_remember_patrol_state_before_needs()
 	if is_instance_valid(target_resource) and target_resource.has_method("release"):
 		target_resource.release(self)
 	target_resource = null
@@ -292,6 +335,8 @@ func begin_resting() -> void:
 func begin_eating() -> bool:
 	if target_base == null or not is_instance_valid(target_base):
 		return false
+	_remember_garrison_state_before_needs()
+	_remember_patrol_state_before_needs()
 
 	var base_storage: ResourceStorage = target_base.get("storage") as ResourceStorage
 	if base_storage == null:
@@ -369,6 +414,10 @@ func _resume_after_rest() -> void:
 	resting_timer = 0.0
 	if is_hungry() and begin_eating():
 		return
+	if _resume_garrison_after_needs():
+		return
+	if _resume_patrol_after_needs():
+		return
 	if job == Job.NONE:
 		return_to_idle()
 	else:
@@ -418,6 +467,10 @@ func _resume_after_eating() -> void:
 	if is_tired():
 		begin_resting()
 		return
+	if _resume_garrison_after_needs():
+		return
+	if _resume_patrol_after_needs():
+		return
 	if job == Job.NONE:
 		return_to_idle()
 	else:
@@ -459,8 +512,13 @@ var target_base: Node3D = null
 # 当前训练进度。训练时间由剑士营配置，单位为秒。
 var training_elapsed: float = 0.0
 
+# 当前驻扎军营。驻军期间居民实体继续存在，但模型隐藏。
+var garrisoned_in: Node = null
+var garrison_target: Node = null
+
 # 当前拆除任务。拆除材料必须由居民实际运回据点。
 var demolition_target: Node = null
+var construction_cancellation_target: Node = null
 
 # 当前携带的资源类型和数量
 signal carried_resource_changed
@@ -603,6 +661,27 @@ func _physics_process(delta):
 		State.TRAINING:
 			process_training(delta)
 
+		State.MOVE_TO_BARRACKS:
+			move_to_barracks()
+
+		State.GARRISONED:
+			velocity = Vector3.ZERO
+
+		State.MOVE_TO_PATROL_ASSEMBLE:
+			move_to_patrol_assemble()
+
+		State.PATROL_ASSEMBLING:
+			velocity = Vector3.ZERO
+
+		State.MOVE_TO_PATROL_POINT:
+			move_to_patrol_point()
+
+		State.PATROLLING:
+			velocity = Vector3.ZERO
+
+		State.RETURN_TO_BARRACKS:
+			return_to_patrol_barracks()
+
 		State.MOVE_TO_DEMOLITION:
 			move_to_demolition()
 
@@ -631,6 +710,8 @@ func _physics_process(delta):
 			if not is_instance_valid(task_site):
 				return_to_idle()
 			elif not _has_reached_task_site_navigation_target():
+				if navigation_agent.is_navigation_finished():
+					_set_task_site_navigation_target()
 				move_along_navigation()
 			else:
 				velocity = Vector3.ZERO
@@ -802,6 +883,46 @@ func wait_at_construction_site(site: Node3D) -> void:
 	state = State.WAIT_CONSTRUCTION_SITE
 
 
+func is_waiting_at_construction_site(site: Node) -> bool:
+	return (
+		is_instance_valid(site)
+		and task_site == site
+		and state == State.WAIT_CONSTRUCTION_SITE
+	)
+
+
+func assign_construction_cancellation(site: Node3D) -> bool:
+	if not is_instance_valid(site):
+		return false
+	construction_cancellation_target = site
+	task_site = site
+	_set_task_site_navigation_target()
+	state = State.WAIT_CONSTRUCTION_SITE
+	return true
+
+
+func is_assigned_to_construction_cancellation(site: Node) -> bool:
+	return (
+		is_instance_valid(site)
+		and construction_cancellation_target == site
+	)
+
+
+func has_reached_construction_cancellation_site(site: Node) -> bool:
+	return (
+		is_assigned_to_construction_cancellation(site)
+		and _has_reached_task_site_navigation_target()
+	)
+
+
+func finish_construction_cancellation() -> void:
+	construction_cancellation_target = null
+	if current_task == null:
+		task_site = null
+		state = State.IDLE
+		return_to_idle()
+
+
 func _set_task_site_navigation_target() -> void:
 	if not is_instance_valid(task_site):
 		return
@@ -823,9 +944,6 @@ func _set_task_site_navigation_target() -> void:
 
 
 func _has_reached_task_site_navigation_target() -> bool:
-	if navigation_agent.is_navigation_finished():
-		return true
-
 	var target_delta: Vector3 = navigation_agent.target_position - global_position
 	target_delta.y = 0.0
 	return target_delta.length() <= navigation_agent.target_desired_distance + 0.5
@@ -974,6 +1092,207 @@ func get_training_progress() -> float:
 	if task_site.has_method("get_training_time"):
 		training_time = task_site.get_training_time()
 	return clampf(training_elapsed / maxf(training_time, 0.1), 0.0, 1.0)
+
+
+func try_assign_to_barracks(barracks: Node) -> bool:
+	if (
+		barracks == null
+		or combat_role != CombatRole.Type.SWORDSMAN
+		or garrisoned_in != null
+		or not is_idle()
+		or state != State.IDLE and state != State.RETURN_TO_IDLE
+	):
+		return false
+	if not barracks.has_method("register_garrison"):
+		return false
+	if not barracks.register_garrison(self):
+		return false
+	garrison_target = barracks
+	var target_position: Vector3 = barracks.global_position
+	if barracks.has_method("get_garrison_entrance_position"):
+		target_position = barracks.get_garrison_entrance_position(self)
+	navigation_agent.target_position = target_position
+	state = State.MOVE_TO_BARRACKS
+	return true
+
+
+func move_to_barracks() -> void:
+	if not is_instance_valid(garrison_target):
+		garrison_target = null
+		return_to_idle()
+		return
+	if not navigation_agent.is_navigation_finished():
+		move_along_navigation()
+		return
+	if garrison_target.has_method("enter_garrison"):
+		garrison_target.enter_garrison(self)
+		return
+	enter_garrison(garrison_target)
+
+
+func enter_garrison(barracks: Node) -> void:
+	garrisoned_in = barracks
+	garrison_target = barracks
+	garrison_resume_state = -1
+	garrison_resume_target_position = Vector3.ZERO
+	patrol_barracks = null
+	visible = false
+	collision_layer = 0
+	collision_mask = 0
+	state = State.GARRISONED
+
+
+func is_garrisoned() -> bool:
+	return is_instance_valid(garrisoned_in) and state == State.GARRISONED
+
+
+func leave_garrison_for_patrol(barracks: Node, assemble_position: Vector3) -> bool:
+	if garrisoned_in != barracks:
+		return false
+	garrisoned_in = null
+	garrison_target = null
+	patrol_barracks = barracks
+	patrol_previous_target_desired_distance = navigation_agent.target_desired_distance
+	visible = true
+	collision_layer = 2
+	# 巡逻队成员之间不互相阻挡，只保留与场景障碍的碰撞。
+	collision_mask = 1
+	navigation_agent.target_position = assemble_position
+	state = State.MOVE_TO_PATROL_ASSEMBLE
+	return true
+
+
+func move_to_patrol_assemble() -> void:
+	if not navigation_agent.is_navigation_finished():
+		move_along_navigation()
+		return
+	velocity = Vector3.ZERO
+	state = State.PATROL_ASSEMBLING
+	if is_instance_valid(patrol_barracks) and patrol_barracks.has_method(
+		"notify_patrol_assembled"
+	):
+		patrol_barracks.notify_patrol_assembled(self)
+
+
+func start_patrol_point(target_position: Vector3) -> void:
+	if not is_instance_valid(patrol_barracks):
+		return
+	patrol_target_position = target_position
+	patrol_last_position = global_position
+	patrol_stuck_time = 0.0
+	patrol_repath_attempt = 0
+	patrol_collision_avoid_direction = Vector3.ZERO
+	patrol_collision_avoid_time = 0.0
+	patrol_queue_delay = float(patrol_queue_slot) * 0.6
+	navigation_agent.target_desired_distance = 0.25
+	navigation_agent.target_position = target_position
+	state = State.MOVE_TO_PATROL_POINT
+
+
+func start_patrol_route(route: Array[Vector3], queue_slot: int = 0) -> void:
+	if route.is_empty() or not is_instance_valid(patrol_barracks):
+		return
+	patrol_route = route.duplicate()
+	patrol_route_index = 0
+	patrol_queue_slot = maxi(queue_slot, 0)
+	start_patrol_point(patrol_route[patrol_route_index])
+
+
+func move_to_patrol_point() -> void:
+	if patrol_queue_delay > 0.0:
+		patrol_queue_delay = maxf(
+			patrol_queue_delay - get_physics_process_delta_time(),
+			0.0
+		)
+		velocity = Vector3.ZERO
+		return
+	if _has_reached_patrol_point():
+		velocity = Vector3.ZERO
+		state = State.PATROLLING
+		if patrol_route_index + 1 < patrol_route.size():
+			patrol_route_index += 1
+			start_patrol_point(patrol_route[patrol_route_index])
+		elif patrol_barracks.has_method("notify_patrol_route_completed"):
+			patrol_barracks.notify_patrol_route_completed(self)
+		return
+	var movement_delta: float = global_position.distance_to(patrol_last_position)
+	patrol_last_position = global_position
+	if movement_delta < 0.02:
+		patrol_stuck_time += get_physics_process_delta_time()
+	else:
+		patrol_stuck_time = 0.0
+	if patrol_stuck_time >= 1.5:
+		_repath_patrol_point()
+	if not navigation_agent.is_navigation_finished():
+		move_along_navigation()
+		return
+	# 导航提前结束但仍在到达半径外时，保留巡逻状态，避免把远处位置误判为巡逻点。
+	velocity = Vector3.ZERO
+
+
+func _has_reached_patrol_point() -> bool:
+	if not is_instance_valid(patrol_barracks):
+		return false
+	var reach_radius: float = 1.5
+	if patrol_barracks.has_method("get_patrol_point_reach_radius"):
+		reach_radius = float(patrol_barracks.get_patrol_point_reach_radius())
+	var target_position: Vector3 = patrol_target_position
+	target_position.y = global_position.y
+	return global_position.distance_to(target_position) <= reach_radius
+
+
+func _repath_patrol_point() -> void:
+	patrol_stuck_time = 0.0
+	patrol_repath_attempt += 1
+	patrol_last_position = global_position
+	navigation_agent.target_position = patrol_target_position
+
+
+func start_return_to_patrol_barracks() -> void:
+	if not is_instance_valid(patrol_barracks):
+		return
+	patrol_collision_avoid_direction = Vector3.ZERO
+	patrol_collision_avoid_time = 0.0
+	navigation_agent.target_desired_distance = patrol_previous_target_desired_distance
+	var target_position: Vector3 = patrol_barracks.global_position
+	if patrol_barracks.has_method("get_garrison_entrance_position"):
+		target_position = patrol_barracks.get_garrison_entrance_position(self)
+	navigation_agent.target_position = target_position
+	collision_mask = 3
+	state = State.RETURN_TO_BARRACKS
+
+
+func return_to_patrol_barracks() -> void:
+	if not navigation_agent.is_navigation_finished():
+		move_along_navigation()
+		return
+	velocity = Vector3.ZERO
+	if patrol_barracks.has_method("receive_patrol_return"):
+		patrol_barracks.receive_patrol_return(self)
+
+
+func leave_garrison() -> void:
+	garrisoned_in = null
+	garrison_target = null
+	garrison_resume_state = -1
+	garrison_resume_target_position = Vector3.ZERO
+	patrol_barracks = null
+	patrol_target_position = Vector3.ZERO
+	patrol_last_position = Vector3.ZERO
+	patrol_stuck_time = 0.0
+	patrol_repath_attempt = 0
+	patrol_collision_avoid_direction = Vector3.ZERO
+	patrol_collision_avoid_time = 0.0
+	patrol_route.clear()
+	patrol_route_index = -1
+	patrol_queue_slot = 0
+	patrol_queue_delay = 0.0
+	navigation_agent.target_desired_distance = patrol_previous_target_desired_distance
+	patrol_resume_state = -1
+	visible = true
+	collision_layer = 2
+	collision_mask = 3
+	return_to_idle()
 
 
 func _release_current_task() -> void:
@@ -1589,6 +1908,33 @@ func move_along_navigation():
 
 		return
 
+	if state != State.MOVE_TO_PATROL_POINT:
+		var movement_delta: float = global_position.distance_to(navigation_last_position)
+		navigation_last_position = global_position
+		if movement_delta < 0.02:
+			navigation_stuck_time += get_physics_process_delta_time()
+		else:
+			navigation_stuck_time = 0.0
+		if navigation_stuck_time >= 1.5:
+			_repath_current_navigation_target()
+
+	if (
+		state == State.MOVE_TO_PATROL_POINT
+		and patrol_collision_avoid_time > 0.0
+		and patrol_collision_avoid_direction.length_squared() > 0.01
+	):
+		velocity.x = patrol_collision_avoid_direction.x * get_move_speed()
+		velocity.z = patrol_collision_avoid_direction.z * get_move_speed()
+		move_and_slide()
+		patrol_collision_avoid_time = maxf(
+			patrol_collision_avoid_time - get_physics_process_delta_time(),
+			0.0
+		)
+		_update_patrol_collision_avoidance()
+		if patrol_collision_avoid_time <= 0.0:
+			patrol_collision_avoid_direction = Vector3.ZERO
+		return
+
 
 	var next_position = (
 		navigation_agent.get_next_path_position()
@@ -1607,7 +1953,6 @@ func move_along_navigation():
 	if direction.length() > 0.01:
 
 		direction = direction.normalized()
-
 		velocity.x = direction.x * get_move_speed()
 		velocity.z = direction.z * get_move_speed()
 
@@ -1618,6 +1963,47 @@ func move_along_navigation():
 
 
 	move_and_slide()
+	if state == State.MOVE_TO_PATROL_POINT:
+		_update_patrol_collision_avoidance()
+
+
+func _update_patrol_collision_avoidance() -> void:
+	var collision_normal := Vector3.ZERO
+	for collision_index in get_slide_collision_count():
+		var slide_collision := get_slide_collision(collision_index)
+		var current_normal: Vector3 = slide_collision.get_normal()
+		current_normal.y = 0.0
+		if current_normal.length_squared() > 0.01:
+			collision_normal = current_normal.normalized()
+			break
+	if collision_normal == Vector3.ZERO:
+		return
+
+	var tangent_a := Vector3(-collision_normal.z, 0.0, collision_normal.x)
+	var tangent_b := -tangent_a
+	var reference_direction: Vector3 = patrol_collision_avoid_direction
+	if reference_direction.length_squared() <= 0.01:
+		reference_direction = patrol_target_position - global_position
+		reference_direction.y = 0.0
+		reference_direction = reference_direction.normalized()
+	var tangent_a_score: float = tangent_a.dot(reference_direction)
+	var tangent_b_score: float = tangent_b.dot(reference_direction)
+	var chosen_tangent: Vector3
+	if absf(tangent_a_score - tangent_b_score) <= 0.05:
+		chosen_tangent = tangent_a if patrol_queue_slot % 2 == 0 else tangent_b
+	else:
+		chosen_tangent = tangent_a if tangent_a_score > tangent_b_score else tangent_b
+	patrol_collision_avoid_direction = (
+		chosen_tangent + collision_normal * 0.35
+	).normalized()
+	patrol_collision_avoid_time = 0.8
+
+
+func _repath_current_navigation_target() -> void:
+	navigation_stuck_time = 0.0
+	var target_position: Vector3 = navigation_agent.target_position
+	navigation_agent.target_position = global_position
+	navigation_agent.target_position = target_position
 # ============================================================
 # 拆除建筑
 # ============================================================
@@ -1842,12 +2228,30 @@ func assign_job(
 
 func is_idle() -> bool:
 	#没有职业，并且也没有处于离职处理中，才算真正空闲。
-	return job == Job.NONE and current_task == null and not is_quitting_job
+	return (
+		job == Job.NONE
+		and current_task == null
+		and not is_quitting_job
+		and garrisoned_in == null
+		and not is_instance_valid(construction_cancellation_target)
+		and carried_amount <= 0.0
+	)
 # ============================================================
 # @feature 根据职业返回正确的待命地点
 # ============================================================
 
 func return_to_idle():
+	if is_instance_valid(garrisoned_in):
+		state = State.GARRISONED
+		return
+
+	if is_instance_valid(patrol_barracks):
+		if _resume_patrol_after_needs():
+			return
+		return
+
+	if combat_role == CombatRole.Type.SWORDSMAN and try_find_available_barracks():
+		return
 
 	# ============================================================
 	# 有工作：回工作建筑附近待命
@@ -1889,6 +2293,66 @@ func return_to_idle():
 	else:
 
 		state = State.IDLE
+
+
+func _remember_patrol_state_before_needs() -> void:
+	if not is_instance_valid(patrol_barracks) or patrol_resume_state >= 0:
+		return
+	patrol_resume_state = int(state)
+	patrol_resume_target_position = navigation_agent.target_position
+
+
+func _remember_garrison_state_before_needs() -> void:
+	if garrison_resume_state >= 0:
+		return
+	if state != State.MOVE_TO_BARRACKS or not is_instance_valid(garrison_target):
+		return
+	garrison_resume_state = int(state)
+	garrison_resume_target_position = navigation_agent.target_position
+
+
+func _resume_garrison_after_needs() -> bool:
+	if garrison_resume_state < 0:
+		return false
+	if not is_instance_valid(garrison_target):
+		garrison_resume_state = -1
+		garrison_resume_target_position = Vector3.ZERO
+		return false
+	var resume_state: int = garrison_resume_state
+	var resume_target: Vector3 = garrison_resume_target_position
+	garrison_resume_state = -1
+	garrison_resume_target_position = Vector3.ZERO
+	navigation_agent.target_position = resume_target
+	state = resume_state
+	return true
+
+
+func _resume_patrol_after_needs() -> bool:
+	if not is_instance_valid(patrol_barracks) or patrol_resume_state < 0:
+		return false
+	var resume_state: int = patrol_resume_state
+	var resume_target: Vector3 = patrol_resume_target_position
+	patrol_resume_state = -1
+	patrol_resume_target_position = Vector3.ZERO
+	navigation_agent.target_position = resume_target
+	state = resume_state
+	return true
+
+
+func try_find_available_barracks() -> bool:
+	if combat_role != CombatRole.Type.SWORDSMAN or garrisoned_in != null:
+		return false
+	for building: Node in get_tree().get_nodes_in_group("buildings"):
+		if not building.has_method("has_free_garrison_slot"):
+			continue
+		if (
+			building.has_method("is_demolition_in_progress")
+			and building.is_demolition_in_progress()
+		):
+			continue
+		if try_assign_to_barracks(building):
+			return true
+	return false
 # ============================================================
 # 走回据点待命
 # ============================================================
@@ -2476,6 +2940,8 @@ func can_take_task(_task: Object) -> bool:
 		and current_task == null
 		and not is_quitting_job
 		and not has_combat_role()
+		and not is_instance_valid(construction_cancellation_target)
+		and carried_amount <= 0.0
 	)
 
 
@@ -2498,25 +2964,20 @@ func clear_current_task() -> void:
 			state = State.IDLE
 
 
-func return_carried_resource_to_base() -> void:
+func return_carried_resource_to_base() -> bool:
 	if carried_amount <= 0.0:
 		print("📦 取消任务时居民没有携带资源")
-		return
+		return false
 
 	if target_base == null:
 		find_base()
 	if target_base == null or not target_base.has_method("add_resource"):
 		print("⚠️ 取消任务时找不到据点，无法退回资源：", carried_amount)
-		return
+		return false
 
-	var returned_amount: float = target_base.add_resource(
-		carried_resource_id,
-		carried_amount
-	)
-	carried_amount -= returned_amount
-	if returned_amount > 0.0:
-		carried_resource_changed.emit()
-		print("📦 任务取消，资源退回据点：", returned_amount)
+	print("📦 任务取消，居民携带资源返回据点：", carried_amount)
+	go_to_base()
+	return true
 
 
 # ============================================================

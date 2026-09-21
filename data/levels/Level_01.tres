@@ -5,8 +5,7 @@
 
 [resource]
 script = ExtResource("1_level_config")
-initial_wood = 10.0
-initial_stone = 10.0
-initial_grain = 50.0
+initial_wood = 200.0
+initial_stone = 200.0
+initial_grain = 200.0
 initial_villagers = 3
-immigration_rules = ExtResource("2_immigration_rules")
