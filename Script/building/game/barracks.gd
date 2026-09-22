@@ -16,12 +16,14 @@ const RESOURCE_DATABASE: ResourceDatabase = preload(
 var garrisoned_units: Array[Node] = []
 var garrison_reservations: Array[Node] = []
 var active_patrol_units: Array[Node] = []
+var pending_patrol_units: Array[Node] = []
 var patrol_group_started: bool = false
 var patrol_points: Array[Vector3] = []
 var patrol_point_index: int = -1
 var patrol_assembled_units: Array[Node] = []
 var patrol_point_reached_units: Array[Node] = []
 var patrol_group_start_index: int = 0
+var patrol_assemble_slots: Dictionary = {}
 var patrol_routes: Dictionary = {}
 var food_inventory: Dictionary[StringName, float] = {}
 var resupply_workers: Array[Node] = []
@@ -40,6 +42,7 @@ func _process(_delta: float) -> void:
 	if not is_demolition_in_progress():
 		dispatch_available_swordsmen()
 		_try_start_food_resupply()
+		_dispatch_pending_patrol_units()
 		_try_start_auto_patrol()
 
 
@@ -64,6 +67,18 @@ func get_garrison_capacity() -> int:
 
 
 func get_garrison_count() -> int:
+	# 恢复仍指向本军营、但曾被错误状态清理出名单的驻军。
+	# 正常流程不会重复添加；这是对旧“隐形战斗驻军”状态的自修复。
+	if is_inside_tree():
+		for unit: Node in get_tree().get_nodes_in_group("villagers"):
+			if (
+				is_instance_valid(unit)
+				and unit.has_method("is_garrisoned")
+				and unit.is_garrisoned()
+				and unit.get("garrisoned_in") == self
+				and not garrisoned_units.has(unit)
+			):
+				garrisoned_units.append(unit)
 	for unit: Node in garrisoned_units.duplicate():
 		if (
 			not is_instance_valid(unit)
@@ -184,11 +199,13 @@ func remove_unit_from_rosters(unit: Node) -> void:
 	garrisoned_units.erase(unit)
 	garrison_reservations.erase(unit)
 	active_patrol_units.erase(unit)
+	pending_patrol_units.erase(unit)
 	patrol_assembled_units.erase(unit)
 	patrol_point_reached_units.erase(unit)
 	resupply_workers.erase(unit)
+	patrol_assemble_slots.erase(unit)
 	patrol_routes.erase(unit)
-	if active_patrol_units.is_empty():
+	if active_patrol_units.is_empty() and pending_patrol_units.is_empty():
 		patrol_assembled_units.clear()
 		patrol_point_reached_units.clear()
 		patrol_routes.clear()
@@ -251,6 +268,10 @@ func get_patrol_assemble_position(index: int) -> Vector3:
 
 
 func get_patrol_point(index: int) -> Vector3:
+	var world_bounds: Node = get_tree().get_first_node_in_group("world_bounds")
+	if world_bounds != null and world_bounds.has_method("get_patrol_point"):
+		return world_bounds.get_patrol_point(index)
+
 	var offsets: Array[Vector3] = [
 		Vector3(-7.0, 0.0, 1.0),
 		Vector3(-5.0, 0.0, -7.0),
@@ -287,12 +308,19 @@ func can_start_patrol() -> bool:
 	return (
 		not patrol_group_started
 		and active_patrol_units.is_empty()
-		and not _get_ready_garrison_units().is_empty()
+		and pending_patrol_units.is_empty()
+		and garrison_reservations.is_empty()
+		and resupply_workers.is_empty()
+		and not _get_patrol_roster_candidates().is_empty()
 	)
 
 
 func is_patrol_in_progress() -> bool:
-	return not active_patrol_units.is_empty() or not patrol_assembled_units.is_empty()
+	return (
+		not pending_patrol_units.is_empty()
+		or not active_patrol_units.is_empty()
+		or not patrol_assembled_units.is_empty()
+	)
 
 
 func request_patrol() -> bool:
@@ -307,38 +335,74 @@ func request_patrol() -> bool:
 func _try_start_auto_patrol() -> void:
 	if is_patrol_in_progress():
 		return
+	if not garrison_reservations.is_empty() or not resupply_workers.is_empty():
+		return
 	if get_food_amount() < maxf(resupply_trigger, 0.0):
 		return
-	var ready_units: Array[Node] = _get_ready_garrison_units()
-	if ready_units.is_empty():
+	if _get_patrol_roster_candidates().is_empty():
 		return
 	patrol_group_started = true
 	_start_next_patrol_group()
 
 
 func _start_next_patrol_group() -> bool:
-	var ready_units: Array[Node] = _get_ready_garrison_units()
-	if ready_units.is_empty():
+	if not pending_patrol_units.is_empty() or not active_patrol_units.is_empty():
+		return false
+	if not garrison_reservations.is_empty() or not resupply_workers.is_empty():
 		return false
 
-	var patrol_count: int = ceili(float(ready_units.size()) / 2.0)
+	var roster_candidates: Array[Node] = _get_patrol_roster_candidates()
+	if roster_candidates.is_empty():
+		return false
+
+	var patrol_count: int = ceili(float(roster_candidates.size()) / 2.0)
 	var selected_units: Array[Node] = []
-	for offset: int in range(mini(patrol_count, ready_units.size())):
-		var unit_index: int = (patrol_group_start_index + offset) % ready_units.size()
-		selected_units.append(ready_units[unit_index])
+	for offset: int in range(mini(patrol_count, roster_candidates.size())):
+		var unit_index: int = (
+			patrol_group_start_index + offset
+		) % roster_candidates.size()
+		selected_units.append(roster_candidates[unit_index])
 
 	patrol_group_start_index = (
 		patrol_group_start_index + selected_units.size()
-		) % ready_units.size()
+		) % roster_candidates.size()
 	for index: int in range(selected_units.size()):
 		var unit: Node = selected_units[index]
+		pending_patrol_units.append(unit)
+		patrol_assemble_slots[unit] = index
+	_dispatch_pending_patrol_units()
+	return not pending_patrol_units.is_empty() or not active_patrol_units.is_empty()
+
+
+func _dispatch_pending_patrol_units() -> void:
+	for unit: Node in pending_patrol_units.duplicate():
+		if not is_instance_valid(unit):
+			pending_patrol_units.erase(unit)
+			patrol_assemble_slots.erase(unit)
+			continue
+		if not unit.has_method("is_ready_for_patrol") or not unit.is_ready_for_patrol():
+			continue
+		var assemble_slot: int = int(patrol_assemble_slots.get(unit, 0))
 		if unit.has_method("leave_garrison_for_patrol") and unit.leave_garrison_for_patrol(
 				self,
-				get_patrol_assemble_position(index)
+				get_patrol_assemble_position(assemble_slot)
 			):
+			pending_patrol_units.erase(unit)
 			garrisoned_units.erase(unit)
 			active_patrol_units.append(unit)
-	return not active_patrol_units.is_empty()
+
+
+func _get_patrol_roster_candidates() -> Array[Node]:
+	var candidates: Array[Node] = []
+	for unit: Node in garrisoned_units:
+		if (
+			is_instance_valid(unit)
+			and unit.has_method("is_garrisoned")
+			and unit.is_garrisoned()
+			and unit.get("garrisoned_in") == self
+		):
+			candidates.append(unit)
+	return candidates
 
 
 func _get_ready_garrison_units() -> Array[Node]:
@@ -355,7 +419,7 @@ func notify_patrol_assembled(unit: Node) -> void:
 	if not active_patrol_units.has(unit) or patrol_assembled_units.has(unit):
 		return
 	patrol_assembled_units.append(unit)
-	if patrol_assembled_units.size() < _get_active_patrol_count():
+	if patrol_assembled_units.size() < _get_current_patrol_group_count():
 		return
 
 	patrol_points.clear()
@@ -380,7 +444,11 @@ func notify_patrol_assembled(unit: Node) -> void:
 
 
 func _create_patrol_route(unit_index: int) -> Array[Vector3]:
-	return patrol_points.duplicate()
+	var route: Array[Vector3] = patrol_points.duplicate()
+	if route.size() > 1:
+		# 最后补回 0 点，确保 3 → 0 的边也被实际巡逻到。
+		route.append(route[0])
+	return route
 
 
 func _find_reachable_patrol_point(
@@ -459,17 +527,26 @@ func receive_patrol_return(unit: Node) -> void:
 	if not active_patrol_units.has(unit):
 		return
 	active_patrol_units.erase(unit)
+	patrol_assemble_slots.erase(unit)
 	if is_instance_valid(unit) and unit.has_method("enter_garrison"):
 		if not garrisoned_units.has(unit):
 			garrisoned_units.append(unit)
 		unit.enter_garrison(self)
-	if active_patrol_units.is_empty():
+	if active_patrol_units.is_empty() and pending_patrol_units.is_empty():
 		patrol_assembled_units.clear()
 		patrol_point_reached_units.clear()
 		patrol_points.clear()
 		patrol_point_index = -1
 		patrol_routes.clear()
 		_start_next_patrol_group()
+
+
+func _get_current_patrol_group_count() -> int:
+	var group_units: Array[Node] = []
+	for unit: Node in active_patrol_units + pending_patrol_units:
+		if is_instance_valid(unit) and not group_units.has(unit):
+			group_units.append(unit)
+	return group_units.size()
 
 
 func _get_active_patrol_count() -> int:

@@ -415,8 +415,12 @@ func claim_task(task: GameTask, worker: Node) -> bool:
 
 	if not worker.can_take_task(task):
 		return false
-	if (
+	var uses_construction_slot: bool = (
 		task.type == GameTask.TaskType.BUILD
+		or task.type == GameTask.TaskType.DELIVER_CONSTRUCTION_RESOURCE
+	)
+	if (
+		uses_construction_slot
 		and task.target != null
 		and task.target.has_method("can_register_construction_worker")
 		and not task.target.can_register_construction_worker(worker)
@@ -430,10 +434,16 @@ func claim_task(task: GameTask, worker: Node) -> bool:
 	):
 		return false
 
+	if (
+		uses_construction_slot
+		and task.target != null
+		and task.target.has_method("register_construction_worker")
+	):
+		if not task.target.register_construction_worker(worker):
+			return false
+
 	task.state = GameTask.State.CLAIMED
 	task.assigned_worker = worker
-	if task.target != null and task.target.has_method("register_construction_worker"):
-		task.target.register_construction_worker(worker)
 
 	if worker.has_method("set_current_task"):
 		worker.set_current_task(task)
@@ -627,6 +637,12 @@ func fail_task(task: GameTask) -> bool:
 		and task.target.has_method("on_delivery_task_failed")
 	):
 		task.target.on_delivery_task_failed(task)
+	elif (
+		task.type == GameTask.TaskType.BUILD
+		and task.target != null
+		and task.target.has_method("on_build_task_released")
+	):
+		task.target.on_build_task_released(task)
 	elif (
 		task.type == GameTask.TaskType.TRAIN_SWORDSMAN
 		and task.target != null

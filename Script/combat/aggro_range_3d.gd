@@ -43,6 +43,9 @@ func _create_ring() -> void:
 func _refresh_visibility() -> void:
 	if target == null:
 		return
+	if not CombatDebug.should_show_aggro_ranges():
+		visible = false
+		return
 	if combat_only:
 		visible = (
 			target.has_method("get_combat_role")

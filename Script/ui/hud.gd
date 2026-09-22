@@ -3,6 +3,7 @@ extends CanvasLayer
 
 signal build_requested(building_data: BuildingData)
 signal enemy_placement_requested(enemy_data: EnemyData)
+signal raid_requested()
 
 const LUMBER_CAMP_DATA: BuildingData = preload(
 	"res://data/buildings/LumberCampData.tres"
@@ -233,6 +234,11 @@ func _create_debug_panel() -> void:
 		_on_debug_enemy_placement_pressed.bind(WOLF_DATA)
 	)
 	content.add_child(wolf_placement_button)
+
+	var raid_button: Button = Button.new()
+	raid_button.text = "生成第三方袭扰"
+	raid_button.pressed.connect(func() -> void: raid_requested.emit())
+	content.add_child(raid_button)
 
 	var resource_title := Label.new()
 	resource_title.text = "资源调整（据点库存）"

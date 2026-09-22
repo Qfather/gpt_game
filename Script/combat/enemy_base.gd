@@ -15,11 +15,20 @@ var attack_interval: float = 0.0
 var detection_range: float = 0.0
 var target: Node3D = null
 var attack_cooldown: float = 0.0
+var raid_destination: Vector3 = Vector3.ZERO
+var raid_active: bool = false
+var raid_stuck_time: float = 0.0
+var raid_last_position: Vector3 = Vector3.ZERO
+var death_cleanup_started: bool = false
+var death_log_pending: bool = false
+var runtime_features: Array[FeatureData] = []
+var ability_runtimes: Array[AbilityRuntime] = []
 
 signal target_changed(target: Node3D)
 
 @onready var visual_root: Node3D = $VisualRoot
 @onready var health_component: Node = $HealthComponent
+@onready var navigation_agent: NavigationAgent3D = $NavigationAgent3D
 
 
 func _ready() -> void:
@@ -37,7 +46,13 @@ func _process(_delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if is_dead() or not is_instance_valid(target):
+	if is_dead():
+		velocity = Vector3.ZERO
+		return
+	if not is_instance_valid(target):
+		if raid_active:
+			_move_toward_navigation_target(raid_destination)
+			return
 		velocity = Vector3.ZERO
 		return
 
@@ -49,8 +64,7 @@ func _physics_process(delta: float) -> void:
 	)
 	var distance: float = global_position.distance_to(flat_target_position)
 	if distance > attack_range:
-		velocity = global_position.direction_to(flat_target_position) * move_speed
-		move_and_slide()
+		_move_toward_navigation_target(flat_target_position)
 		return
 
 	velocity = Vector3.ZERO
@@ -71,6 +85,39 @@ func _physics_process(delta: float) -> void:
 			% [get_display_name(), _get_target_name(target), actual_damage, health_text]
 		)
 	attack_cooldown = attack_interval
+
+
+func _move_toward_navigation_target(target_position: Vector3) -> void:
+	if navigation_agent == null:
+		velocity = Vector3.ZERO
+		return
+	var navigation_target: Vector3 = target_position
+	navigation_target.y = global_position.y
+	navigation_agent.target_desired_distance = maxf(attack_range, 0.8)
+	if navigation_agent.target_position.distance_to(navigation_target) > 0.5:
+		navigation_agent.target_position = navigation_target
+	if navigation_agent.is_navigation_finished():
+		velocity = Vector3.ZERO
+		return
+
+	var next_position: Vector3 = navigation_agent.get_next_path_position()
+	var direction: Vector3 = next_position - global_position
+	direction.y = 0.0
+	if direction.length_squared() <= 0.01:
+		velocity = Vector3.ZERO
+		return
+	velocity = direction.normalized() * move_speed
+	move_and_slide()
+
+	var moved_distance: float = global_position.distance_to(raid_last_position)
+	if raid_last_position == Vector3.ZERO or moved_distance > 0.02:
+		raid_last_position = global_position
+		raid_stuck_time = 0.0
+	else:
+		raid_stuck_time += get_physics_process_delta_time()
+	if raid_stuck_time >= 1.5:
+		raid_stuck_time = 0.0
+		navigation_agent.target_position = navigation_target
 
 
 func _on_input_event(
@@ -110,6 +157,8 @@ func _apply_enemy_data() -> void:
 	attack_range = maxf(enemy_data.attack_range, 0.0)
 	attack_interval = maxf(enemy_data.attack_interval, 0.0)
 	detection_range = maxf(enemy_data.detection_range, 0.0)
+	runtime_features = _roll_features(enemy_data.features)
+	ability_runtimes = _create_ability_runtimes(enemy_data.abilities)
 	_apply_visual_scene()
 	var range_display: Node = get_node_or_null("AggroRange")
 	if range_display != null and range_display.has_method("set_radius"):
@@ -213,13 +262,33 @@ func _on_health_changed(next_health: float, _next_max_health: float) -> void:
 
 
 func _on_health_died(_source: Node) -> void:
-	print("⚔️ 战斗：%s 已死亡" % get_display_name())
+	if death_cleanup_started:
+		return
+	death_cleanup_started = true
+	death_log_pending = true
 	velocity = Vector3.ZERO
 	set_process(false)
 	set_physics_process(false)
 	collision_layer = 0
 	collision_mask = 0
+	remove_from_group("enemies")
+	target = null
 	hide()
+	call_deferred("_print_death_log")
+	var death_timer: SceneTreeTimer = get_tree().create_timer(0.35)
+	death_timer.timeout.connect(_finish_death_cleanup)
+
+
+func _print_death_log() -> void:
+	if not death_log_pending:
+		return
+	death_log_pending = false
+	print("⚔️ 战斗：%s 已死亡" % get_display_name())
+
+
+func _finish_death_cleanup() -> void:
+	if is_instance_valid(self):
+		queue_free()
 
 
 func _apply_visual_scene() -> void:
@@ -250,3 +319,39 @@ func get_abilities() -> Array[Resource]:
 	if enemy_data == null:
 		return []
 	return enemy_data.abilities
+
+
+func get_ability_runtimes() -> Array[AbilityRuntime]:
+	return ability_runtimes.duplicate()
+
+
+func _create_ability_runtimes(abilities: Array[Resource]) -> Array[AbilityRuntime]:
+	var runtimes: Array[AbilityRuntime] = []
+	for ability_resource: Resource in abilities:
+		var ability: EnemyAbility = ability_resource as EnemyAbility
+		if ability != null:
+			runtimes.append(AbilityRuntime.new(ability))
+	return runtimes
+
+
+func get_features() -> Array[FeatureData]:
+	return runtime_features.duplicate()
+
+
+func get_feature_descriptors() -> Array[FeatureData]:
+	var descriptors: Array[FeatureData] = get_features()
+	for ability_resource: Resource in get_abilities():
+		var ability: EnemyAbility = ability_resource as EnemyAbility
+		if ability != null:
+			descriptors.append(FeatureAdapter.from_ability(ability))
+	return descriptors
+
+
+func _roll_features(entries: Array[FeatureEntry]) -> Array[FeatureData]:
+	var rolled: Array[FeatureData] = []
+	for entry: FeatureEntry in entries:
+		if entry == null or not entry.enabled or entry.feature == null:
+			continue
+		if randf() <= clampf(entry.chance, 0.0, 1.0):
+			rolled.append(entry.feature)
+	return rolled

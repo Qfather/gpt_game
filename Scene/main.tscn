@@ -15,6 +15,8 @@
 [ext_resource type="Script" uid="uid://chlns8i87yc4m" path="res://Script/task_manager.gd" id="16_task_manager"]
 [ext_resource type="Script" uid="uid://drj583rp81mc2" path="res://Script/population/PopulationManager.gd" id="17_population_manager"]
 [ext_resource type="Script" uid="uid://c1rhcaj4urwjd" path="res://Script/camera_controller.gd" id="18_camera_controller"]
+[ext_resource type="Script" uid="uid://djvucg87b4dim" path="res://Script/world/world_bounds.gd" id="19_world_bounds"]
+[ext_resource type="Script" uid="uid://dhlmbsooeti34" path="res://Script/combat/raid_spawn_manager.gd" id="20_raid_spawn_manager"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sblpm"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -48,7 +50,7 @@ process_mode = 3
 
 [node name="ResourceNodePanel" parent="UI" unique_id=1208896687 instance=ExtResource("8_resource_panel")]
 
-[node name="EnemyPanel" parent="UI" instance=ExtResource("9_enemy_panel")]
+[node name="EnemyPanel" parent="UI" unique_id=1486373128 instance=ExtResource("9_enemy_panel")]
 
 [node name="HUD" parent="UI" unique_id=1924675286 instance=ExtResource("4_2wwxx")]
 
@@ -91,6 +93,12 @@ script = ExtResource("16_task_manager")
 
 [node name="PopulationManager" type="Node" parent="Systems" unique_id=462382604]
 script = ExtResource("17_population_manager")
+
+[node name="WorldBounds" type="Node3D" parent="Systems" unique_id=1265125864]
+script = ExtResource("19_world_bounds")
+
+[node name="RaidSpawnManager" type="Node" parent="Systems" unique_id=5783017]
+script = ExtResource("20_raid_spawn_manager")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="Systems" unique_id=1486133278]
 environment = SubResource("Environment_2wwxx")

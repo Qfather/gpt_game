@@ -7,6 +7,7 @@ extends Resource
 @export var display_name: String = ""
 @export var visual_scene: PackedScene
 @export var abilities: Array[Resource] = []
+@export var features: Array[FeatureEntry] = []
 
 @export_category("基础战斗参数")
 @export_range(1.0, 100000.0, 1.0) var max_health: float = 30.0

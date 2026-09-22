@@ -798,6 +798,26 @@ func _physics_process(delta):
 func _process_combat(delta: float) -> bool:
 	if combat_role != CombatRole.Type.SWORDSMAN:
 		return false
+	if is_dead():
+		return false
+	if is_instance_valid(garrisoned_in):
+		# 驻军在建筑内部保持隐藏和战备，不能隔着军营搜索并攻击敌人。
+		# 同时修复旧逻辑留下的“仍属于军营但状态变成 IDLE”的幽灵剑士。
+		if (
+			state != State.GARRISONED
+			and state != State.GARRISON_EATING
+			and state != State.GARRISON_RESTING
+		):
+			state = State.GARRISONED
+		visible = false
+		collision_layer = 0
+		collision_mask = 0
+		combat_target = null
+		combat_resume_state = -1
+		combat_resume_target_position = Vector3.ZERO
+		combat_resume_navigation_target = Vector3.ZERO
+		velocity = Vector3.ZERO
+		return false
 	var combat_state: bool = (
 		state == State.COMBAT_MOVE
 		or state == State.COMBAT_ATTACK

@@ -13,13 +13,27 @@
 - 基础食物来源 V1：Farm、三块 Field、Farmer 动态派工、GRAIN 生产、Farm 本地库存、据点运输和居民消费闭环；
 - `UnitBase`、Trait 数据、属性 Modifier 和 Trait Editor；
 - 资源系统 V2 阶段 1、阶段 2、阶段 2.5 Resource Editor、阶段 3 ResourceStorage ID 迁移；
-- 多工地调度由“全局顺序锁”改为“顺序优先级”。
-
-当前开发节点：
+- 多工地调度由“全局顺序锁”改为“顺序优先级”；
+- Military Daily Loop V1、Barracks / Patrol V0、Barracks Logistics V1 和 RTS Camera V1；
+- Combat V1，以及数据驱动的 Slime / Wolf 敌人。
+- Settlement Patrol Ring V0：WorldBounds、SettlementBounds 和领地级 0→1→2→3 巡逻点；
+- Third-party Raid V0 首版：调试面板可从地图外围生成 2～4 个 Slime / Wolf，并向据点方向活动。
+- Feature 接口预留阶段 2：新增 FeatureData / FeatureEntry，EnemyData 支持按概率生成运行时 Feature；暂不执行技能效果。
+- Feature 接口预留阶段 3：通过 FeatureAdapter 兼容现有 TraitData 与 EnemyAbility，不重写原有编辑器和技能逻辑。
+- Feature 接口预留阶段 4：新增独立 AbilityRuntime，每个敌人拥有独立冷却状态，暂不释放具体技能。
+- Feature 接口预留阶段 5：新增 EffectData / EffectRuntime 基础接口，暂不执行实际伤害、击退或状态效果。
+- Feature 接口预留阶段 6：新增 CombatDebug 统一开关，清理未引用的 Godot 临时场景文件。
 
 ```text
-House / Population V1：阶段 1～8 已完成
-当前：Military Daily Loop V1（规划中）
+Combat V1                         ✅
+Slime / Wolf                     ✅
+Settlement Patrol Ring V0         ✅
+Third-party Raid V0               🚧
+
+下一开发节点：
+Third-party Raid V0 场景测试
+→ Settlement Patrol Ring V0 / Third-party Raid V0 场景回归
+→ Threat Detection
 ```
 
 Population V1 已完成：

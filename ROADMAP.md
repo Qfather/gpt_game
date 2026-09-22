@@ -69,28 +69,56 @@ RTS Camera V1                      ✅
 ├─ 中键旋转
 ├─ Shift + 中键平移
 └─ F 聚焦选中对象
+
+Combat V1                          ✅
+├─ EnemyData / EnemyBase
+├─ Health / Damage
+├─ Faction 基础判断
+├─ Enemy 自动索敌与追击
+├─ Swordsman 自动战斗
+├─ Combat → Patrol 恢复
+├─ SlimeData
+└─ WolfData
 ```
+
+Settlement Patrol Ring V0          ✅
+├─ WorldBounds / SettlementBounds
+├─ 领地级 0 → 1 → 2 → 3 巡逻点
+└─ NavigationMesh 可达点投射与障碍避让
+
+Third-party Raid V0                🚧
+├─ RaidSpawnManager
+├─ 外围生成 2～4 个 Slime / Wolf
+└─ 向 Settlement 方向活动并接入现有战斗
 
 ## 当前开发节点
 
 ``` text
 【CURRENT】
-Combat V1
+Third-party Raid V0 场景测试
 ↓
-数据驱动 Enemy 系统
+Combat 收口 + Feature 接口预留
 ↓
-基础生命 / 伤害
+Third-party Raid V0
 ↓
-自动索敌
+Threat Detection
 ↓
-Swordsman ↔ Enemy 战斗
+第三方敌人攻击经济目标
 ↓
-战斗结束恢复原任务
+城墙 / 防御
+↓
+时间裂缝
+↓
+Wave
+↓
+Elite / Ability
+↓
+Boss
 ```
 
 ------------------------------------------------------------------------
 
-# 1. Combat V1 — 当前主线
+# 1. Combat V1 — 已完成记录
 
 ## 目标
 

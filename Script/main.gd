@@ -21,6 +21,7 @@ const SLIME_DATA: EnemyData = preload("res://data/combat/SlimeData.tres")
 @onready var building_ghost: BuildingGhost = $Systems/BuildingGhost
 @onready var villagers_container: Node = $Villagers
 @onready var enemies_container: Node = $Enemies
+@onready var raid_spawn_manager: RaidSpawnManager = $Systems/RaidSpawnManager
 
 var world_object_clicked: bool = false
 var selected_object: Node3D = null
@@ -65,6 +66,8 @@ func _ready():
 		hud.connect_building_ghost(building_ghost)
 	if not hud.enemy_placement_requested.is_connected(_begin_enemy_placement):
 		hud.enemy_placement_requested.connect(_begin_enemy_placement)
+	if not hud.raid_requested.is_connected(_on_raid_requested):
+		hud.raid_requested.connect(_on_raid_requested)
 
 	print("========== Main启动 ==========")
 
@@ -213,6 +216,11 @@ func _cancel_enemy_placement() -> void:
 		enemy_preview = null
 	enemy_placement_active = false
 	hud.set_enemy_placement_active(false)
+
+
+func _on_raid_requested() -> void:
+	if raid_spawn_manager != null:
+		raid_spawn_manager.spawn_raid()
 
 
 func _clear_selection_if_world_empty() -> void:
