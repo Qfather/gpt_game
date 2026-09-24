@@ -3,7 +3,7 @@ extends Node3D
 
 const VILLAGER_SCENE: PackedScene = preload("res://Scene/unit/villager.tscn")
 const ENEMY_SCENE: PackedScene = preload("res://Scene/unit/enemy_base.tscn")
-const SLIME_DATA: EnemyData = preload("res://data/combat/SlimeData.tres")
+const SLIME_DATA: EnemyData = preload("res://data/enemies/raid/SlimeData.tres")
 
 @export var level_config: LevelConfig = preload("res://data/levels/Level_01.tres")
 
@@ -22,6 +22,7 @@ const SLIME_DATA: EnemyData = preload("res://data/combat/SlimeData.tres")
 @onready var villagers_container: Node = $Villagers
 @onready var enemies_container: Node = $Enemies
 @onready var raid_spawn_manager: RaidSpawnManager = $Systems/RaidSpawnManager
+@onready var game_state: GameState = $Systems/GameState
 
 var world_object_clicked: bool = false
 var selected_object: Node3D = null
@@ -88,6 +89,8 @@ func _ready():
 
 	for base: Node in get_tree().get_nodes_in_group("bases"):
 		register_building(base)
+		if base.has_signal("destroyed") and not base.destroyed.is_connected(_on_base_destroyed):
+			base.destroyed.connect(_on_base_destroyed)
 
 	for resource: Node in get_tree().get_nodes_in_group("resources"):
 		register_resource(resource)
@@ -96,6 +99,20 @@ func _ready():
 		register_enemy(enemy)
 
 	print("========== Main连接结束 ==========")
+
+
+func _on_base_destroyed() -> void:
+	if game_state == null or game_state.state == GameState.State.DEFEAT:
+		return
+	game_state.set_state(GameState.State.DEFEAT)
+	get_tree().paused = true
+	if hud.has_method("show_defeat_screen"):
+		hud.show_defeat_screen()
+
+
+func restart_game() -> void:
+	get_tree().paused = false
+	get_tree().reload_current_scene()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -196,6 +213,16 @@ func _place_enemy_at_mouse() -> void:
 	enemy.global_position = world_position + Vector3.UP * 0.6
 	print("调试放置史莱姆：", enemy.global_position)
 	_cancel_enemy_placement()
+
+
+func show_resource_loss(source: Node3D, amount: float) -> void:
+	if source == null or not is_instance_valid(source):
+		return
+	var text_manager: FloatingTextManager = get_node_or_null(
+		"UI/FloatingTextManager"
+	) as FloatingTextManager
+	if text_manager != null:
+		text_manager.show_resource_loss(source.global_position + Vector3.UP * 1.2, amount)
 
 
 func _get_mouse_ground_position(camera: Camera3D) -> Vector3:

@@ -15,8 +15,13 @@ signal died(source: Node)
 @export var base_health_regen: float = 1.0
 
 var health: float = 100.0
+var external_force: Vector3 = Vector3.ZERO
 
 @onready var health_component: Node = get_node_or_null("HealthComponent")
+
+
+func apply_force(force: Vector3) -> void:
+	external_force += force
 
 
 @export_category("移动 / 生存")

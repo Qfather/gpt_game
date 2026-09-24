@@ -23,11 +23,17 @@ const SWORDSMAN_CAMP_DATA: BuildingData = preload(
 const BARRACKS_DATA: BuildingData = preload(
 	"res://data/buildings/BarracksData.tres"
 )
+const WALL_DATA: BuildingData = preload(
+	"res://data/buildings/WallData.tres"
+)
+const GATE_DATA: BuildingData = preload(
+	"res://data/buildings/GateData.tres"
+)
 const RESOURCE_DATABASE: ResourceDatabase = preload(
 	"res://data/resources/resource_database.tres"
 )
-const SLIME_DATA: EnemyData = preload("res://data/combat/SlimeData.tres")
-const WOLF_DATA: EnemyData = preload("res://data/combat/WolfData.tres")
+const SLIME_DATA: EnemyData = preload("res://data/enemies/raid/SlimeData.tres")
+const WOLF_DATA: EnemyData = preload("res://data/enemies/raid/WolfData.tres")
 const PRODUCTION_BUILDINGS: Array[BuildingData] = [
 	LUMBER_CAMP_DATA,
 	QUARRY_DATA,
@@ -36,7 +42,9 @@ const PRODUCTION_BUILDINGS: Array[BuildingData] = [
 ]
 const MILITARY_BUILDINGS: Array[BuildingData] = [
 	SWORDSMAN_CAMP_DATA,
-	BARRACKS_DATA
+	BARRACKS_DATA,
+	WALL_DATA,
+	GATE_DATA
 ]
 
 
@@ -54,6 +62,7 @@ const MILITARY_BUILDINGS: Array[BuildingData] = [
 @onready var immigration_progress_bar: ProgressBar = %ImmigrationProgressBar
 @onready var build_buttons: HBoxContainer = $BuildMenu/BuildMenuContent/BuildButtons
 @onready var building_tabs: TabBar = $BuildMenu/BuildMenuContent/BuildingTabs
+@onready var pause_button: Button = $PanelContainer/VBoxContainer/HBoxContainer/PauseButton
 
 
 # ============================================================
@@ -72,6 +81,10 @@ var debug_villager_label: Label = null
 var debug_villager: Node = null
 var enemy_placement_button: Button = null
 var selected_building_category: int = 0
+var defeat_overlay: Control = null
+var victory_overlay: Control = null
+var threat_label: Label = null
+var raid_countdown_label: Label = null
 
 
 # ============================================================
@@ -79,9 +92,14 @@ var selected_building_category: int = 0
 # ============================================================
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	_create_debug_panel()
 	_create_building_popup()
 	_configure_building_menu()
+	_create_defeat_overlay()
+	_create_victory_overlay()
+	_create_threat_label()
+	_create_raid_countdown_label()
 
 	await get_tree().process_frame
 
@@ -116,12 +134,158 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	_refresh_debug_panel()
+	_refresh_raid_countdown()
 	if population_manager != null:
 		_refresh_population_display(
 			population_manager.get_population(),
 			population_manager.get_housing_capacity()
 		)
 		_refresh_immigration_display()
+
+
+func _create_defeat_overlay() -> void:
+	defeat_overlay = ColorRect.new()
+	defeat_overlay.name = "DefeatOverlay"
+	defeat_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	defeat_overlay.color = Color(0.02, 0.02, 0.02, 0.82)
+	defeat_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	defeat_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
+	defeat_overlay.z_index = 200
+	defeat_overlay.hide()
+	add_child(defeat_overlay)
+
+	var box: VBoxContainer = VBoxContainer.new()
+	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	box.position = Vector2(-140.0, -90.0)
+	box.size = Vector2(280.0, 180.0)
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	defeat_overlay.add_child(box)
+
+	var title: Label = Label.new()
+	title.text = "据点已被摧毁"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 26)
+	box.add_child(title)
+
+	var message: Label = Label.new()
+	message.text = "游戏失败"
+	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(message)
+
+	var restart_button: Button = Button.new()
+	restart_button.text = "重新开始"
+	restart_button.custom_minimum_size = Vector2(140.0, 36.0)
+	restart_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	restart_button.pressed.connect(_on_restart_pressed)
+	box.add_child(restart_button)
+
+
+func show_defeat_screen() -> void:
+	if defeat_overlay != null:
+		defeat_overlay.show()
+
+
+func _create_victory_overlay() -> void:
+	victory_overlay = ColorRect.new()
+	victory_overlay.name = "VictoryOverlay"
+	victory_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	victory_overlay.color = Color(0.02, 0.02, 0.02, 0.82)
+	victory_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	victory_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
+	victory_overlay.z_index = 200
+	victory_overlay.hide()
+	add_child(victory_overlay)
+	var box := VBoxContainer.new()
+	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	box.position = Vector2(-140.0, -90.0)
+	box.size = Vector2(280.0, 180.0)
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	victory_overlay.add_child(box)
+	var title := Label.new()
+	title.text = "关底BOSS已击败"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 26)
+	box.add_child(title)
+	var message := Label.new()
+	message.text = "游戏胜利"
+	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(message)
+	var restart_button := Button.new()
+	restart_button.text = "重新开始"
+	restart_button.custom_minimum_size = Vector2(140.0, 36.0)
+	restart_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	restart_button.pressed.connect(_on_restart_pressed)
+	box.add_child(restart_button)
+
+
+func show_victory_screen() -> void:
+	if victory_overlay != null:
+		victory_overlay.show()
+
+
+func _on_restart_pressed() -> void:
+	var main_node: Node = get_tree().current_scene
+	if main_node != null and main_node.has_method("restart_game"):
+		main_node.restart_game()
+
+
+func _create_threat_label() -> void:
+	threat_label = Label.new()
+	threat_label.name = "ThreatDirectionLabel"
+	threat_label.position = Vector2(350.0, 12.0)
+	threat_label.text = "威胁方向：暂无"
+	threat_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.35, 1.0))
+	threat_label.z_index = 20
+	add_child(threat_label)
+	call_deferred("_connect_threat_manager")
+
+
+func _create_raid_countdown_label() -> void:
+	raid_countdown_label = Label.new()
+	raid_countdown_label.name = "RaidCountdownLabel"
+	raid_countdown_label.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	raid_countdown_label.position = Vector2(-250.0, -72.0)
+	raid_countdown_label.size = Vector2(235.0, 32.0)
+	raid_countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	raid_countdown_label.add_theme_color_override("font_color", Color(1.0, 0.75, 0.35, 1.0))
+	raid_countdown_label.z_index = 20
+	add_child(raid_countdown_label)
+
+
+func _refresh_raid_countdown() -> void:
+	if raid_countdown_label == null:
+		return
+	var director: EncounterDirector = get_tree().get_first_node_in_group("encounter_director") as EncounterDirector
+	if director == null:
+		raid_countdown_label.text = "支线袭扰：暂无袭扰"
+		return
+	var status: Dictionary = director.get_next_raid_status()
+	if not bool(status.get("active", false)):
+		raid_countdown_label.text = "支线袭扰：暂无袭扰"
+		return
+	raid_countdown_label.text = "支线袭扰：%s  %02d 秒" % [
+		str(status.get("display_name", "袭扰")),
+		int(ceil(float(status.get("remaining", 0.0))))
+	]
+
+
+func _connect_threat_manager() -> void:
+	var manager: ThreatDetectionManager = get_tree().get_first_node_in_group("threat_detection") as ThreatDetectionManager
+	if manager != null:
+		if not manager.threat_changed.is_connected(_on_threat_changed):
+			manager.threat_changed.connect(_on_threat_changed)
+		_on_threat_changed(manager.has_threat, manager.threat_direction)
+
+
+func _on_threat_changed(has_threat: bool, direction: String) -> void:
+	if threat_label != null:
+		threat_label.text = "威胁方向：%s" % (direction if has_threat else "暂无")
+
+
+func _on_rift_pressed() -> void:
+	var manager: RiftManager = get_tree().get_first_node_in_group("rift_manager") as RiftManager
+	if manager != null:
+		manager.spawn_rift()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -239,6 +403,11 @@ func _create_debug_panel() -> void:
 	raid_button.text = "生成第三方袭扰"
 	raid_button.pressed.connect(func() -> void: raid_requested.emit())
 	content.add_child(raid_button)
+
+	var rift_button: Button = Button.new()
+	rift_button.text = "生成时间裂缝"
+	rift_button.pressed.connect(_on_rift_pressed)
+	content.add_child(rift_button)
 
 	var resource_title := Label.new()
 	resource_title.text = "资源调整（据点库存）"
@@ -635,6 +804,8 @@ func update_resource_display() -> void:
 func pause_game() -> void:
 
 	get_tree().paused = true
+	if pause_button != null:
+		pause_button.text = "继续"
 
 
 func speed_1() -> void:
@@ -669,6 +840,8 @@ func speed_10() -> void:
 
 func resume_game() -> void:
 	get_tree().paused = false
+	if pause_button != null:
+		pause_button.text = "暂停"
 	var main_node: Node = get_tree().current_scene
 	if main_node != null and main_node.has_method("flush_paused_game_commands"):
 		main_node.flush_paused_game_commands()
@@ -679,8 +852,10 @@ func resume_game() -> void:
 # ============================================================
 
 func _on_pause_button_pressed() -> void:
-
-	pause_game()
+	if get_tree().paused:
+		resume_game()
+	else:
+		pause_game()
 
 
 func _on_speed_1_button_pressed() -> void:

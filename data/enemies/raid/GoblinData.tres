@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3 uid="uid://brjf0vrd8fmv4"]
+
+[ext_resource type="Script" uid="uid://dnnbqgitp7k2h" path="res://Script/ability/ability_entry.gd" id="1_cxpoc"]
+[ext_resource type="Script" uid="uid://cknte8tkj86va" path="res://Script/enemy/enemy_data.gd" id="1_enemy_data"]
+[ext_resource type="Script" uid="uid://dg0c3skkn6alu" path="res://Script/feature/feature_entry.gd" id="2_7c3ij"]
+[ext_resource type="PackedScene" uid="uid://cucdlrhdeend8" path="res://Scene/unit/goblin_visual.tscn" id="2_goblin_visual"]
+
+[resource]
+script = ExtResource("1_enemy_data")
+id = &"goblin_thief"
+display_name = "哥布林"
+visual_scene = ExtResource("2_goblin_visual")
+max_health = 40.0
+damage = 3.0
+move_speed = 3.0
+detection_range = 12.0
+raid_objective = 3
+raid_kill_unit_id = null
+raid_destroy_building_id = null
+raid_steal_resource_id = &"stone"

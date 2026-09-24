@@ -4,7 +4,8 @@ extends RefCounted
 enum TaskType {
 	DELIVER_CONSTRUCTION_RESOURCE,
 	BUILD,
-	TRAIN_SWORDSMAN
+	TRAIN_SWORDSMAN,
+	PICKUP_LOOT
 }
 
 enum State {

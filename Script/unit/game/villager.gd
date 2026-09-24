@@ -79,7 +79,8 @@ enum State {
 	BUILDING,
 	FIND_FIELD_WORK,
 	MOVE_TO_FIELD,
-	WORKING_FIELD
+	WORKING_FIELD,
+	MOVE_TO_LOOT
 }
 
 var state: State = State.IDLE
@@ -209,7 +210,7 @@ func get_activity_level() -> ActivityLevel:
 			return ActivityLevel.WORKING
 		State.MOVE_TO_BASE, State.DEPOSIT_TO_BASE:
 			return ActivityLevel.WORKING
-		State.MOVE_TO_DEMOLITION, State.DEMOLISHING, State.MOVE_TO_DEMOLITION_BASE, State.DEPOSIT_DEMOLITION_TO_BASE:
+		State.MOVE_TO_DEMOLITION, State.DEMOLISHING, State.MOVE_TO_DEMOLITION_BASE, State.DEPOSIT_DEMOLITION_TO_BASE, State.MOVE_TO_LOOT:
 			return ActivityLevel.WORKING
 		State.MOVE_TO_TRAINING, State.TRAINING:
 			return ActivityLevel.WORKING
@@ -519,6 +520,7 @@ var is_transporting: bool = false
 
 # 当前公共任务
 var current_task: Object = null
+var loot_bundle_target: Node3D = null
 var task_source: ResourceStorage = null
 var task_site: Node3D = null
 var task_resource_wait_timer: float = 0.0
@@ -646,6 +648,11 @@ func start():
 # ============================================================
 
 func _physics_process(delta):
+	if external_force.length_squared() > 0.01:
+		velocity = external_force
+		move_and_slide()
+		external_force = external_force.move_toward(Vector3.ZERO, 20.0 * delta)
+		return
 	if _process_combat(delta):
 		return
 	update_needs(delta)
@@ -756,6 +763,9 @@ func _physics_process(delta):
 
 		State.DEPOSIT_DEMOLITION_TO_BASE:
 			deposit_demolition_to_base()
+
+		State.MOVE_TO_LOOT:
+			move_to_loot_bundle()
 
 		State.FIND_TASK_SOURCE:
 			find_task_source()
@@ -947,6 +957,16 @@ func _start_current_task() -> void:
 		navigation_agent.target_position = task_site.get_training_position(self)
 		state = State.MOVE_TO_TRAINING
 		print("Villager 前往训练：", task.id, " target=", task_site.name)
+		return
+
+	if task.type == GameTask.TaskType.PICKUP_LOOT:
+		task.state = GameTask.State.IN_PROGRESS
+		loot_bundle_target = task.target as Node3D
+		if not is_instance_valid(loot_bundle_target):
+			_release_current_task()
+			return
+		navigation_agent.target_position = loot_bundle_target.global_position
+		state = State.MOVE_TO_LOOT
 		return
 
 	if task.type != GameTask.TaskType.DELIVER_CONSTRUCTION_RESOURCE:
@@ -2366,6 +2386,8 @@ func move_along_navigation():
 
 
 func _update_patrol_collision_avoidance() -> void:
+	if patrol_collision_avoid_time > 0.0:
+		return
 	var collision_normal := Vector3.ZERO
 	for collision_index in get_slide_collision_count():
 		var slide_collision := get_slide_collision(collision_index)
@@ -2522,6 +2544,52 @@ func deposit_demolition_to_base() -> void:
 		demolition_target.demolition_delivery_completed(self)
 	else:
 		finish_demolition()
+
+
+func move_to_loot_bundle() -> void:
+	if not is_instance_valid(loot_bundle_target):
+		_release_current_task()
+		return
+	if not navigation_agent.is_navigation_finished():
+		move_along_navigation()
+		return
+	if global_position.distance_to(loot_bundle_target.global_position) > 1.5:
+		navigation_agent.target_position = loot_bundle_target.global_position
+		return
+	velocity = Vector3.ZERO
+	if loot_bundle_target.has_method("pick_up"):
+		loot_bundle_target.pick_up(self)
+	else:
+		_release_current_task()
+
+
+func receive_loot(resource_id: StringName, amount: float) -> bool:
+	if amount <= 0.0 or carried_amount > 0.0:
+		return false
+	carried_resource_id = resource_id
+	carried_amount = amount
+	carried_resource_changed.emit()
+	loot_bundle_target = null
+	var managers: Array[Node] = get_tree().get_nodes_in_group("task_manager")
+	if not managers.is_empty() and current_task is GameTask:
+		managers[0].complete_task(current_task)
+	if target_base == null:
+		find_base()
+	go_to_base()
+	return true
+
+
+func steal_carried_resource(requested_amount: float) -> Dictionary:
+	var taken_amount: float = minf(maxf(requested_amount, 0.0), carried_amount)
+	if taken_amount <= 0.0:
+		return {}
+	var stolen_id: StringName = carried_resource_id
+	carried_amount -= taken_amount
+	if carried_amount <= 0.0:
+		carried_amount = 0.0
+		carried_resource_id = &""
+	carried_resource_changed.emit()
+	return {"resource_id": stolen_id, "amount": taken_amount}
 
 
 func finish_demolition() -> void:
@@ -3374,6 +3442,9 @@ func clear_current_task() -> void:
 		state == State.MOVE_TO_TRAINING or state == State.TRAINING
 	)
 	current_task = null
+	if state == State.MOVE_TO_LOOT:
+		loot_bundle_target = null
+		state = State.IDLE
 	if state == State.BUILDING or was_training:
 		task_site = null
 		if was_training:

@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3 uid="uid://dr55va251kdb8"]
+
+[ext_resource type="Script" uid="uid://cknte8tkj86va" path="res://Script/enemy/enemy_data.gd" id="1_enemy_data"]
+[ext_resource type="Script" uid="uid://dg0c3skkn6alu" path="res://Script/feature/feature_entry.gd" id="2_uc027"]
+[ext_resource type="PackedScene" uid="uid://7esrxpfdrgi6" path="res://Scene/unit/wolf_visual.tscn" id="2_wolf_visual"]
+[ext_resource type="Resource" uid="uid://4cel5fe2pgo1" path="res://data/abilities/GroundSlam.tres" id="3_ground_slam"]
+[ext_resource type="Script" uid="uid://dnnbqgitp7k2h" path="res://Script/ability/ability_entry.gd" id="4_ability_entry"]
+
+[sub_resource type="Resource" id="RiftWolfGroundSlamEntry"]
+script = ExtResource("4_ability_entry")
+ability = ExtResource("3_ground_slam")
+damage_multiplier = 1.5
+force_multiplier = 1.5
+radius_multiplier = 1.2
+
+[resource]
+script = ExtResource("1_enemy_data")
+id = &"rift_wolf"
+display_name = "狼"
+visual_scene = ExtResource("2_wolf_visual")
+abilities = Array[Resource]([ExtResource("3_ground_slam")])
+ability_entries = Array[ExtResource("4_ability_entry")]([SubResource("RiftWolfGroundSlamEntry")])
+max_health = 60.0
+damage = 12.0
+move_speed = 5.0
+attack_range = 1.4
+detection_range = 14.0
+faction = 2
+raid_steal_quota = 5.0

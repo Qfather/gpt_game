@@ -45,6 +45,7 @@ func refresh():
 
 	if current_building == null:
 		return
+	_update_health_display()
 	hire_button.disabled = false
 	fire_button.disabled = false
 	demolition_progress_bar.hide()
@@ -299,10 +300,17 @@ func refresh():
 	if resource_id != null and current_building.has_method("get_resource_amount"):
 		storage_amount = current_building.get_resource_amount(resource_id)
 		storage_capacity = current_building.get_resource_capacity(resource_id)
-	else:
+	elif current_building.has_method("get_storage_amount") and current_building.has_method("get_storage_capacity"):
 		# 兼容尚未迁移到通用接口的资源建筑。
 		storage_amount = float(current_building.get_storage_amount())
 		storage_capacity = float(current_building.get_storage_capacity())
+	else:
+		storage_label.hide()
+		material_label.hide()
+		worker_label.hide()
+		hire_button.hide()
+		fire_button.hide()
+		return
 
 	storage_label.text = (
 		"库存："

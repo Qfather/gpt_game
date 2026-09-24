@@ -1,6 +1,7 @@
 class_name BuildingBase
 extends Node3D
 
+const HEALTH_BAR_SCRIPT: Script = preload("res://Script/combat/health_bar_3d.gd")
 
 signal building_clicked(building: BuildingBase)
 signal building_demolished(building: BuildingBase)
@@ -43,6 +44,7 @@ var interaction_positions: Dictionary = {}
 
 func _ready() -> void:
 	add_to_group("buildings")
+	_create_health_bar()
 
 	if click_area == null:
 		push_warning(
@@ -53,6 +55,26 @@ func _ready() -> void:
 	click_area.input_event.connect(
 		_on_click_area_input_event
 	)
+
+
+func _create_health_bar() -> void:
+	if has_node("HealthBar2D") or has_node("HealthBar3D"):
+		return
+	if (
+		not has_signal("health_changed")
+		or not has_method("get_health")
+		or not has_method("get_max_health")
+	):
+		return
+
+	var health_bar: Node3D = Node3D.new()
+	health_bar.name = "HealthBar3D"
+	health_bar.position.y = 2.3
+	health_bar.set_script(HEALTH_BAR_SCRIPT)
+	health_bar.set("bar_color", Color(0.9, 0.2, 0.15, 1.0))
+	health_bar.set("bar_width", 1.8)
+	health_bar.set("bar_height", 0.14)
+	add_child(health_bar)
 
 
 func _process(delta: float) -> void:

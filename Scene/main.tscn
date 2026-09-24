@@ -17,6 +17,14 @@
 [ext_resource type="Script" uid="uid://c1rhcaj4urwjd" path="res://Script/camera_controller.gd" id="18_camera_controller"]
 [ext_resource type="Script" uid="uid://djvucg87b4dim" path="res://Script/world/world_bounds.gd" id="19_world_bounds"]
 [ext_resource type="Script" uid="uid://dhlmbsooeti34" path="res://Script/combat/raid_spawn_manager.gd" id="20_raid_spawn_manager"]
+[ext_resource type="Script" uid="uid://uqo6feenbq2q" path="res://Script/game_state.gd" id="21_game_state"]
+[ext_resource type="Script" uid="uid://cbocqqoh8oqii" path="res://Script/threat_detection_manager.gd" id="22_threat_detection"]
+[ext_resource type="Script" uid="uid://b0dnew3qyubb0" path="res://Script/world/rift_manager.gd" id="23_rift_manager"]
+[ext_resource type="Script" path="res://Script/world/encounter_director.gd" id="24_encounter_director"]
+[ext_resource type="Resource" path="res://data/levels/LevelFlow_V0.tres" id="25_level_flow"]
+[ext_resource type="Script" path="res://Script/ui/floating_text_manager.gd" id="26_floating_text"]
+[ext_resource type="Script" path="res://Script/world/procedural_map_generator.gd" id="27_map_generator"]
+[ext_resource type="Resource" path="res://data/world/MapGeneration_V0.tres" id="28_map_config"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sblpm"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -54,11 +62,16 @@ process_mode = 3
 
 [node name="HUD" parent="UI" unique_id=1924675286 instance=ExtResource("4_2wwxx")]
 
+[node name="FloatingTextManager" type="CanvasLayer" parent="UI"]
+script = ExtResource("26_floating_text")
+
 [node name="Villagers" type="Node" parent="." unique_id=1530581502]
 
 [node name="Migrants" type="Node" parent="." unique_id=1839020001]
 
 [node name="Enemies" type="Node" parent="." unique_id=1839020003]
+
+[node name="LootBundles" type="Node3D" parent="."]
 
 [node name="ArrivalPoints" type="Node3D" parent="." unique_id=1839020002]
 
@@ -99,6 +112,23 @@ script = ExtResource("19_world_bounds")
 
 [node name="RaidSpawnManager" type="Node" parent="Systems" unique_id=5783017]
 script = ExtResource("20_raid_spawn_manager")
+
+[node name="GameState" type="Node" parent="Systems" unique_id=1809806173]
+process_mode = 3
+script = ExtResource("21_game_state")
+
+[node name="ThreatDetectionManager" type="Node" parent="Systems" unique_id=2115983493]
+process_mode = 3
+script = ExtResource("22_threat_detection")
+
+[node name="RiftManager" type="Node3D" parent="Systems" unique_id=1649761189]
+process_mode = 3
+script = ExtResource("23_rift_manager")
+
+[node name="EncounterDirector" type="Node" parent="Systems"]
+process_mode = 3
+script = ExtResource("24_encounter_director")
+level_flow = ExtResource("25_level_flow")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="Systems" unique_id=1486133278]
 environment = SubResource("Environment_2wwxx")
@@ -164,3 +194,7 @@ script = ExtResource("18_camera_controller")
 
 [node name="ResourceManager" type="Node" parent="." unique_id=1126801148]
 script = ExtResource("12_mxd2g")
+
+[node name="ProceduralMapGenerator" type="Node3D" parent="Systems"]
+script = ExtResource("27_map_generator")
+config = ExtResource("28_map_config")

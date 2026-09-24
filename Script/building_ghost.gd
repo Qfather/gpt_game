@@ -23,7 +23,7 @@ var base_preview_scale: Vector3 = Vector3.ONE
 
 
 func _ready() -> void:
-
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	build_grid = get_parent().get_node("BuildGrid") as BuildGrid
 	visible = false
 	_create_preview_mesh()

@@ -91,6 +91,15 @@ func get_total(resource_key: Variant) -> float:
 
 	total += get_storage_total(resource_id)
 	total += get_carried_total(resource_id)
+	for bundle: Node in get_tree().get_nodes_in_group("loot_bundles"):
+		if bundle.has_method("get_amount_for"):
+			total += float(bundle.get_amount_for(resource_id))
+		elif (
+			bundle.has_method("get_resource_id")
+			and bundle.has_method("get_amount")
+			and StringName(bundle.get_resource_id()) == resource_id
+		):
+			total += float(bundle.get_amount())
 
 	return total
 

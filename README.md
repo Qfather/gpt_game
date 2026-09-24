@@ -17,24 +17,12 @@
 - Military Daily Loop V1、Barracks / Patrol V0、Barracks Logistics V1 和 RTS Camera V1；
 - Combat V1，以及数据驱动的 Slime / Wolf 敌人。
 - Settlement Patrol Ring V0：WorldBounds、SettlementBounds 和领地级 0→1→2→3 巡逻点；
-- Third-party Raid V0 首版：调试面板可从地图外围生成 2～4 个 Slime / Wolf，并向据点方向活动。
-- Feature 接口预留阶段 2：新增 FeatureData / FeatureEntry，EnemyData 支持按概率生成运行时 Feature；暂不执行技能效果。
-- Feature 接口预留阶段 3：通过 FeatureAdapter 兼容现有 TraitData 与 EnemyAbility，不重写原有编辑器和技能逻辑。
-- Feature 接口预留阶段 4：新增独立 AbilityRuntime，每个敌人拥有独立冷却状态，暂不释放具体技能。
-- Feature 接口预留阶段 5：新增 EffectData / EffectRuntime 基础接口，暂不执行实际伤害、击退或状态效果。
-- Feature 接口预留阶段 6：新增 CombatDebug 统一开关，清理未引用的 Godot 临时场景文件。
-
-```text
-Combat V1                         ✅
-Slime / Wolf                     ✅
-Settlement Patrol Ring V0         ✅
-Third-party Raid V0               🚧
-
-下一开发节点：
-Third-party Raid V0 场景测试
-→ Settlement Patrol Ring V0 / Third-party Raid V0 场景回归
-→ Threat Detection
-```
+- Combat / Feature 接口预留 / Ability & Effect 最小框架已完成：保留 FeatureData、独立技能冷却和通用伤害/击退 Effect；当前 Ground Slam 通过配置组合伤害与击退，不扩展为完整技能编辑器。
+- Building Durability + Base Defeat V0、Threat Detection V0、城墙/城门基础耐久、Time Rift V0、3 波 Rift Wave 和 Elite V0 已实现；Boss 组配置、裂缝关底 Boss 自动识别与胜利触发框架已接入，恶魔/蜘蛛裂缝 Boss 单位已配置，第一局完整主线流程已由用户实测跑通。
+- 「关卡」插件统一管理怪物组和袭扰/裂缝时间线。时间线按基础出现时间排序（随机偏移不参与排序），列出事件名、怪物组、组模式、时间与 BOSS 定位，并用整行文字颜色区分袭扰/裂缝；固定模式按组内单位个数生成，随机模式按单位概率权重组成事件指定的总数。袭扰 BOSS 不参与裂缝主线通关判定；裂缝时间线最后一个 BOSS 事件为关底目标，击败后触发胜利。裂缝事件另可配置波数、波间隔与倒计时。
+- 三方势力可互相战斗；Raid 可配置击杀单位、破坏建筑或偷取资源。击杀型目标优先攻击范围内单位；没有单位时攻击最近的非据点建筑，建筑耗尽后攻击据点。破坏建筑型史莱姆按配置优先建筑，否则随机选择；哥布林每次默认偷 3、间隔 1 秒、总额度 15，并掉落单个资源包。
+- 袭扰配置检查器按行为显示目标选项；切换行为已改为通知 Inspector 重建属性列表，仍需在编辑器中做交互回归确认。杀伤、破坏和偷窃的目标优先级及其回退逻辑已接入运行时。
+- 可受伤建筑由 BuildingBase 自动添加屏幕空间 2D 头顶血条；已存在血条的据点不重复添加。敌人追击攻击距离与占地相关建筑时会保留接近余量。
 
 Population V1 已完成：
 
@@ -459,6 +447,7 @@ res://Tests/military_stage5_test.gd
 - 用户实际运行暂未发现问题。
 - HUD 速度快捷键新增：数字键 `4` 为 5 倍速，数字键 `5` 为 10 倍速；HUD 同时新增 5X / 10X 按钮。
 - 新增活动游戏相机：滚轮缩放，中键旋转，Shift+中键平移，WASD 平移；开局聚焦 Base，选中对象后按 `F` 聚焦对象。
+- 技能框架新增 `AbilityEntry` 角色覆盖层：技能 `.tres` 保存基础数值，单位可独立覆盖伤害、击退力度和范围倍率；旧技能数组仍兼容。
 
 ## 开发约定
 

@@ -26,7 +26,7 @@ class FakeSwordsman extends Node3D:
 
 func _initialize() -> void:
 	var enemy_scene: PackedScene = preload("res://Scene/unit/enemy_base.tscn")
-	var wolf_data: EnemyData = preload("res://data/combat/WolfData.tres")
+	var wolf_data: EnemyData = preload("res://data/enemies/raid/WolfData.tres")
 	var wolf: EnemyBase = enemy_scene.instantiate()
 	wolf.enemy_data = wolf_data
 	wolf.set_physics_process(false)
@@ -50,7 +50,7 @@ func _initialize() -> void:
 	_expect(wolf.target == swordsman, "狼锁定范围内最近的剑士")
 	wolf.attack_cooldown = 0.0
 	wolf._physics_process(0.1)
-	_expect(swordsman.health == 28.0, "狼对剑士造成数据配置的伤害")
+	_expect(swordsman.health == 20.0, "狼的 Ground Slam 与普通攻击均造成配置伤害")
 
 	wolf.free()
 	swordsman.free()

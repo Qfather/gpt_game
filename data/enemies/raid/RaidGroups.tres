@@ -1,0 +1,53 @@
+[gd_resource type="Resource" script_class="RaidGroupDatabase" format=3 uid="uid://5cruth8c3fgj"]
+
+[ext_resource type="Script" uid="uid://keaifpwgb0ei" path="res://Script/enemy/raid_group_database.gd" id="1_database"]
+[ext_resource type="Script" uid="uid://cknte8tkj86va" path="res://Script/enemy/enemy_data.gd" id="2_enemy"]
+[ext_resource type="Script" uid="uid://b0v2sgymqyugk" path="res://Script/enemy/raid_group_data.gd" id="2_group"]
+[ext_resource type="Resource" uid="uid://befxen1h3swmq" path="res://data/enemies/rift/DemonBossData.tres" id="5_vyl6f"]
+[ext_resource type="Resource" uid="uid://b1056inxxe4ef" path="res://data/enemies/raid/WolfData.tres" id="5_wolf"]
+[ext_resource type="Resource" uid="uid://brjf0vrd8fmv4" path="res://data/enemies/raid/GoblinData.tres" id="6_goblin"]
+[ext_resource type="Resource" uid="uid://dkbg4aqhmos3t" path="res://data/enemies/rift/SlimeData.tres" id="7_rift_slime"]
+[ext_resource type="Resource" uid="uid://dr55va251kdb8" path="res://data/enemies/rift/WolfData.tres" id="8_rift_wolf"]
+
+[sub_resource type="Resource" id="SlimeRaidGroup"]
+script = ExtResource("2_group")
+id = &"raid_slimes"
+display_name = "史莱姆袭扰组"
+group_type = 1
+spawn_mode = 1
+unit_data = Array[ExtResource("2_enemy")]([ExtResource("7_rift_slime"), ExtResource("8_rift_wolf")])
+fixed_unit_counts = PackedInt32Array(1, 1)
+unit_probabilities = PackedFloat32Array(50, 50)
+
+[sub_resource type="Resource" id="GoblinRaidGroup"]
+script = ExtResource("2_group")
+id = &"raid_goblins"
+display_name = "哥布林袭扰组"
+group_type = 1
+is_boss_group = true
+fixed_unit_counts = PackedInt32Array()
+unit_probabilities = PackedFloat32Array()
+max_count = 1
+
+[sub_resource type="Resource" id="Resource_vyl6f"]
+script = ExtResource("2_group")
+id = &"era"
+display_name = "新袭扰组"
+is_boss_group = true
+unit_data = Array[ExtResource("2_enemy")]([null, ExtResource("6_goblin"), ExtResource("5_wolf")])
+fixed_unit_counts = PackedInt32Array(1, 5, 4)
+unit_probabilities = PackedFloat32Array(100, 100, 100)
+
+[sub_resource type="Resource" id="Resource_5wb71"]
+script = ExtResource("2_group")
+id = &"monster_group_01"
+display_name = "新怪物组"
+group_type = 1
+is_boss_group = true
+unit_data = Array[ExtResource("2_enemy")]([null, ExtResource("5_vyl6f")])
+fixed_unit_counts = PackedInt32Array(1, 1)
+unit_probabilities = PackedFloat32Array(100, 100)
+
+[resource]
+script = ExtResource("1_database")
+groups = Array[ExtResource("2_group")]([SubResource("SlimeRaidGroup"), SubResource("GoblinRaidGroup"), SubResource("Resource_vyl6f"), SubResource("Resource_5wb71")])

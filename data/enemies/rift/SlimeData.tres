@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3 uid="uid://dkbg4aqhmos3t"]
+
+[ext_resource type="Script" uid="uid://dnnbqgitp7k2h" path="res://Script/ability/ability_entry.gd" id="1_c2d1v"]
+[ext_resource type="Script" uid="uid://cknte8tkj86va" path="res://Script/enemy/enemy_data.gd" id="1_enemy_data"]
+[ext_resource type="Script" uid="uid://dg0c3skkn6alu" path="res://Script/feature/feature_entry.gd" id="2_olhnt"]
+[ext_resource type="PackedScene" path="res://Scene/unit/slime_visual.tscn" id="2_slime_visual"]
+
+[resource]
+script = ExtResource("1_enemy_data")
+id = &"rift_slime"
+display_name = "史莱姆"
+visual_scene = ExtResource("2_slime_visual")
+visual_tint = Color(0.74, 0.35, 0.86, 1)
+faction = 2

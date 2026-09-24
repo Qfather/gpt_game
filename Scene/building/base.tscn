@@ -2,6 +2,8 @@
 
 [ext_resource type="Script" uid="uid://2v134eyjfwa5" path="res://Script/building/game/base.gd" id="1_d3q2k"]
 [ext_resource type="Script" uid="uid://c8iasvdn8ygnl" path="res://Script/resource/ResourceStorage.gd" id="2_7lj54"]
+[ext_resource type="Script" path="res://Script/building/building_durability.gd" id="3_durability"]
+[ext_resource type="Script" path="res://Script/combat/health_bar_3d.gd" id="4_health_bar"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_t2dwb"]
 size = Vector3(3, 2, 3)
@@ -26,3 +28,14 @@ shape = SubResource("BoxShape3D_click")
 [node name="ResourceStorage" type="Node" parent="." unique_id=971068545]
 script = ExtResource("2_7lj54")
 starting_food = 100.0
+
+[node name="BuildingDurability" type="Node" parent="."]
+script = ExtResource("3_durability")
+max_health = 1000.0
+
+[node name="HealthBar2D" type="Node3D" parent="."]
+position = Vector3(0, 2.3, 0)
+script = ExtResource("4_health_bar")
+bar_color = Color(0.9, 0.2, 0.15, 1)
+bar_width = 1.8
+bar_height = 0.14

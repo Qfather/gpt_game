@@ -1,0 +1,117 @@
+[gd_scene format=3 uid="uid://bxjq73x3iriac"]
+
+[sub_resource type="StandardMaterial3D" id="DemonHide"]
+albedo_color = Color(0.24, 0.055, 0.12, 1)
+roughness = 0.72
+
+[sub_resource type="CapsuleMesh" id="DemonBody"]
+material = SubResource("DemonHide")
+radius = 0.48
+height = 1.55
+
+[sub_resource type="StandardMaterial3D" id="DemonArmor"]
+albedo_color = Color(0.09, 0.075, 0.12, 1)
+metallic = 0.45
+roughness = 0.48
+
+[sub_resource type="SphereMesh" id="DemonShoulder"]
+material = SubResource("DemonArmor")
+radius = 0.34
+height = 0.68
+
+[sub_resource type="SphereMesh" id="DemonHead"]
+material = SubResource("DemonHide")
+radius = 0.42
+height = 0.84
+
+[sub_resource type="StandardMaterial3D" id="DemonHorn"]
+albedo_color = Color(0.68, 0.36, 0.15, 1)
+roughness = 0.64
+
+[sub_resource type="CylinderMesh" id="DemonHornMesh"]
+material = SubResource("DemonHorn")
+top_radius = 0.0
+bottom_radius = 0.14
+height = 0.55
+
+[sub_resource type="StandardMaterial3D" id="DemonEye"]
+albedo_color = Color(1, 0.12, 0.025, 1)
+emission_enabled = true
+emission = Color(0.85, 0.045, 0.005, 1)
+emission_energy_multiplier = 2.0
+
+[sub_resource type="SphereMesh" id="DemonEyeMesh"]
+material = SubResource("DemonEye")
+radius = 0.085
+height = 0.17
+
+[sub_resource type="CapsuleMesh" id="DemonLimb"]
+material = SubResource("DemonHide")
+radius = 0.18
+height = 0.82
+
+[sub_resource type="BoxMesh" id="DemonWing"]
+material = SubResource("DemonArmor")
+size = Vector3(0.78, 0.09, 0.82)
+
+[node name="DemonBossVisual" type="Node3D" unique_id=1345024710]
+
+[node name="Body" type="MeshInstance3D" parent="." unique_id=1444951496]
+transform = Transform3D(1.15, 0, 0, 0, 1, 0, 0, 0, 0.9, 0, 1.03, 0.02)
+mesh = SubResource("DemonBody")
+
+[node name="ChestArmor" type="MeshInstance3D" parent="." unique_id=342341771]
+transform = Transform3D(0.92, 0, 0, 0, 0.68, 0, 0, 0, 0.32, 0, 1.25, -0.25)
+mesh = SubResource("DemonShoulder")
+
+[node name="Head" type="MeshInstance3D" parent="." unique_id=228211308]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.91, -0.08)
+mesh = SubResource("DemonHead")
+
+[node name="LeftHorn" type="MeshInstance3D" parent="." unique_id=1467234580]
+transform = Transform3D(0.96105546, -0.27635565, 0, 0.27635565, 0.96105546, 0, 0, 0, 1, -0.27, 2.35, -0.03)
+mesh = SubResource("DemonHornMesh")
+
+[node name="RightHorn" type="MeshInstance3D" parent="." unique_id=767296767]
+transform = Transform3D(0.96105546, 0.27635565, 0, -0.27635565, 0.96105546, 0, 0, 0, 1, 0.27, 2.35, -0.03)
+mesh = SubResource("DemonHornMesh")
+
+[node name="LeftEye" type="MeshInstance3D" parent="." unique_id=548105831]
+transform = Transform3D(1.2, 0, 0, 0, 0.72, 0, 0, 0, 0.55, -0.19, 1.98, -0.43)
+mesh = SubResource("DemonEyeMesh")
+
+[node name="RightEye" type="MeshInstance3D" parent="." unique_id=1790612949]
+transform = Transform3D(1.2, 0, 0, 0, 0.72, 0, 0, 0, 0.55, 0.19, 1.98, -0.43)
+mesh = SubResource("DemonEyeMesh")
+
+[node name="LeftShoulder" type="MeshInstance3D" parent="." unique_id=1599882255]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.57, 1.48, -0.02)
+mesh = SubResource("DemonShoulder")
+
+[node name="RightShoulder" type="MeshInstance3D" parent="." unique_id=1655203919]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.57, 1.48, -0.02)
+mesh = SubResource("DemonShoulder")
+
+[node name="LeftArm" type="MeshInstance3D" parent="." unique_id=381426210]
+transform = Transform3D(0.97589743, 0.21822962, 0, -0.21822962, 0.97589743, 0, 0, 0, 1, -0.62, 0.98, -0.03)
+mesh = SubResource("DemonLimb")
+
+[node name="RightArm" type="MeshInstance3D" parent="." unique_id=523807046]
+transform = Transform3D(0.97589743, -0.21822962, 0, 0.21822962, 0.97589743, 0, 0, 0, 1, 0.62, 0.98, -0.03)
+mesh = SubResource("DemonLimb")
+
+[node name="LeftLeg" type="MeshInstance3D" parent="." unique_id=1674432964]
+transform = Transform3D(1.08, 0, 0, 0, 0.92, 0, 0, 0, 1, -0.27, 0.38, 0.04)
+mesh = SubResource("DemonLimb")
+
+[node name="RightLeg" type="MeshInstance3D" parent="." unique_id=1862315317]
+transform = Transform3D(1.08, 0, 0, 0, 0.92, 0, 0, 0, 1, 0.27, 0.38, 0.04)
+mesh = SubResource("DemonLimb")
+
+[node name="LeftWing" type="MeshInstance3D" parent="." unique_id=1265798691]
+transform = Transform3D(0.90475166, -0.42593947, 0, 0.4137312, 0.87881964, -0.23770262, 0.10124693, 0.21506184, 0.971338, -0.68, 1.45, 0.39)
+mesh = SubResource("DemonWing")
+
+[node name="RightWing" type="MeshInstance3D" parent="." unique_id=303780613]
+transform = Transform3D(0.90475166, 0.42593947, 0, -0.4137312, 0.87881964, 0.23770262, 0.10124693, -0.21506184, 0.971338, 0.68, 1.45, 0.39)
+mesh = SubResource("DemonWing")

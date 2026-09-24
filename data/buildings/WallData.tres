@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="BuildingData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Script/building_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://Scene/building/game/wall.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_data")
+id = &"wall"
+display_name = "城墙"
+description = "阻挡敌人前进的基础防御建筑。"
+function_text = "提供物理阻挡，并可承受敌人攻击。"
+building_scene = ExtResource("2_scene")
+grid_size = Vector2i(3, 1)
+construction_cost = Dictionary[StringName, float]({
+&"wood": 10.0,
+&"stone": 10.0
+})
+construction_time = 15.0
+max_construction_workers = 3
+allow_rotation = true
+allow_mirror = false

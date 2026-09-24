@@ -87,6 +87,7 @@ func _create_main_panel() -> void:
 	refresh_button.pressed.connect(_refresh_resource_list)
 	toolbar.add_child(refresh_button)
 
+
 	var new_button: Button = Button.new()
 	new_button.text = "+ 新建资源"
 	new_button.pressed.connect(_on_new_resource_pressed)
@@ -125,7 +126,7 @@ func _create_main_panel() -> void:
 	scroll.add_child(editor)
 	_create_editor(editor)
 
-	add_control_to_bottom_panel(main_panel, "Resource Editor")
+	add_control_to_bottom_panel(main_panel, "资源")
 
 
 func _create_filters(parent: VBoxContainer) -> void:

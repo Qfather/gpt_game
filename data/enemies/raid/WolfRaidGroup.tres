@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="RaidGroupData" format=3 uid="uid://wsx44yj2q5c8"]
+
+[ext_resource type="Script" uid="uid://b0v2sgymqyugk" path="res://Script/enemy/raid_group_data.gd" id="1_group"]
+[ext_resource type="Script" uid="uid://cknte8tkj86va" path="res://Script/enemy/enemy_data.gd" id="2_unuxl"]
+[ext_resource type="Resource" uid="uid://b1056inxxe4ef" path="res://data/enemies/raid/WolfData.tres" id="2_wolf"]
+
+[resource]
+script = ExtResource("1_group")
+id = &"raid_wolves"
+display_name = "狼人袭扰组"
+unit_data = Array[ExtResource("2_unuxl")]([ExtResource("2_wolf")])
+max_count = 1

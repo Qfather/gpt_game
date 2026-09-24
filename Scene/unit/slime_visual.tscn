@@ -1,0 +1,77 @@
+[gd_scene load_steps=9 format=3]
+
+[sub_resource type="StandardMaterial3D" id="SlimeSkin"]
+albedo_color = Color(0.18, 0.72, 0.34, 1)
+roughness = 0.28
+metallic = 0.05
+
+[sub_resource type="StandardMaterial3D" id="SlimeBelly"]
+albedo_color = Color(0.45, 0.91, 0.5, 1)
+roughness = 0.38
+
+[sub_resource type="StandardMaterial3D" id="SlimeEyeWhite"]
+albedo_color = Color(0.97, 0.97, 0.88, 1)
+
+[sub_resource type="StandardMaterial3D" id="SlimePupil"]
+albedo_color = Color(0.055, 0.09, 0.075, 1)
+
+[sub_resource type="StandardMaterial3D" id="SlimeMouth"]
+albedo_color = Color(0.08, 0.22, 0.12, 1)
+
+[sub_resource type="SphereMesh" id="SlimeBodyMesh"]
+material = SubResource("SlimeSkin")
+radius = 0.58
+height = 1.16
+
+[sub_resource type="SphereMesh" id="SlimeFaceMesh"]
+material = SubResource("SlimeBelly")
+radius = 0.34
+height = 0.38
+
+[sub_resource type="SphereMesh" id="SlimeEyeMesh"]
+material = SubResource("SlimeEyeWhite")
+radius = 0.105
+height = 0.21
+
+[node name="SlimeVisual" type="Node3D"]
+
+[node name="Body" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.55, 0)
+scale = Vector3(1.08, 0.92, 1.0)
+mesh = SubResource("SlimeBodyMesh")
+
+[node name="Belly" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.39, -0.42)
+scale = Vector3(0.82, 0.55, 0.22)
+mesh = SubResource("SlimeFaceMesh")
+
+[node name="LeftEye" type="MeshInstance3D" parent="."]
+position = Vector3(-0.19, 0.69, -0.48)
+mesh = SubResource("SlimeEyeMesh")
+
+[node name="RightEye" type="MeshInstance3D" parent="."]
+position = Vector3(0.19, 0.69, -0.48)
+mesh = SubResource("SlimeEyeMesh")
+
+[node name="LeftPupil" type="MeshInstance3D" parent="."]
+position = Vector3(-0.17, 0.68, -0.572)
+mesh = SubResource("SlimeEyeMesh")
+surface_material_override/0 = SubResource("SlimePupil")
+scale = Vector3(0.42, 0.58, 0.32)
+
+[node name="RightPupil" type="MeshInstance3D" parent="."]
+position = Vector3(0.21, 0.68, -0.572)
+mesh = SubResource("SlimeEyeMesh")
+surface_material_override/0 = SubResource("SlimePupil")
+scale = Vector3(0.42, 0.58, 0.32)
+
+[node name="Mouth" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.44, -0.568)
+scale = Vector3(0.22, 0.045, 0.025)
+mesh = SubResource("SlimeBodyMesh")
+surface_material_override/0 = SubResource("SlimeMouth")
+
+[node name="Highlight" type="MeshInstance3D" parent="."]
+position = Vector3(-0.25, 0.9, -0.31)
+scale = Vector3(0.18, 0.08, 0.08)
+mesh = SubResource("SlimeFaceMesh")

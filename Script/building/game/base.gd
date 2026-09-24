@@ -1,6 +1,14 @@
 extends BuildingBase
 
 
+signal health_changed(current_health: float, max_health: float)
+signal destroyed
+
+@onready var durability: BuildingDurability = get_node_or_null(
+	"BuildingDurability"
+) as BuildingDurability
+
+
 # ============================================================
 # 信号
 # ============================================================
@@ -44,6 +52,11 @@ signal wood_changed(new_amount: int)
 
 func _ready():
 	super._ready()
+	if durability == null:
+		push_error("Base：没有找到 BuildingDurability 子节点")
+	else:
+		durability.health_changed.connect(_on_durability_health_changed)
+		durability.destroyed.connect(_on_durability_destroyed)
 
 	if storage == null:
 		push_error(
@@ -54,6 +67,42 @@ func _ready():
 	storage.resource_changed.connect(
 		_on_storage_resource_changed
 	)
+
+
+func get_max_health() -> float:
+	return durability.max_health if durability != null else 0.0
+
+
+func get_health() -> float:
+	return durability.current_health if durability != null else 0.0
+
+
+func take_damage(amount: float, source: Node = null) -> float:
+	return durability.take_damage(amount, source) if durability != null else 0.0
+
+
+func repair(amount: float) -> float:
+	return durability.repair(amount) if durability != null else 0.0
+
+
+func is_destroyed() -> bool:
+	return durability != null and durability.is_destroyed()
+
+
+func _on_durability_health_changed(
+	current_health: float,
+	max_health: float
+) -> void:
+	health_changed.emit(current_health, max_health)
+
+
+func _on_durability_destroyed() -> void:
+	destroyed.emit()
+	hide()
+	if click_area != null:
+		click_area.collision_layer = 0
+		click_area.collision_mask = 0
+	set_process(false)
 
 
 func get_housing_capacity() -> int:

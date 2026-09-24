@@ -78,7 +78,12 @@ func _on_click_body_input_event(
 
 
 func _register_with_main() -> void:
-	var main_node: Node = get_tree().current_scene
+	if not is_inside_tree():
+		return
+	var scene_tree := get_tree()
+	if scene_tree == null:
+		return
+	var main_node: Node = scene_tree.current_scene
 	if main_node != null and main_node.has_method("register_resource"):
 		main_node.register_resource(self)
 

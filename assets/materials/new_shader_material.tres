@@ -1,0 +1,12 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://bblpe5njelhui"]
+
+[ext_resource type="Shader" uid="uid://dgyqjf4cwlbfd" path="res://assets/materials/new_shader_material.gdshader" id="1_yqtc1"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_yqtc1")
+shader_parameter/base_color = Color(0.47788018, 0.47788012, 0.47788012, 1)
+shader_parameter/edge_color = Color(0.45150667, 0.0073258374, 0.27136737, 1)
+shader_parameter/edge_strength = 0.88800004218
+shader_parameter/edge_threshold = 0.054000002564999997
+shader_parameter/edge_sharpness = 6.85400032230512

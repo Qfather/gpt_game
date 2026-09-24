@@ -45,9 +45,10 @@ const STATE_DISPLAY_NAMES: PackedStringArray = [
 	"正在施工",
 	"寻找田地",
 	"前往田地",
-	"正在处理田地"
+	"正在处理田地",
+	"前往战利品"
 ]
-const TASK_DISPLAY_NAMES: PackedStringArray = ["运输建造材料", "建筑施工", "训练剑士"]
+const TASK_DISPLAY_NAMES: PackedStringArray = ["运输建造材料", "建筑施工", "训练剑士", "回收战利品"]
 
 @onready var health_label: Label = %HealthLabel
 @onready var move_speed_label: Label = %MoveSpeedLabel

@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3 uid="uid://4cel5fe2pgo1"]
+
+[ext_resource type="Script" uid="uid://6w6n620sexj4" path="res://Script/ability/ability_data.gd" id="1_ability"]
+[ext_resource type="Script" uid="uid://bufun2r55mkii" path="res://Script/effect/effect_data.gd" id="1_wnpre"]
+[ext_resource type="Script" uid="uid://64m0l1lndfam" path="res://Script/effect/damage_effect_data.gd" id="2_damage"]
+[ext_resource type="Script" uid="uid://c1nrrkd37geq4" path="res://Script/effect/force_effect_data.gd" id="3_force"]
+
+[sub_resource type="Resource" id="DamageEffect"]
+script = ExtResource("2_damage")
+damage = 8.0
+effect_id = &"ground_slam_damage"
+display_name = "震地伤害"
+
+[sub_resource type="Resource" id="ForceEffect"]
+script = ExtResource("3_force")
+horizontal_force = 1.0
+effect_id = &"ground_slam_force"
+display_name = "震地击退"
+
+[resource]
+script = ExtResource("1_ability")
+area_shape = 1
+effects = Array[ExtResource("1_wnpre")]([SubResource("DamageEffect"), SubResource("ForceEffect")])
+ability_id = &"ground_slam"
+display_name = "震地"
+cooldown = 8.0

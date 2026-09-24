@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3 uid="uid://chxftrsxwoteu"]
+
+[ext_resource type="Script" uid="uid://dnnbqgitp7k2h" path="res://Script/ability/ability_entry.gd" id="1_av1dq"]
+[ext_resource type="Script" uid="uid://cknte8tkj86va" path="res://Script/enemy/enemy_data.gd" id="1_enemy_data"]
+[ext_resource type="Script" uid="uid://dg0c3skkn6alu" path="res://Script/feature/feature_entry.gd" id="2_3pmkv"]
+[ext_resource type="PackedScene" path="res://Scene/unit/slime_visual.tscn" id="3_slime_visual"]
+
+[resource]
+script = ExtResource("1_enemy_data")
+id = &"raid_slime_blue"
+display_name = "蓝色史莱姆"
+visual_scene = ExtResource("3_slime_visual")
+visual_tint = Color(0.35, 0.65, 1, 1)
+raid_objective = 2
+raid_steal_quota = 5.0

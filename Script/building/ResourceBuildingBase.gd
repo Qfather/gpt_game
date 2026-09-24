@@ -1,6 +1,7 @@
 class_name ResourceBuildingBase
 extends BuildingBase
 
+signal health_changed(current_health: float, max_health: float)
 
 # ============================================================
 # 资源建筑配置
@@ -25,6 +26,11 @@ var production_resource_type: ResourceType.Type:
 ## 工人空闲活动范围
 @export var idle_radius: float = 2.5
 
+@export_category("建筑耐久")
+@export_range(1.0, 100000.0, 1.0) var max_health: float = 300.0
+var current_health: float = 0.0
+var destroyed: bool = false
+
 
 # ============================================================
 # 当前工人
@@ -47,11 +53,42 @@ var workers: Array[Node] = []
 func _ready() -> void:
 
 	super._ready()
+	add_to_group("resource_buildings")
+	current_health = maxf(max_health, 1.0)
+	health_changed.emit(current_health, max_health)
 
 	if storage == null:
 		push_warning(
 			"ResourceBuildingBase：%s 没有找到 ResourceStorage" % name
 		)
+
+
+func get_max_health() -> float:
+	return max_health
+
+
+func get_health() -> float:
+	return current_health
+
+
+func is_destroyed() -> bool:
+	return destroyed
+
+
+func take_damage(amount: float, _source: Node = null) -> float:
+	if destroyed:
+		return 0.0
+	var actual_damage: float = minf(maxf(amount, 0.0), current_health)
+	if actual_damage <= 0.0:
+		return 0.0
+	current_health = maxf(current_health - actual_damage, 0.0)
+	health_changed.emit(current_health, max_health)
+	if current_health <= 0.0:
+		destroyed = true
+		release_all_workers()
+		release_build_grid_area()
+		queue_free()
+	return actual_damage
 
 
 # ============================================================

@@ -1,6 +1,6 @@
 extends SceneTree
 
-const ADAPTER: Script = preload("res://Script/combat/feature_adapter.gd")
+const ADAPTER: Script = preload("res://Script/feature/feature_adapter.gd")
 
 
 func _init() -> void:

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3 uid="uid://befxen1h3swmq"]
+
+[ext_resource type="Script" uid="uid://cknte8tkj86va" path="res://Script/enemy/enemy_data.gd" id="1_enemy_data"]
+[ext_resource type="Script" uid="uid://dnnbqgitp7k2h" path="res://Script/ability/ability_entry.gd" id="2_6q3tu"]
+[ext_resource type="PackedScene" path="res://Scene/unit/boss/demon_boss_visual.tscn" id="2_demon_visual"]
+[ext_resource type="Resource" uid="uid://4cel5fe2pgo1" path="res://data/abilities/GroundSlam.tres" id="3_ground_slam"]
+[ext_resource type="Script" uid="uid://dg0c3skkn6alu" path="res://Script/feature/feature_entry.gd" id="3_u5q66"]
+
+[resource]
+script = ExtResource("1_enemy_data")
+id = &"rift_demon_boss"
+display_name = "恶魔BOSS"
+visual_scene = ExtResource("2_demon_visual")
+abilities = Array[Resource]([ExtResource("3_ground_slam")])
+max_health = 420.0
+damage = 18.0
+move_speed = 3.0
+attack_range = 1.8
+attack_interval = 1.4
+detection_range = 24.0
+is_boss = true
+faction = 2

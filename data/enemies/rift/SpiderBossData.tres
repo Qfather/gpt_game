@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3 uid="uid://cmwj8fksc5ok1"]
+
+[ext_resource type="Script" uid="uid://cknte8tkj86va" path="res://Script/enemy/enemy_data.gd" id="1_enemy_data"]
+[ext_resource type="Script" uid="uid://dnnbqgitp7k2h" path="res://Script/ability/ability_entry.gd" id="1_prhkb"]
+[ext_resource type="PackedScene" uid="uid://c3t54w1j5by70" path="res://Scene/unit/boss/spider_boss_visual.tscn" id="2_spider_visual"]
+[ext_resource type="Script" uid="uid://dg0c3skkn6alu" path="res://Script/feature/feature_entry.gd" id="2_wkqb8"]
+
+[resource]
+script = ExtResource("1_enemy_data")
+id = &"rift_spider_boss"
+display_name = "蜘蛛BOSS"
+visual_scene = ExtResource("2_spider_visual")
+max_health = 320.0
+damage = 13.0
+move_speed = 3.6
+attack_range = 1.7
+detection_range = 22.0
+is_boss = true
+faction = 2

@@ -309,7 +309,7 @@ func _create_main_panel():
 
 	add_control_to_bottom_panel(
 		main_panel,
-		"Trait Editor"
+		"标签"
 	)
 
 

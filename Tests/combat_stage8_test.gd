@@ -5,14 +5,14 @@ var _failed: bool = false
 
 func _initialize() -> void:
 	var enemy_scene: PackedScene = preload("res://Scene/unit/enemy_base.tscn")
-	var wolf_data: EnemyData = preload("res://data/combat/WolfData.tres")
+	var wolf_data: EnemyData = preload("res://data/enemies/raid/WolfData.tres")
 	var wolf: EnemyBase = enemy_scene.instantiate()
 	wolf.enemy_data = wolf_data
 	wolf.set_physics_process(false)
 	get_root().add_child(wolf)
 	await process_frame
 
-	_expect(wolf.get_abilities().is_empty(), "狼可以加载空的能力列表")
+	_expect(not wolf.get_abilities().is_empty(), "狼可以加载 Ground Slam 能力")
 	_expect(
 		wolf.get_abilities().size() == wolf_data.abilities.size(),
 		"EnemyBase 读取 EnemyData 的能力列表"

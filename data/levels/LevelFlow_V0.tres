@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="LevelFlowData" format=3 uid="uid://6f7vkdko5l4g"]
+
+[ext_resource type="Script" uid="uid://bkxnpn082gwig" path="res://Script/enemy/level_flow_data.gd" id="1_flow"]
+[ext_resource type="Script" uid="uid://b5bj88yjc8g2j" path="res://Script/enemy/level_event_entry.gd" id="2_event"]
+[ext_resource type="Resource" uid="uid://5cruth8c3fgj" path="res://data/enemies/raid/RaidGroups.tres" id="3_groups"]
+
+[sub_resource type="Resource" id="RaidEvent_02"]
+script = ExtResource("2_event")
+monster_database = ExtResource("3_groups")
+monster_group_id = &"monster_group_01"
+event_name = "史莱姆袭扰组"
+start_time = 300.0
+random_offset = 15.0
+
+[sub_resource type="Resource" id="Resource_dsvsc"]
+script = ExtResource("2_event")
+monster_database = ExtResource("3_groups")
+monster_group_id = &"raid_slimes"
+event_name = "新出场事件 02"
+start_time = 180.0
+random_total_count = 30
+
+[resource]
+script = ExtResource("1_flow")
+monster_database = ExtResource("3_groups")
+events = Array[ExtResource("2_event")]([SubResource("RaidEvent_02"), SubResource("Resource_dsvsc")])

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="BuildingData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Script/building_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://Scene/building/game/gate.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_data")
+id = &"gate"
+display_name = "城门"
+description = "领地防线上的通行建筑。"
+function_text = "提供基础防御通道，后续支持开关门逻辑。"
+building_scene = ExtResource("2_scene")
+grid_size = Vector2i(3, 1)
+construction_cost = Dictionary[StringName, float]({
+&"wood": 15.0,
+&"stone": 15.0
+})
+construction_time = 20.0
+max_construction_workers = 3
+allow_rotation = true
+allow_mirror = false

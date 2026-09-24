@@ -1,0 +1,58 @@
+[gd_scene format=3 uid="uid://cucdlrhdeend8"]
+
+[sub_resource type="StandardMaterial3D" id="GoblinClothes"]
+albedo_color = Color(0.28, 0.16, 0.08, 1)
+roughness = 0.95
+
+[sub_resource type="CapsuleMesh" id="GoblinBodyMesh"]
+material = SubResource("GoblinClothes")
+radius = 0.36
+height = 0.95
+
+[sub_resource type="StandardMaterial3D" id="GoblinSkin"]
+albedo_color = Color(0.18, 0.48, 0.16, 1)
+roughness = 0.9
+
+[sub_resource type="SphereMesh" id="GoblinHeadMesh"]
+material = SubResource("GoblinSkin")
+radius = 0.32
+height = 0.58
+
+[sub_resource type="SphereMesh" id="GoblinEarMesh"]
+material = SubResource("GoblinSkin")
+radius = 0.16
+height = 0.42
+
+[sub_resource type="StandardMaterial3D" id="GoblinEye"]
+albedo_color = Color(0.95, 0.78, 0.12, 1)
+
+[sub_resource type="SphereMesh" id="GoblinEyeMesh"]
+material = SubResource("GoblinEye")
+radius = 0.055
+height = 0.11
+
+[node name="GoblinVisual" type="Node3D" unique_id=2131915119]
+
+[node name="Body" type="MeshInstance3D" parent="." unique_id=765890599]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.52, 0)
+mesh = SubResource("GoblinBodyMesh")
+
+[node name="Head" type="MeshInstance3D" parent="." unique_id=1987845616]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.18, 0)
+mesh = SubResource("GoblinHeadMesh")
+
+[node name="LeftEar" type="MeshInstance3D" parent="." unique_id=1092746591]
+transform = Transform3D(0.5731804, -0.6051864, 0, 0.43573424, 0.7960838, 0, 0, 0, 0.72, -0.29, 1.35, 0)
+mesh = SubResource("GoblinEarMesh")
+
+[node name="RightEar" type="MeshInstance3D" parent="." unique_id=1746743974]
+transform = Transform3D(0.5731804, 0.6051864, 0, -0.43573424, 0.7960838, 0, 0, 0, 0.72, 0.29, 1.35, 0)
+mesh = SubResource("GoblinEarMesh")
+
+[node name="LeftEye" type="MeshInstance3D" parent="." unique_id=1763968957]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 1.22, -0.27)
+mesh = SubResource("GoblinEyeMesh")
+
+[node name="RightEye" type="MeshInstance3D" parent="." unique_id=672254681]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 1.22, -0.27)
+mesh = SubResource("GoblinEyeMesh")

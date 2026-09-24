@@ -1,0 +1,27 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://Script/building/game/gate.gd" id="1_gate"]
+[ext_resource type="Script" path="res://Script/building/building_durability.gd" id="2_durability"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_gate"]
+size = Vector3(3, 1.8, 0.6)
+
+[sub_resource type="BoxShape3D" id="BoxShape_gate"]
+size = Vector3(3, 1.8, 0.6)
+
+[node name="Gate" type="Node3D" groups=["buildings"]]
+script = ExtResource("1_gate")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.9, 0)
+mesh = SubResource("BoxMesh_gate")
+
+[node name="ClickArea" type="Area3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ClickArea"]
+position = Vector3(0, 0.9, 0)
+shape = SubResource("BoxShape_gate")
+
+[node name="BuildingDurability" type="Node" parent="."]
+script = ExtResource("2_durability")
+max_health = 750.0

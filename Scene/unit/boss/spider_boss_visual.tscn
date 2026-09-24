@@ -1,0 +1,97 @@
+[gd_scene format=3 uid="uid://c3t54w1j5by70"]
+
+[sub_resource type="StandardMaterial3D" id="SpiderAbdomen"]
+albedo_color = Color(0.43, 0.055, 0.075, 1)
+metallic = 0.12
+roughness = 0.52
+
+[sub_resource type="SphereMesh" id="SpiderAbdomenMesh"]
+material = SubResource("SpiderAbdomen")
+radius = 0.68
+height = 1.36
+
+[sub_resource type="StandardMaterial3D" id="SpiderShell"]
+albedo_color = Color(0.12, 0.095, 0.11, 1)
+metallic = 0.25
+roughness = 0.4
+
+[sub_resource type="SphereMesh" id="SpiderBody"]
+material = SubResource("SpiderShell")
+radius = 0.48
+height = 0.96
+
+[sub_resource type="StandardMaterial3D" id="SpiderEye"]
+albedo_color = Color(1, 0.08, 0.015, 1)
+emission_enabled = true
+emission = Color(0.9, 0.025, 0.005, 1)
+emission_energy_multiplier = 1.8
+
+[sub_resource type="StandardMaterial3D" id="SpiderMarking"]
+albedo_color = Color(0.96, 0.58, 0.13, 1)
+roughness = 0.58
+
+[sub_resource type="CapsuleMesh" id="SpiderLeg"]
+material = SubResource("SpiderShell")
+radius = 0.085
+height = 1.0
+
+[node name="SpiderBossVisual" type="Node3D" unique_id=1326235931]
+
+[node name="Abdomen" type="MeshInstance3D" parent="." unique_id=100274944]
+transform = Transform3D(1.15, 0, 0, 0, 0.92, 0, 0, 0, 1.25, 0, 0.83, 0.42)
+mesh = SubResource("SpiderAbdomenMesh")
+
+[node name="Thorax" type="MeshInstance3D" parent="." unique_id=861894253]
+transform = Transform3D(1, 0, 0, 0, 0.82, 0, 0, 0, 1.12, 0, 0.84, -0.34)
+mesh = SubResource("SpiderBody")
+
+[node name="Head" type="MeshInstance3D" parent="." unique_id=1992378983]
+transform = Transform3D(0.78, 0, 0, 0, 0.68, 0, 0, 0, 0.68, 0, 0.72, -0.69)
+mesh = SubResource("SpiderBody")
+
+[node name="LeftMainEye" type="MeshInstance3D" parent="." unique_id=278259599]
+transform = Transform3D(0.2277373, 0, 0, 0, 0.2277373, 0, 0, 0, 0.1233577, -0.17, 0.84, -0.98)
+mesh = SubResource("SpiderBody")
+surface_material_override/0 = SubResource("SpiderEye")
+
+[node name="RightMainEye" type="MeshInstance3D" parent="." unique_id=1987555060]
+transform = Transform3D(0.31716943, 0, 0, 0, 0.31716943, 0, 0, 0, 0.1718001, 0.17, 0.84, -0.98)
+mesh = SubResource("SpiderBody")
+surface_material_override/0 = SubResource("SpiderEye")
+
+[node name="BackMarking" type="MeshInstance3D" parent="." unique_id=2029160348]
+transform = Transform3D(0.35, 0, 0, 0, 0.05, 0, 0, 0, 0.57, 0, 1.43, 0.43)
+mesh = SubResource("SpiderAbdomenMesh")
+surface_material_override/0 = SubResource("SpiderMarking")
+
+[node name="FrontLeftLeg" type="MeshInstance3D" parent="." unique_id=1184105008]
+transform = Transform3D(0.523366, 0.852108, 0, -0.852108, 0.523366, 0, 0, 0, 1, -0.42, 0.58, -0.56)
+mesh = SubResource("SpiderLeg")
+
+[node name="FrontRightLeg" type="MeshInstance3D" parent="." unique_id=1718033992]
+transform = Transform3D(0.523366, -0.852108, 0, 0.852108, 0.523366, 0, 0, 0, 1, 0.42, 0.58, -0.56)
+mesh = SubResource("SpiderLeg")
+
+[node name="MidFrontLeftLeg" type="MeshInstance3D" parent="." unique_id=236626194]
+transform = Transform3D(0.28671524, 0.95801586, 0, -0.95801586, 0.28671524, 0, 0, 0, 1, -0.45, 0.56, -0.19)
+mesh = SubResource("SpiderLeg")
+
+[node name="MidFrontRightLeg" type="MeshInstance3D" parent="." unique_id=1341713608]
+transform = Transform3D(0.28671524, -0.95801586, 0, 0.95801586, 0.28671524, 0, 0, 0, 1, 0.45, 0.56, -0.19)
+mesh = SubResource("SpiderLeg")
+
+[node name="MidRearLeftLeg" type="MeshInstance3D" parent="." unique_id=1633830243]
+transform = Transform3D(0.1006257, 0.99492437, 0, -0.99492437, 0.1006257, 0, 0, 0, 1, -0.45, 0.56, 0.2)
+mesh = SubResource("SpiderLeg")
+
+[node name="MidRearRightLeg" type="MeshInstance3D" parent="." unique_id=1811711198]
+transform = Transform3D(0.1006257, -0.99492437, 0, 0.99492437, 0.1006257, 0, 0, 0, 1, 0.45, 0.56, 0.2)
+mesh = SubResource("SpiderLeg")
+
+[node name="RearLeftLeg" type="MeshInstance3D" parent="." unique_id=1586166428]
+transform = Transform3D(-0.17824605, 0.98398596, 0, -0.98398596, -0.17824605, 0, 0, 0, 1, -0.4, 0.56, 0.55)
+mesh = SubResource("SpiderLeg")
+
+[node name="RearRightLeg" type="MeshInstance3D" parent="." unique_id=378512669]
+transform = Transform3D(-0.17824605, -0.98398596, 0, 0.98398596, -0.17824605, 0, 0, 0, 1, 0.4, 0.56, 0.55)
+mesh = SubResource("SpiderLeg")
