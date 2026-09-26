@@ -132,7 +132,7 @@ func get_current_event_number() -> int:
 
 
 func _find_safe_rift_position(world: AABB, settlement: AABB, center: Vector3) -> Vector3:
-	var map_generator := get_tree().get_first_node_in_group("procedural_map_generator")
+	var map_generator := get_tree().get_first_node_in_group("map_generate_runtime")
 	if map_generator == null or not map_generator.has_method("get_safe_ground_position"):
 		return Vector3.INF
 	for attempt in range(120):

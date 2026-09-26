@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="WFCLevelConfig" format=3 uid="uid://dqh1n2v4yuwe"]
+
+[ext_resource type="Script" uid="uid://bb178be55hilu" path="res://addons/MapGenerate/core/level_config.gd" id="1_level_config"]
+
+[resource]
+script = ExtResource("1_level_config")
+cell_size_m = 3.0
+island_ratio_percent = 45
+center_clear_size = 8
+center_clear_circle = true

@@ -212,11 +212,18 @@ func _get_mouse_world_position(camera: Camera3D) -> Vector3:
 	if absf(ray_direction.y) < 0.001:
 		return Vector3.INF
 
-	var distance: float = -ray_origin.y / ray_direction.y
+	var base_height: float = build_grid.get_ground_height(Vector2i.ZERO) if build_grid != null else 0.0
+	var distance: float = (base_height - ray_origin.y) / ray_direction.y
 	if distance < 0.0:
 		return Vector3.INF
-
-	return ray_origin + ray_direction * distance
+	var point: Vector3 = ray_origin + ray_direction * distance
+	if build_grid != null:
+		var ground_height: float = build_grid.get_ground_height(build_grid.world_to_grid(point))
+		if ground_height > 0.0:
+			distance = (ground_height - ray_origin.y) / ray_direction.y
+			if distance >= 0.0:
+				point = ray_origin + ray_direction * distance
+	return point
 
 
 func _rotate_preview(direction: int) -> void:

@@ -8,6 +8,7 @@ extends Node3D
 
 var occupied_cells: Dictionary = {}
 var buildability_rule: Callable
+var ground_height_rule: Callable
 
 
 func _ready() -> void:
@@ -28,7 +29,7 @@ func grid_to_world(grid_position: Vector2i) -> Vector3:
 
 	return global_position + Vector3(
 		(float(grid_position.x) + 0.5) * cell_size,
-		0.0,
+		get_ground_height(grid_position),
 		(float(grid_position.y) + 0.5) * cell_size
 	)
 
@@ -66,6 +67,7 @@ func is_area_buildable(
 	rotation_step: int = 0
 ) -> bool:
 
+	var first_height: float = get_ground_height(grid_position)
 	for cell in _get_area_cells(
 		grid_position,
 		area_size,
@@ -73,6 +75,8 @@ func is_area_buildable(
 	):
 
 		if not is_cell_buildable(cell):
+			return false
+		if not is_equal_approx(get_ground_height(cell), first_height):
 			return false
 
 		if occupied_cells.has(cell):
@@ -83,6 +87,16 @@ func is_area_buildable(
 
 func set_buildability_rule(rule: Callable) -> void:
 	buildability_rule = rule
+
+
+func set_ground_height_rule(rule: Callable) -> void:
+	ground_height_rule = rule
+
+
+func get_ground_height(grid_position: Vector2i) -> float:
+	if ground_height_rule.is_valid():
+		return float(ground_height_rule.call(grid_position))
+	return 0.0
 
 
 func occupy_area(

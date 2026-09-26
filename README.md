@@ -48,7 +48,7 @@ Population / Farm / FOOD 闭环            ✅
 - 新增并通过 `house_population_stage3_test.gd`；
 - 新增并通过 `house_population_stage4_test.gd`，确认只触发一次且不会每帧重复；
 - 当前本轮修改尚未提交 Git，换电脑继续前先保留这些工作区改动。
-- 阶段 5 新增 4 个地图外围 ArrivalPoint 和独立 Migrant 场景；
+- 阶段 5 新增 4 个方向的 ArrivalPoint 和独立 Migrant 场景；新版程序化地图中标记只提供候选方向，移民实际出生在附近无资源占据的地图地面，按格子高度贴地且同批错开（`Tests/immigration_map_spawn_test.gd` 已验证两人出生高度为 3m 并向 Base 移动，阶段 8 批次回归测试通过）；
 - 倒计时完成后按预计人数生成 Migrant，Migrant 不加入 `villagers` 组，也不计入正式人口；
 - Migrant 使用 NavigationAgent3D 前往 Base；
 - 阶段 6 新增抵达转换：Migrant 变为普通 Villager，接入资源管理、点击选择和 PopulationManager；
@@ -448,6 +448,9 @@ res://Tests/military_stage5_test.gd
 - HUD 速度快捷键新增：数字键 `4` 为 5 倍速，数字键 `5` 为 10 倍速；HUD 同时新增 5X / 10X 按钮。
 - 新增活动游戏相机：滚轮缩放，中键旋转，Shift+中键平移，WASD 平移；开局聚焦 Base，选中对象后按 `F` 聚焦对象。
 - 技能框架新增 `AbilityEntry` 角色覆盖层：技能 `.tres` 保存基础数值，单位可独立覆盖伤害、击退力度和范围倍率；旧技能数组仍兼容。
+- 地图使用新版 `addons/MapGenerate`：`data/world/MapGenerateLevel_V0.tres` 配置 `32×32` 地图格、`cell_size_m = 3.0`、`center_clear_size = 8` 且勾选圆形；地图约 `96m×96m`，中心圆形平地半径约 `24m`。BuildGrid 仍按 `1m` 建造格工作。
+- `MapGenerateRuntime` 读取插件生成的地图尺寸与高度，放置 Base 和资源、重建导航及建造边界；Base 在中心 `3×3` 地图格内由固定种子选址，居民随后在 Base 附近出生。树林用固定种子的噪声选择生长区域，新树主要紧贴已有树生长，允许同一地图格长多棵；72 棵树的树干中心最少相隔 1.1m，避开 Base 6.5m。石头仍每簇最多 5 块，与其他资源至少相隔 3.8m。固定种子测试得到 Base 22m 内 39 棵树、67 棵树拥有 1.9m 内的邻树，全图 10 块石头；测试脚本为 `Tests/map_resource_layout_test.gd`。密林内部不保证居民可穿行，需实机观察寻路。建筑预览、工地和成品按可见地表高度贴地；坡面及跨高度占地不可建造。
+- 旧 `map_generator_editor`、`ProceduralMapGenerator` 和 `MapGenerationConfig` 已移除。新版插件直接负责中心空地与地形缩放，游戏侧不再覆盖生成规则。
 
 ## 开发约定
 
@@ -456,7 +459,7 @@ res://Tests/military_stage5_test.gd
 3. 新资源优先通过数据配置扩展，不复制整套代码。
 4. Godot 使用严格类型检查，避免 Variant 推断警告。
 5. 分阶段迁移；用户运行确认后再进入下一阶段。
-6. 不提前开发当前阶段以外的 FOOD 循环、生产建筑、仓库或程序化地图。
+6. 不提前开发当前阶段以外的 FOOD 循环、生产建筑或仓库；地图生成以当前 MapGenerate 迁移阶段为准。
 7. README 只记录当前真实完成状态；ROADMAP 记录后续方向、系统连接和暂缓功能。
 
 ## 关键里程碑

@@ -1365,6 +1365,7 @@ func _create_site_visual() -> void:
 		float(building_data.grid_size.y)
 	)
 	site_mesh.mesh = box_mesh
+	site_mesh.position.y = 0.125
 
 	site_material = StandardMaterial3D.new()
 	site_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA

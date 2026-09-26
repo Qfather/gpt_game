@@ -347,7 +347,36 @@ func _spawn_migrant_group(group_size: int) -> void:
 		return
 
 	var base: Node3D = bases[0] as Node3D
-	var arrival_point: Node3D = arrival_points.pick_random() as Node3D
+	var map_runtime: MapGenerateRuntime = get_tree().get_first_node_in_group("map_generate_runtime") as MapGenerateRuntime
+	if map_runtime == null:
+		push_warning("PopulationManager：地图尚未生成，无法生成移民")
+		_immigration_ready_emitted = false
+		return
+	var spawn_positions: Array[Vector3] = []
+	var shuffled_arrivals: Array[Node] = arrival_points.duplicate()
+	shuffled_arrivals.shuffle()
+	var offsets: Array[Vector2] = [Vector2.ZERO, Vector2(3, 0), Vector2(-3, 0), Vector2(0, 3), Vector2(0, -3), Vector2(3, 3), Vector2(-3, -3)]
+	for marker_node: Node in shuffled_arrivals:
+		var marker: Node3D = marker_node as Node3D
+		for offset: Vector2 in offsets:
+			var ground: Vector3 = map_runtime.get_safe_ground_position(Vector2(marker.global_position.x, marker.global_position.z) + offset, 1.0)
+			if ground == Vector3.INF:
+				continue
+			var occupied: bool = false
+			for existing: Vector3 in spawn_positions:
+				if Vector2(existing.x, existing.z).distance_to(Vector2(ground.x, ground.z)) < 2.0:
+					occupied = true
+					break
+			if not occupied:
+				spawn_positions.append(ground)
+			if spawn_positions.size() >= group_size:
+				break
+		if spawn_positions.size() >= group_size:
+			break
+	if spawn_positions.size() < group_size:
+		push_warning("PopulationManager：地图上没有足够的移民出生点")
+		_immigration_ready_emitted = false
+		return
 	var migrant_container: Node = get_tree().current_scene.get_node_or_null(
 		"Migrants"
 	)
@@ -360,11 +389,7 @@ func _spawn_migrant_group(group_size: int) -> void:
 		if migrant == null:
 			continue
 		migrant_container.add_child(migrant)
-		migrant.global_position = arrival_point.global_position + Vector3(
-			(randf() - 0.5) * 1.5,
-			0.0,
-			(randf() - 0.5) * 1.5
-		)
+		migrant.global_position = spawn_positions[index]
 		if migrant.has_method("setup"):
 			migrant.call("setup", base)
 		if migrant.has_signal("arrived"):

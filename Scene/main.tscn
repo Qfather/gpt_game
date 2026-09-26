@@ -2,13 +2,11 @@
 
 [ext_resource type="Script" uid="uid://cuiy6ilnk6s7c" path="res://Script/main.gd" id="1_ow1sv"]
 [ext_resource type="PackedScene" uid="uid://ds5iuq38leawb" path="res://Scene/building/base.tscn" id="1_r34rm"]
-[ext_resource type="PackedScene" uid="uid://bjhgmbhk67241" path="res://Scene/resource/tree.tscn" id="2_r34rm"]
 [ext_resource type="PackedScene" uid="uid://cq8kxaoi8luhl" path="res://Scene/ui/hud.tscn" id="4_2wwxx"]
 [ext_resource type="PackedScene" uid="uid://hblm4xs2qdre" path="res://Scene/ui/resource_building_panel.tscn" id="6_1xcnr"]
 [ext_resource type="PackedScene" path="res://UI/unit_panel/villager_panel.tscn" id="7_villager_panel"]
 [ext_resource type="PackedScene" path="res://UI/resource_panel/resource_node_panel.tscn" id="8_resource_panel"]
 [ext_resource type="PackedScene" path="res://Scene/ui/enemy_panel.tscn" id="9_enemy_panel"]
-[ext_resource type="PackedScene" uid="uid://b35h0wuf0qn8a" path="res://Scene/resource/stone.tscn" id="10_3pt4j"]
 [ext_resource type="Script" uid="uid://bl6icvg1k0815" path="res://Script/resource/ResourceManager.gd" id="12_mxd2g"]
 [ext_resource type="Script" uid="uid://bli0u0op8xduv" path="res://Script/build_grid.gd" id="13_build_grid"]
 [ext_resource type="Script" uid="uid://derqyaunvu2d1" path="res://Script/building_ghost.gd" id="14_building_ghost"]
@@ -20,11 +18,10 @@
 [ext_resource type="Script" uid="uid://uqo6feenbq2q" path="res://Script/game_state.gd" id="21_game_state"]
 [ext_resource type="Script" uid="uid://cbocqqoh8oqii" path="res://Script/threat_detection_manager.gd" id="22_threat_detection"]
 [ext_resource type="Script" uid="uid://b0dnew3qyubb0" path="res://Script/world/rift_manager.gd" id="23_rift_manager"]
-[ext_resource type="Script" path="res://Script/world/encounter_director.gd" id="24_encounter_director"]
-[ext_resource type="Resource" path="res://data/levels/LevelFlow_V0.tres" id="25_level_flow"]
-[ext_resource type="Script" path="res://Script/ui/floating_text_manager.gd" id="26_floating_text"]
-[ext_resource type="Script" path="res://Script/world/procedural_map_generator.gd" id="27_map_generator"]
-[ext_resource type="Resource" path="res://data/world/MapGeneration_V0.tres" id="28_map_config"]
+[ext_resource type="Script" uid="uid://bp4xsvv4uv73w" path="res://Script/world/encounter_director.gd" id="24_encounter_director"]
+[ext_resource type="Resource" uid="uid://6f7vkdko5l4g" path="res://data/levels/LevelFlow_V0.tres" id="25_level_flow"]
+[ext_resource type="Script" uid="uid://bsxcikxlrieku" path="res://Script/ui/floating_text_manager.gd" id="26_floating_text"]
+[ext_resource type="Script" uid="uid://decp3qbjpundk" path="res://Script/world/map_generate_runtime.gd" id="27_map_generator"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sblpm"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -43,9 +40,6 @@ vertices = PackedVector3Array(-2.25, 0.3, -12.25, -0.5, 0.3, -12.5, -0.5, 0.3, -
 polygons = [PackedInt32Array(1, 0, 2), PackedInt32Array(2, 0, 3), PackedInt32Array(3, 0, 4), PackedInt32Array(7, 6, 5), PackedInt32Array(10, 9, 7), PackedInt32Array(7, 9, 8), PackedInt32Array(4, 0, 11), PackedInt32Array(11, 0, 10), PackedInt32Array(11, 10, 7), PackedInt32Array(11, 7, 5), PackedInt32Array(13, 12, 14), PackedInt32Array(14, 12, 15), PackedInt32Array(17, 16, 18), PackedInt32Array(18, 16, 21), PackedInt32Array(18, 21, 20), PackedInt32Array(18, 20, 19), PackedInt32Array(23, 22, 24), PackedInt32Array(24, 22, 25), PackedInt32Array(26, 17, 27), PackedInt32Array(27, 17, 18), PackedInt32Array(30, 29, 28), PackedInt32Array(32, 31, 26), PackedInt32Array(26, 31, 17), PackedInt32Array(22, 33, 25), PackedInt32Array(25, 33, 35), PackedInt32Array(25, 35, 34), PackedInt32Array(1, 2, 20), PackedInt32Array(20, 2, 19), PackedInt32Array(28, 36, 30), PackedInt32Array(30, 36, 37), PackedInt32Array(15, 34, 36), PackedInt32Array(36, 34, 8), PackedInt32Array(37, 36, 38), PackedInt32Array(38, 36, 8), PackedInt32Array(38, 8, 9), PackedInt32Array(38, 9, 21), PackedInt32Array(16, 38, 21), PackedInt32Array(38, 39, 37), PackedInt32Array(12, 25, 15), PackedInt32Array(15, 25, 34), PackedInt32Array(43, 42, 40), PackedInt32Array(40, 42, 41), PackedInt32Array(46, 45, 44), PackedInt32Array(35, 33, 47), PackedInt32Array(47, 33, 46), PackedInt32Array(48, 47, 5), PackedInt32Array(5, 47, 46), PackedInt32Array(5, 46, 44), PackedInt32Array(5, 6, 48), PackedInt32Array(52, 51, 49), PackedInt32Array(49, 51, 50), PackedInt32Array(54, 53, 55), PackedInt32Array(55, 53, 56), PackedInt32Array(58, 57, 59), PackedInt32Array(59, 57, 60), PackedInt32Array(14, 61, 13), PackedInt32Array(13, 61, 62), PackedInt32Array(64, 63, 29), PackedInt32Array(29, 63, 66), PackedInt32Array(29, 66, 65), PackedInt32Array(29, 65, 28), PackedInt32Array(67, 59, 68), PackedInt32Array(68, 59, 69), PackedInt32Array(68, 71, 67), PackedInt32Array(67, 71, 70), PackedInt32Array(56, 72, 62), PackedInt32Array(62, 72, 73), PackedInt32Array(45, 74, 44), PackedInt32Array(44, 74, 60), PackedInt32Array(24, 73, 23), PackedInt32Array(23, 73, 75), PackedInt32Array(65, 66, 61), PackedInt32Array(61, 66, 55), PackedInt32Array(61, 55, 62), PackedInt32Array(62, 55, 56), PackedInt32Array(72, 69, 73), PackedInt32Array(73, 69, 75), PackedInt32Array(74, 75, 60), PackedInt32Array(60, 75, 69), PackedInt32Array(60, 69, 59), PackedInt32Array(58, 76, 57), PackedInt32Array(57, 76, 79), PackedInt32Array(57, 79, 78), PackedInt32Array(57, 78, 77), PackedInt32Array(64, 80, 63), PackedInt32Array(63, 80, 81), PackedInt32Array(53, 54, 71), PackedInt32Array(71, 54, 81), PackedInt32Array(71, 81, 70), PackedInt32Array(70, 81, 82), PackedInt32Array(83, 79, 82), PackedInt32Array(82, 79, 76), PackedInt32Array(32, 84, 31), PackedInt32Array(31, 84, 85), PackedInt32Array(39, 85, 37), PackedInt32Array(37, 85, 86), PackedInt32Array(84, 87, 85), PackedInt32Array(88, 83, 82), PackedInt32Array(81, 86, 82), PackedInt32Array(82, 86, 88), PackedInt32Array(88, 86, 87), PackedInt32Array(87, 86, 85), PackedInt32Array(90, 89, 87), PackedInt32Array(87, 89, 88), PackedInt32Array(80, 86, 81), PackedInt32Array(94, 93, 91), PackedInt32Array(91, 93, 92), PackedInt32Array(98, 97, 95), PackedInt32Array(95, 97, 96), PackedInt32Array(78, 99, 77), PackedInt32Array(77, 99, 100), PackedInt32Array(89, 90, 101), PackedInt32Array(101, 90, 102), PackedInt32Array(102, 27, 18), PackedInt32Array(101, 102, 99), PackedInt32Array(99, 102, 18), PackedInt32Array(99, 18, 100)]
 geometry_parsed_geometry_type = 0
 
-[sub_resource type="BoxMesh" id="BoxMesh_eictv"]
-size = Vector3(30, 0.2, 30)
-
 [node name="Main" type="Node3D" unique_id=1839008769]
 script = ExtResource("1_ow1sv")
 
@@ -62,7 +56,7 @@ process_mode = 3
 
 [node name="HUD" parent="UI" unique_id=1924675286 instance=ExtResource("4_2wwxx")]
 
-[node name="FloatingTextManager" type="CanvasLayer" parent="UI"]
+[node name="FloatingTextManager" type="CanvasLayer" parent="UI" unique_id=2082809062]
 script = ExtResource("26_floating_text")
 
 [node name="Villagers" type="Node" parent="." unique_id=1530581502]
@@ -71,7 +65,7 @@ script = ExtResource("26_floating_text")
 
 [node name="Enemies" type="Node" parent="." unique_id=1839020003]
 
-[node name="LootBundles" type="Node3D" parent="."]
+[node name="LootBundles" type="Node3D" parent="." unique_id=514644731]
 
 [node name="ArrivalPoints" type="Node3D" parent="." unique_id=1839020002]
 
@@ -125,7 +119,7 @@ script = ExtResource("22_threat_detection")
 process_mode = 3
 script = ExtResource("23_rift_manager")
 
-[node name="EncounterDirector" type="Node" parent="Systems"]
+[node name="EncounterDirector" type="Node" parent="Systems" unique_id=1141904845]
 process_mode = 3
 script = ExtResource("24_encounter_director")
 level_flow = ExtResource("25_level_flow")
@@ -140,61 +134,13 @@ shadow_enabled = true
 [node name="NavigationRegion3D" type="NavigationRegion3D" parent="Systems" unique_id=1436073479]
 navigation_mesh = SubResource("NavigationMesh_t2dwb")
 
-[node name="trees" type="Node" parent="Systems/NavigationRegion3D" unique_id=2104387234]
-
-[node name="Tree" parent="Systems/NavigationRegion3D/trees" unique_id=180976486 instance=ExtResource("2_r34rm")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14.01927, 0, -14.323225)
-
-[node name="Tree2" parent="Systems/NavigationRegion3D/trees" unique_id=382483837 instance=ExtResource("2_r34rm")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.677527, -1.9073486e-06, 4.5724096)
-
-[node name="Tree6" parent="Systems/NavigationRegion3D/trees" unique_id=1021123293 instance=ExtResource("2_r34rm")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6539464, -1.9073486e-06, 6.2536173)
-
-[node name="Tree7" parent="Systems/NavigationRegion3D/trees" unique_id=1724616144 instance=ExtResource("2_r34rm")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.1934466, -1.9073486e-06, 13.012198)
-
-[node name="Tree8" parent="Systems/NavigationRegion3D/trees" unique_id=1253166678 instance=ExtResource("2_r34rm")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.1140761, 0, 13.180861)
-
-[node name="Tree9" parent="Systems/NavigationRegion3D/trees" unique_id=704050567 instance=ExtResource("2_r34rm")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.28048944, -1.9073486e-06, 8.422127)
-
-[node name="Tree5" parent="Systems/NavigationRegion3D/trees" unique_id=1394300909 instance=ExtResource("2_r34rm")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.521143, -1.9073486e-06, 8.393125)
-
-[node name="Tree3" parent="Systems/NavigationRegion3D/trees" unique_id=452480633 instance=ExtResource("2_r34rm")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.6131, -1.9073486e-06, 4.623762)
-
-[node name="Tree4" parent="Systems/NavigationRegion3D/trees" unique_id=1128567775 instance=ExtResource("2_r34rm")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.446763, -1.9073486e-06, 10.794338)
-
-[node name="Stones" type="Node" parent="Systems/NavigationRegion3D" unique_id=661628920]
-
-[node name="Stone" parent="Systems/NavigationRegion3D/Stones" unique_id=882348821 instance=ExtResource("10_3pt4j")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.699587, 0, 6.2776823)
-
-[node name="Stone2" parent="Systems/NavigationRegion3D/Stones" unique_id=389346972 instance=ExtResource("10_3pt4j")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9.2209835, 0, 0.25632954)
-
-[node name="Stone4" parent="Systems/NavigationRegion3D/Stones" unique_id=733834534 instance=ExtResource("10_3pt4j")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.6401768, 0, -10.816457)
-
-[node name="Stone3" parent="Systems/NavigationRegion3D/Stones" unique_id=1043233641 instance=ExtResource("10_3pt4j")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.954482, 0, 6.2588034)
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Systems/NavigationRegion3D" unique_id=1792445261]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)
-mesh = SubResource("BoxMesh_eictv")
-
 [node name="Camera3D" type="Camera3D" parent="Systems" unique_id=138434750]
 process_mode = 3
 transform = Transform3D(0.97904545, -0.117003195, 0.16667399, 0, 0.8184666, 0.5745541, -0.20364176, -0.56251454, 0.801316, 5.2121606, 8.801366, 15.693283)
 script = ExtResource("18_camera_controller")
 
+[node name="MapGenerateRuntime" type="Node3D" parent="Systems" unique_id=1258794897]
+script = ExtResource("27_map_generator")
+
 [node name="ResourceManager" type="Node" parent="." unique_id=1126801148]
 script = ExtResource("12_mxd2g")
-
-[node name="ProceduralMapGenerator" type="Node3D" parent="Systems"]
-script = ExtResource("27_map_generator")
-config = ExtResource("28_map_config")

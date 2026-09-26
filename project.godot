@@ -24,7 +24,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/map_generator_editor/plugin.cfg", "res://addons/raid_group_editor/plugin.cfg", "res://addons/resource_editor/plugin.cfg", "res://addons/trait_editor/plugin.cfg")
+enabled=PackedStringArray("res://addons/MapGenerate/plugin.cfg", "res://addons/raid_group_editor/plugin.cfg", "res://addons/resource_editor/plugin.cfg", "res://addons/trait_editor/plugin.cfg")
 
 [physics]
 
