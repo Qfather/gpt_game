@@ -14,6 +14,8 @@ var target: Node
 
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	process_priority = 100
 	target = get_parent()
 	_create_bar()
 	if target != null and target.has_signal("health_changed"):

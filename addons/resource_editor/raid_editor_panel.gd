@@ -33,6 +33,10 @@ var config_rows: Array[Control] = []
 var type_specific_rows: Array[Control] = []
 var delete_group_dialog: ConfirmationDialog
 var pending_delete_group: RaidGroupData
+var preset_path: String = LEVEL_FLOW_PATH
+var preset_path_label: Label
+var environment_panel: Control
+var preset_dialog: EditorFileDialog
 
 
 func _ready() -> void:
@@ -40,7 +44,75 @@ func _ready() -> void:
 	custom_minimum_size = Vector2(900.0, 420.0)
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_build_ui()
+	_build_preset_tabs()
 	_load_resources()
+
+
+func _build_preset_tabs() -> void:
+	var original_controls: Array[Node] = get_children()
+	var toolbar := HBoxContainer.new()
+	add_child(toolbar)
+	_add_button(toolbar, "打开关卡预设", _open_preset)
+	_add_button(toolbar, "保存关卡", _save_all)
+	_add_button(toolbar, "另存为关卡预设", _save_preset_as)
+	preset_path_label = Label.new()
+	toolbar.add_child(preset_path_label)
+	var tabs := TabContainer.new()
+	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	add_child(tabs)
+	var events_panel := VBoxContainer.new()
+	events_panel.name = "出怪事件"
+	tabs.add_child(events_panel)
+	for control: Node in original_controls:
+		control.reparent(events_panel)
+	environment_panel = preload("res://addons/resource_editor/level_environment_panel.gd").new()
+	environment_panel.name = "地图与资源"
+	tabs.add_child(environment_panel)
+	preset_dialog = EditorFileDialog.new()
+	preset_dialog.access = EditorFileDialog.ACCESS_RESOURCES
+	preset_dialog.add_filter("*.tres", "关卡预设")
+	preset_dialog.file_selected.connect(_preset_file_selected)
+	add_child(preset_dialog)
+
+
+func _open_preset() -> void:
+	# 显式提醒，避免切换预设时悄悄丢弃未保存修改。
+	var confirm := ConfirmationDialog.new()
+	confirm.dialog_text = "打开其他预设将放弃当前未保存的修改，是否继续？"
+	add_child(confirm)
+	confirm.confirmed.connect(func() -> void:
+		confirm.hide()
+		confirm.queue_free()
+		call_deferred("_show_open_preset")
+	)
+	confirm.canceled.connect(confirm.queue_free)
+	confirm.popup_centered()
+
+
+func _show_open_preset() -> void:
+	preset_dialog.file_mode = EditorFileDialog.FILE_MODE_OPEN_FILE
+	preset_dialog.popup_centered_ratio(0.7)
+
+
+func _save_preset_as() -> void:
+	preset_dialog.file_mode = EditorFileDialog.FILE_MODE_SAVE_FILE
+	preset_dialog.current_dir = "res://data/levels"
+	preset_dialog.current_file = "NewLevel.tres"
+	preset_dialog.popup_centered_ratio(0.7)
+
+
+func _preset_file_selected(path: String) -> void:
+	if preset_dialog.file_mode == EditorFileDialog.FILE_MODE_OPEN_FILE:
+		if not ResourceLoader.load(path) is LevelFlowData:
+			push_error("所选文件不是关卡预设")
+			return
+		preset_path = path
+		_load_resources()
+	else:
+		var previous_path: String = preset_path
+		preset_path = path
+		if not _save_all():
+			preset_path = previous_path
 
 
 func _build_ui() -> void:
@@ -222,12 +294,17 @@ func _make_spin(parent: VBoxContainer, caption: String, minimum: float, maximum:
 func _load_resources() -> void:
 	selected_event = null
 	selected_group = null
-	database = ResourceLoader.load(DATABASE_PATH, "", ResourceLoader.CACHE_MODE_IGNORE) as RaidGroupDatabase
-	level_flow = ResourceLoader.load(LEVEL_FLOW_PATH, "", ResourceLoader.CACHE_MODE_IGNORE) as LevelFlowData
+	level_flow = ResourceLoader.load(preset_path, "", ResourceLoader.CACHE_MODE_IGNORE) as LevelFlowData
+	var database_path: String = DATABASE_PATH
+	if level_flow != null and level_flow.monster_database != null and not level_flow.monster_database.resource_path.is_empty():
+		database_path = level_flow.monster_database.resource_path
+	database = ResourceLoader.load(database_path, "", ResourceLoader.CACHE_MODE_IGNORE) as RaidGroupDatabase
 	if database == null or level_flow == null:
 		push_error("关卡插件：怪物组数据库或关卡资源加载失败")
 		return
 	level_flow.monster_database = database
+	environment_panel.edit_preset(level_flow)
+	preset_path_label.text = preset_path
 	_ensure_group_ids()
 	for event: LevelEventEntry in level_flow.events:
 		if event == null:
@@ -664,27 +741,33 @@ func _write_event_editor() -> void:
 	selected_event.rift_countdown = rift_countdown_spin.value
 
 
-func _save_all() -> void:
+func _save_all() -> bool:
 	if database == null or level_flow == null:
-		return
+		return false
+	for entry: MapResourceEntry in level_flow.map_resources:
+		if entry != null and entry.enabled and not entry.validation_error().is_empty():
+			push_error("无法保存关卡：" + entry.display_name + "：" + entry.validation_error())
+			return false
 	_write_group_editor()
 	_write_event_editor()
 	level_flow.monster_database = database
 	for event: LevelEventEntry in level_flow.events:
 		if event != null:
 			event.monster_database = database
-	var database_error: Error = ResourceSaver.save(database, DATABASE_PATH)
+	var database_error: Error = ResourceSaver.save(database, database.resource_path)
 	if database_error != OK:
 		push_error("怪物组保存失败：%s" % database_error)
-		return
-	var flow_error: Error = ResourceSaver.save(level_flow, LEVEL_FLOW_PATH)
+		return false
+	var flow_error: Error = ResourceSaver.save(level_flow, preset_path)
 	if flow_error != OK:
 		push_error("关卡时间线保存失败：%s" % flow_error)
-		return
+		return false
 	_refresh_group_options()
 	_refresh_timeline()
 	get_tree().call_group("raid_editor_refresh", "refresh")
-	print("关卡怪物事件与怪物组已保存")
+	preset_path_label.text = preset_path
+	print("关卡预设已保存（地图、资源分布、出怪事件）：", preset_path)
+	return true
 
 
 func _write_group_editor() -> void:

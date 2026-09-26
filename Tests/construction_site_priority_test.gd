@@ -24,10 +24,10 @@ class MockConstructionSite:
 	func get_next_needed_resource() -> int:
 		return ResourceType.Type.WOOD
 
-	func get_still_needed(_resource_type: int) -> float:
+	func get_still_needed(_resource_type: Variant) -> float:
 		return 5.0 - reserved_amount
 
-	func reserve_resource(_resource_type: int, amount: float) -> float:
+	func reserve_resource(_resource_type: Variant, amount: float) -> float:
 		var accepted_amount: float = minf(amount, get_still_needed(ResourceType.Type.WOOD))
 		reserved_amount += accepted_amount
 		return accepted_amount

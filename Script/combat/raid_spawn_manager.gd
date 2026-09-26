@@ -56,8 +56,11 @@ func spawn_raid(
 	var spawn_points: Array[Vector3] = (
 		_get_rift_spawn_points(spawn_origin, count, world_bounds)
 		if spawn_origin != Vector3.INF
-		else _get_spawn_points(world_bounds)
+		else _get_spawn_points(world_bounds, count)
 	)
+	if spawn_points.is_empty():
+		push_warning("袭扰暂未生成：没有足够的可达安全出生点")
+		return false
 	for index: int in range(count):
 		var enemy: Node3D = ENEMY_SCENE.instantiate() as Node3D
 		if enemy == null:
@@ -98,7 +101,10 @@ func spawn_raid_group(raid_group: RaidGroupData, fixed_count: int = -1) -> bool:
 	var settlement_center: Vector3 = base.global_position
 	if base.has_method("get_interaction_position"):
 		settlement_center = base.get_interaction_position(null)
-	var spawn_points: Array[Vector3] = _get_spawn_points(world_bounds)
+	var spawn_points: Array[Vector3] = _get_spawn_points(world_bounds, count)
+	if spawn_points.is_empty():
+		push_warning("袭扰暂未生成：没有足够的可达安全出生点")
+		return false
 	for index: int in range(count):
 		var enemy: Node3D = ENEMY_SCENE.instantiate() as Node3D
 		var selected_data: EnemyData = valid_units[index % valid_units.size()]
@@ -140,8 +146,11 @@ func spawn_monster_group(
 	var spawn_points: Array[Vector3] = (
 		_get_rift_spawn_points(spawn_origin, spawn_plan.size(), world_bounds)
 		if spawn_origin != Vector3.INF
-		else _get_spawn_points(world_bounds)
+		else _get_spawn_points(world_bounds, spawn_plan.size())
 	)
+	if spawn_points.is_empty():
+		push_warning("怪物组暂未生成：没有足够的可达安全出生点")
+		return false
 	var faction: int = (
 		EnemyData.Faction.RIFT
 		if monster_group.group_type == RaidGroupData.GroupType.RIFT
@@ -182,17 +191,52 @@ func is_faction_in_progress(faction: int) -> bool:
 	return false
 
 
-func _get_spawn_points(world_bounds: Node) -> Array[Vector3]:
+func _get_spawn_points(world_bounds: Node, count: int = 4) -> Array[Vector3]:
 	var bounds: AABB = world_bounds.get_world_bounds()
 	var half_size: Vector2 = Vector2(bounds.size.x, bounds.size.z) * 0.5
 	var center: Vector3 = world_bounds.get_settlement_center()
 	var margin: float = 1.0
-	return [
+	var origins: Array[Vector3] = [
 		center + Vector3(-half_size.x + margin, 0.6, 0.0),
 		center + Vector3(half_size.x - margin, 0.6, 0.0),
 		center + Vector3(0.0, 0.6, -half_size.y + margin),
 		center + Vector3(0.0, 0.6, half_size.y - margin),
 	]
+	var result: Array[Vector3] = []
+	for index: int in range(count):
+		var origin: Vector3 = origins[index % origins.size()]
+		var position: Vector3 = _find_reachable_spawn(Vector2(origin.x, origin.z), result)
+		if position == Vector3.INF:
+			return []
+		result.append(position)
+	return result
+
+
+func _find_reachable_spawn(desired: Vector2, occupied: Array[Vector3], minimum_base_distance: float = 0.0) -> Vector3:
+	var runtime: MapGenerateRuntime = get_tree().get_first_node_in_group("map_generate_runtime") as MapGenerateRuntime
+	if runtime == null or runtime.map_data == null:
+		return Vector3.INF
+	var candidates: Array[Vector3] = []
+	var base: Node3D = get_tree().get_first_node_in_group("bases") as Node3D
+	for cell: Vector2i in runtime.map_data.occupied_cells:
+		var point: Vector3 = runtime._cell_world_position(cell)
+		if base != null and Vector2(point.x - base.global_position.x, point.z - base.global_position.z).length() < minimum_base_distance:
+			continue
+		candidates.append(point)
+	candidates.sort_custom(func(a: Vector3, b: Vector3) -> bool:
+		return Vector2(a.x, a.z).distance_squared_to(desired) < Vector2(b.x, b.z).distance_squared_to(desired))
+	for candidate: Vector3 in candidates:
+		var free: bool = true
+		for other: Vector3 in occupied:
+			if Vector2(candidate.x - other.x, candidate.z - other.z).length() < 1.1:
+				free = false
+				break
+		if not free:
+			continue
+		var ground: Vector3 = runtime.get_safe_ground_position(Vector2(candidate.x, candidate.z), 0.75)
+		if ground != Vector3.INF:
+			return ground + Vector3.UP * 0.6
+	return Vector3.INF
 
 
 func _get_rift_spawn_points(
@@ -202,12 +246,13 @@ func _get_rift_spawn_points(
 ) -> Array[Vector3]:
 	var result: Array[Vector3] = []
 	var bounds: AABB = world_bounds_node.get_world_bounds()
+	var rift_manager: RiftManager = get_tree().get_first_node_in_group("rift_manager") as RiftManager
+	var minimum_distance: float = rift_manager.minimum_base_distance if rift_manager != null else 30.0
 	var bounds_center: Vector3 = bounds.get_center()
 	var inward: Vector2 = Vector2(bounds_center.x - origin.x, bounds_center.z - origin.z).normalized()
 	if inward.length_squared() <= 0.01:
 		inward = Vector2(0.0, -1.0)
 	var tangent := Vector2(-inward.y, inward.x)
-	var navigation_map: RID = get_viewport().get_world_3d().get_navigation_map()
 	var columns_per_row: int = 5
 	var spacing: float = 1.4
 	var edge_margin: float = 0.8
@@ -229,13 +274,8 @@ func _get_rift_spawn_points(
 		)
 		desired_xz.x = clampf(desired_xz.x, min_x, max_x)
 		desired_xz.y = clampf(desired_xz.y, min_z, max_z)
-		var spawn_position := Vector3(desired_xz.x, 0.6, desired_xz.y)
-		if navigation_map.is_valid():
-			var nav_position: Vector3 = NavigationServer3D.map_get_closest_point(
-				navigation_map,
-				spawn_position
-			)
-			if Vector2(nav_position.x - desired_xz.x, nav_position.z - desired_xz.y).length() <= 1.0:
-				spawn_position = Vector3(nav_position.x, nav_position.y + 0.3, nav_position.z)
+		var spawn_position: Vector3 = _find_reachable_spawn(desired_xz, result, minimum_distance)
+		if spawn_position == Vector3.INF:
+			return []
 		result.append(spawn_position)
 	return result

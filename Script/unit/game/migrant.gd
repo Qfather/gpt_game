@@ -9,10 +9,12 @@ signal arrived(migrant: Node3D, base: Node3D)
 
 var target_base: Node3D
 var _arrival_notified: bool = false
+var _navigation_target_ready: bool = false
 
 
 func setup(base: Node3D) -> void:
 	target_base = base
+	_navigation_target_ready = false
 	call_deferred("_set_navigation_target")
 
 
@@ -37,10 +39,11 @@ func _set_navigation_target() -> void:
 		navigation_agent.get_navigation_map(),
 		target_position
 	)
+	_navigation_target_ready = true
 
 
 func _physics_process(_delta: float) -> void:
-	if not is_instance_valid(target_base):
+	if not is_instance_valid(target_base) or not _navigation_target_ready:
 		velocity = Vector3.ZERO
 		return
 
@@ -57,11 +60,6 @@ func _physics_process(_delta: float) -> void:
 
 	var next_position: Vector3 = navigation_agent.get_next_path_position()
 	var direction: Vector3 = global_position.direction_to(next_position)
-	direction.y = 0.0
-	if direction.length_squared() <= 0.0001:
-		velocity = Vector3.ZERO
-		return
-
 	velocity = direction.normalized() * move_speed
 	move_and_slide()
 
@@ -76,7 +74,6 @@ func _has_arrived() -> bool:
 
 	return (
 		global_position.distance_to(target_position) <= 1.6
-		or navigation_agent.is_navigation_finished()
 	)
 
 

@@ -1808,6 +1808,7 @@ func find_nearest_resource():
 	var nearest_resource: ResourceBase = null
 
 	var nearest_distance: float = INF
+	var gather_position := Vector3.INF
 
 
 	# --------------------------------------------------------
@@ -1818,6 +1819,8 @@ func find_nearest_resource():
 
 		# 必须是 ResourceBase
 		if not resource is ResourceBase:
+			continue
+		if resource.is_queued_for_deletion():
 			continue
 
 
@@ -1861,9 +1864,13 @@ func find_nearest_resource():
 		# ----------------------------------------------------
 
 		if distance < nearest_distance:
+			var candidate: Vector3 = resource.get_gather_position(global_position, navigation_agent.get_navigation_map())
+			if not candidate.is_finite():
+				continue
 
 			nearest_distance = distance
 			nearest_resource = resource
+			gather_position = candidate
 
 
 
@@ -1943,9 +1950,7 @@ func find_nearest_resource():
 		target_resource.name
 	)
 
-	navigation_agent.target_position = (
-		target_resource.global_position
-	)
+	navigation_agent.target_position = gather_position
 
 	state = State.MOVE_TO_RESOURCE
 # ============================================================
@@ -1955,7 +1960,7 @@ func find_nearest_resource():
 func move_to_resource():
 
 	# 树已经不存在
-	if not is_instance_valid(target_resource):
+	if not is_instance_valid(target_resource) or target_resource.is_queued_for_deletion():
 
 		target_resource = null
 		state = State.FIND_RESOURCE
@@ -1964,7 +1969,7 @@ func move_to_resource():
 
 
 	# 已经到达树旁边
-	if navigation_agent.is_navigation_finished():
+	if target_resource.is_in_gather_range(global_position):
 
 		velocity = Vector3.ZERO
 
@@ -1977,7 +1982,19 @@ func move_to_resource():
 		return
 
 
+	# 采集采用较小到点容差，不改变搬运、施工等状态原有的容差。
+	var previous_distance: float = navigation_agent.target_desired_distance
+	navigation_agent.target_desired_distance = 0.2
+	if navigation_agent.is_navigation_finished():
+		var candidate: Vector3 = target_resource.get_gather_position(global_position, navigation_agent.get_navigation_map())
+		if candidate.is_finite():
+			navigation_agent.target_position = candidate
+		else:
+			target_resource.release(self)
+			target_resource = null
+			state = State.FIND_RESOURCE
 	move_along_navigation()
+	navigation_agent.target_desired_distance = previous_distance
 
 
 # ============================================================
@@ -2364,19 +2381,20 @@ func move_along_navigation():
 	)
 
 
-	# 只允许水平移动
-	direction.y = 0.0
+	# 地图没有地面碰撞体，按导航表面高度经过坡道。
 
 
 	if direction.length() > 0.01:
 
 		direction = direction.normalized()
 		velocity.x = direction.x * get_move_speed()
+		velocity.y = direction.y * get_move_speed()
 		velocity.z = direction.z * get_move_speed()
 
 	else:
 
 		velocity.x = 0.0
+		velocity.y = 0.0
 		velocity.z = 0.0
 
 

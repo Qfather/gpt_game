@@ -48,9 +48,10 @@ func get_rotated_size(
 func is_area_free(
 	grid_position: Vector2i,
 	area_size: Vector2i,
-	rotation_step: int = 0
+	rotation_step: int = 0,
+	ignore_resources: bool = false
 ) -> bool:
-	return is_area_buildable(grid_position, area_size, rotation_step)
+	return is_area_buildable(grid_position, area_size, rotation_step, ignore_resources)
 
 
 func is_cell_buildable(grid_position: Vector2i) -> bool:
@@ -64,7 +65,8 @@ func is_cell_buildable(grid_position: Vector2i) -> bool:
 func is_area_buildable(
 	grid_position: Vector2i,
 	area_size: Vector2i,
-	rotation_step: int = 0
+	rotation_step: int = 0,
+	ignore_resources: bool = false
 ) -> bool:
 
 	var first_height: float = get_ground_height(grid_position)
@@ -82,7 +84,28 @@ func is_area_buildable(
 		if occupied_cells.has(cell):
 			return false
 
-	return true
+	return ignore_resources or not _overlaps_resource(grid_position, area_size, rotation_step)
+
+
+func _overlaps_resource(grid_position: Vector2i, area_size: Vector2i, rotation_step: int) -> bool:
+	if not is_inside_tree():
+		return false
+	var size: Vector2i = get_rotated_size(area_size, rotation_step)
+	var footprint := Rect2(
+		Vector2(global_position.x, global_position.z) + Vector2(grid_position) * cell_size,
+		Vector2(size) * cell_size
+	)
+	for node: Node in get_tree().get_nodes_in_group("resources"):
+		var resource: ResourceBase = node as ResourceBase
+		if resource == null or resource.is_queued_for_deletion():
+			continue
+		var bounds: AABB = resource.get_build_obstacle_bounds()
+		if bounds.size == Vector3.ZERO:
+			continue
+		var obstacle := Rect2(Vector2(bounds.position.x, bounds.position.z), Vector2(bounds.size.x, bounds.size.z))
+		if footprint.intersects(obstacle.grow(0.05)):
+			return true
+	return false
 
 
 func set_buildability_rule(rule: Callable) -> void:
@@ -102,13 +125,15 @@ func get_ground_height(grid_position: Vector2i) -> float:
 func occupy_area(
 	grid_position: Vector2i,
 	area_size: Vector2i,
-	rotation_step: int = 0
+	rotation_step: int = 0,
+	ignore_resources: bool = false
 ) -> bool:
 
 	if not is_area_free(
 		grid_position,
 		area_size,
-		rotation_step
+		rotation_step,
+		ignore_resources
 	):
 		return false
 

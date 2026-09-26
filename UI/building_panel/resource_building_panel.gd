@@ -1,6 +1,9 @@
 class_name ResourceBuildingPanel
 extends BuildingPanelBase
 
+var priority_row: HBoxContainer
+var priority_value: Label
+
 const RESOURCE_DATABASE: ResourceDatabase = preload(
 	"res://data/resources/resource_database.tres"
 )
@@ -36,6 +39,31 @@ func _ready():
 	fire_button.pressed.connect(_on_fire_pressed)
 	demolish_button.pressed.connect(_on_demolish_pressed)
 	patrol_button.pressed.connect(_on_patrol_pressed)
+	priority_row = HBoxContainer.new()
+	priority_row.name = "ConstructionPriority"
+	$Vbox/Content.add_child(priority_row)
+	$Vbox/Content.move_child(priority_row, worker_label.get_index())
+	var title := Label.new()
+	title.text = "优先级"
+	priority_row.add_child(title)
+	priority_value = Label.new()
+	priority_value.custom_minimum_size.x = 32
+	priority_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	priority_row.add_child(priority_value)
+	var buttons := VBoxContainer.new()
+	priority_row.add_child(buttons)
+	for step: int in [1, -1]:
+		var button := Button.new()
+		button.text = "▲" if step > 0 else "▼"
+		button.pressed.connect(_change_construction_priority.bind(step))
+		buttons.add_child(button)
+	priority_row.hide()
+
+
+func _change_construction_priority(step: int) -> void:
+	if is_instance_valid(current_building) and current_building is ConstructionSite:
+		current_building.set_construction_priority(current_building.construction_priority + step)
+		refresh()
 
 # ============================================================
 # 刷新资源建筑信息
@@ -45,6 +73,9 @@ func refresh():
 
 	if current_building == null:
 		return
+	priority_row.visible = current_building is ConstructionSite and current_building.can_cancel_construction()
+	if priority_row.visible:
+		priority_value.text = str(current_building.construction_priority)
 	_update_health_display()
 	hire_button.disabled = false
 	fire_button.disabled = false

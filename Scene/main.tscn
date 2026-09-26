@@ -19,9 +19,16 @@
 [ext_resource type="Script" uid="uid://cbocqqoh8oqii" path="res://Script/threat_detection_manager.gd" id="22_threat_detection"]
 [ext_resource type="Script" uid="uid://b0dnew3qyubb0" path="res://Script/world/rift_manager.gd" id="23_rift_manager"]
 [ext_resource type="Script" uid="uid://bp4xsvv4uv73w" path="res://Script/world/encounter_director.gd" id="24_encounter_director"]
-[ext_resource type="Resource" uid="uid://6f7vkdko5l4g" path="res://data/levels/LevelFlow_V0.tres" id="25_level_flow"]
 [ext_resource type="Script" uid="uid://bsxcikxlrieku" path="res://Script/ui/floating_text_manager.gd" id="26_floating_text"]
 [ext_resource type="Script" uid="uid://decp3qbjpundk" path="res://Script/world/map_generate_runtime.gd" id="27_map_generator"]
+
+[sub_resource type="StandardMaterial3D" id="Material_ocean"]
+albedo_color = Color(0.035, 0.26, 0.4, 1)
+roughness = 0.65
+
+[sub_resource type="PlaneMesh" id="Mesh_ocean"]
+material = SubResource("Material_ocean")
+size = Vector2(2000, 2000)
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sblpm"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -42,6 +49,11 @@ geometry_parsed_geometry_type = 0
 
 [node name="Main" type="Node3D" unique_id=1839008769]
 script = ExtResource("1_ow1sv")
+
+[node name="Ocean" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.1, 0)
+mesh = SubResource("Mesh_ocean")
+cast_shadow = 0
 
 [node name="UI" type="CanvasLayer" parent="." unique_id=1347447447]
 process_mode = 3
@@ -122,7 +134,6 @@ script = ExtResource("23_rift_manager")
 [node name="EncounterDirector" type="Node" parent="Systems" unique_id=1141904845]
 process_mode = 3
 script = ExtResource("24_encounter_director")
-level_flow = ExtResource("25_level_flow")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="Systems" unique_id=1486133278]
 environment = SubResource("Environment_2wwxx")

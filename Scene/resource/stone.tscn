@@ -4,23 +4,82 @@
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_eg0p3"]
 albedo_color = Color(0.37036446, 0.3703645, 0.37036446, 1)
+roughness = 1.0
 
 [sub_resource type="BoxMesh" id="BoxMesh_ogq8d"]
 material = SubResource("StandardMaterial3D_eg0p3")
-size = Vector3(2, 1, 2)
+size = Vector3(1, 0.5, 1)
+
+[sub_resource type="StandardMaterial3D" id="Material_light"]
+albedo_color = Color(0.48, 0.5, 0.52, 1)
+roughness = 1.0
+
+[sub_resource type="SphereMesh" id="Mesh_boulder"]
+material = SubResource("Material_light")
+radius = 0.5
+height = 1.0
+radial_segments = 7
+rings = 3
+
+[sub_resource type="CylinderMesh" id="Mesh_crag"]
+material = SubResource("StandardMaterial3D_eg0p3")
+top_radius = 0.22
+bottom_radius = 0.48
+height = 0.7
+radial_segments = 5
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_ogq8d"]
-size = Vector3(2, 1, 2)
+size = Vector3(1, 0.5, 1)
 
 [node name="Stone" type="Node3D" unique_id=882348821]
 script = ExtResource("1_e2ywa")
+visual_scale_min = 0.5
+visual_scale_max = 1.5
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=2112303021]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+[node name="meshs" type="Node3D" parent="."]
+
+[node name="FlatRock" type="Node3D" parent="meshs"]
+
+[node name="Slab" type="MeshInstance3D" parent="meshs/FlatRock"]
+position = Vector3(0, 0.18, 0)
+scale = Vector3(1, 0.72, 0.85)
 mesh = SubResource("BoxMesh_ogq8d")
+
+[node name="Cap" type="MeshInstance3D" parent="meshs/FlatRock"]
+position = Vector3(0.12, 0.41, -0.08)
+rotation = Vector3(0, 0.35, 0)
+scale = Vector3(0.6, 0.2, 0.6)
+mesh = SubResource("BoxMesh_ogq8d")
+
+[node name="RoundRock" type="Node3D" parent="meshs"]
+visible = false
+
+[node name="Boulder" type="MeshInstance3D" parent="meshs/RoundRock"]
+position = Vector3(-0.08, 0.3, 0)
+scale = Vector3(0.9, 0.6, 0.85)
+mesh = SubResource("Mesh_boulder")
+
+[node name="SmallBoulder" type="MeshInstance3D" parent="meshs/RoundRock"]
+position = Vector3(0.3, 0.15, 0.2)
+scale = Vector3(0.4, 0.3, 0.45)
+mesh = SubResource("Mesh_boulder")
+
+[node name="CragRock" type="Node3D" parent="meshs"]
+visible = false
+
+[node name="Peak" type="MeshInstance3D" parent="meshs/CragRock"]
+position = Vector3(-0.08, 0.35, -0.04)
+scale = Vector3(0.85, 1, 0.8)
+mesh = SubResource("Mesh_crag")
+
+[node name="SmallPeak" type="MeshInstance3D" parent="meshs/CragRock"]
+position = Vector3(0.27, 0.175, 0.2)
+rotation = Vector3(0, 0.5, 0)
+scale = Vector3(0.5, 0.5, 0.5)
+mesh = SubResource("Mesh_crag")
 
 [node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=1284541980]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D" unique_id=1972710538]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
 shape = SubResource("BoxShape3D_ogq8d")

@@ -22,6 +22,7 @@ signal state_changed(new_state: State)
 @export var debug_delivery_amount: float = 5.0
 
 var delivery_priority: int = 0
+var construction_priority: int = 0
 var grid_position: Vector2i
 var rotation_step: int = 0
 var mirrored: bool = false
@@ -309,6 +310,10 @@ func get_cancellation_remaining_resources() -> Dictionary[StringName, float]:
 func cancel_construction() -> bool:
 	if not can_cancel_construction() or building_data == null:
 		return false
+	var cancel_immediately: bool = construction_progress <= 0.0
+	for amount: float in delivered_resources.values():
+		if amount > 0.0:
+			cancel_immediately = false
 
 	var construction_time: float = maxf(float(building_data.construction_time), 0.1)
 	var construction_ratio: float = clampf(
@@ -370,6 +375,10 @@ func cancel_construction() -> bool:
 	cancellation_workers.clear()
 	cancellation_carriers.clear()
 	last_active_cancellation_worker_count = -1
+	if cancel_immediately:
+		# 任务已经取消，途中携带的材料仍由原居民送回据点。
+		_finish_cancellation_site()
+		return true
 	_fill_cancellation_workers()
 	return true
 
@@ -557,7 +566,7 @@ func _finish_cancellation_site() -> void:
 	cancellation_carriers.clear()
 	state = State.CANCELLED
 	state_changed.emit(state)
-	print("ConstructionSite 取消建造完成，材料已运回据点")
+	print("工地取消完成；途中携带的材料继续送回据点")
 	release_build_grid_area()
 	_request_task_dispatch()
 	queue_free()
@@ -672,6 +681,14 @@ func get_construction_worker_limit() -> int:
 
 func get_delivery_priority() -> int:
 	return delivery_priority
+
+
+func set_construction_priority(value: int) -> void:
+	value = maxi(value, 0)
+	if construction_priority == value or not can_cancel_construction():
+		return
+	construction_priority = value
+	get_tree().call_group("task_manager", "rebalance_construction_priority")
 
 
 func can_request_delivery_tasks() -> bool:

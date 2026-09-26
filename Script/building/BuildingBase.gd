@@ -52,6 +52,7 @@ func _ready() -> void:
 		)
 		return
 
+	click_area.process_mode = Node.PROCESS_MODE_ALWAYS
 	click_area.input_event.connect(
 		_on_click_area_input_event
 	)

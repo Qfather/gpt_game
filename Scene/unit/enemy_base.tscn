@@ -14,6 +14,10 @@ radius = 0.6
 height = 1.2
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_enemy"]
+radius = 0.24
+height = 1.2
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_click"]
 radius = 0.48
 height = 1.2
 
@@ -22,6 +26,7 @@ script = ExtResource("1_enemy_base")
 enemy_data = ExtResource("2_slime_data")
 collision_layer = 2
 collision_mask = 3
+input_ray_pickable = false
 
 [node name="VisualRoot" type="Node3D" parent="."]
 
@@ -40,5 +45,18 @@ script = ExtResource("4_health_bar")
 bar_color = Color(0.9, 0.15, 0.12, 1)
 
 [node name="NavigationAgent3D" type="NavigationAgent3D" parent="."]
-path_desired_distance = 0.5
+path_desired_distance = 0.65
+path_height_offset = -0.1
 target_desired_distance = 1.2
+
+[node name="ClickArea" type="Area3D" parent="."]
+process_mode = 3
+collision_layer = 2
+collision_mask = 0
+monitoring = false
+monitorable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ClickArea"]
+shape = SubResource("CapsuleShape3D_click")
+
+[connection signal="input_event" from="ClickArea" to="." method="_on_input_event"]

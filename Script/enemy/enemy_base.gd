@@ -83,7 +83,7 @@ func _physics_process(delta: float) -> void:
 	)
 	var distance: float = global_position.distance_to(flat_target_position)
 	if distance > _get_target_attack_range():
-		_move_toward_navigation_target(flat_target_position)
+		_move_toward_navigation_target(target_position)
 		return
 
 	velocity = Vector3.ZERO
@@ -125,23 +125,19 @@ func _move_toward_navigation_target(target_position: Vector3) -> void:
 		velocity = Vector3.ZERO
 		return
 	var navigation_target: Vector3 = target_position
-	navigation_target.y = global_position.y
 	navigation_agent.target_desired_distance = maxf(
 		_get_target_attack_range() - 0.35,
 		0.4
 	)
 	if navigation_agent.target_position.distance_to(navigation_target) > 0.5:
 		navigation_agent.target_position = navigation_target
+	# 先更新路径，导航变化后即使上一条路径已经结束也能重新规划。
+	var next_position: Vector3 = navigation_agent.get_next_path_position()
 	if navigation_agent.is_navigation_finished():
 		velocity = Vector3.ZERO
 		return
 
-	var next_position: Vector3 = navigation_agent.get_next_path_position()
 	var direction: Vector3 = next_position - global_position
-	direction.y = 0.0
-	if direction.length_squared() <= 0.01:
-		velocity = Vector3.ZERO
-		return
 	velocity = direction.normalized() * move_speed
 	move_and_slide()
 

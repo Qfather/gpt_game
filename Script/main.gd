@@ -6,6 +6,20 @@ const ENEMY_SCENE: PackedScene = preload("res://Scene/unit/enemy_base.tscn")
 const SLIME_DATA: EnemyData = preload("res://data/enemies/raid/SlimeData.tres")
 
 @export var level_config: LevelConfig = preload("res://data/levels/Level_01.tres")
+@export var level_preset: LevelFlowData = preload("res://data/levels/LevelFlow_V0.tres")
+
+
+func _enter_tree() -> void:
+	if level_preset == null:
+		return
+	$Systems/EncounterDirector.level_flow = level_preset
+	$Systems/RiftManager.minimum_base_distance = level_preset.rift_min_base_distance
+	var generator: MapGenerateRuntime = $Systems/MapGenerateRuntime
+	if level_preset.map_config != null:
+		generator.level_config = level_preset.map_config
+	generator.resource_entries = level_preset.map_resources
+	if generator.settlement_seed == -1:
+		generator.settlement_seed = level_preset.layout_seed
 
 
 # ============================================================

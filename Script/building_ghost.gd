@@ -172,7 +172,8 @@ func _update_preview() -> void:
 	is_valid_position = build_grid.is_area_free(
 		grid_position,
 		building_data.grid_size,
-		rotation_step
+		rotation_step,
+		building_data.id == &"wall"
 	)
 
 	var rotated_size := build_grid.get_rotated_size(
@@ -308,7 +309,8 @@ func _create_construction_site(
 		and not build_grid.occupy_area(
 			placed_grid_position,
 			placed_data.grid_size,
-			placed_rotation_step
+			placed_rotation_step,
+			placed_data.id == &"wall"
 		)
 	):
 		print("BuildingGhost 放置时网格已被占用：", placed_grid_position)
@@ -318,8 +320,16 @@ func _create_construction_site(
 		CONSTRUCTION_SITE_SCENE.instantiate()
 		as ConstructionSite
 	)
+	var cleared_resources: Array[ResourceBase] = []
+	if placed_data.id == &"wall":
+		cleared_resources = _get_wall_clearance_resources(placed_data, placed_transform)
+	var site_data: BuildingData = placed_data
+	if not cleared_resources.is_empty():
+		# 仅复制本墙段的数据，避免修改共享预设或按资源个数重复累加。
+		site_data = placed_data.duplicate() as BuildingData
+		site_data.construction_time = placed_data.construction_time * 1.5
 	site.setup(
-		placed_data,
+		site_data,
 		placed_grid_position,
 		placed_rotation_step,
 		placed_mirrored
@@ -331,6 +341,10 @@ func _create_construction_site(
 	site.global_transform = placed_transform
 	site.rotation.y = float(placed_rotation_step) * PI * 0.5
 	site.scale.x = -1.0 if placed_mirrored else 1.0
+	for resource: ResourceBase in cleared_resources:
+		resource.clear_for_construction()
+	if not cleared_resources.is_empty():
+		print("城墙清障：移除资源=", cleared_resources.size(), "，施工时间增加50%：", site_data.construction_time)
 
 	print(
 		"BuildingGhost 确认：",
@@ -343,6 +357,23 @@ func _create_construction_site(
 		placed_mirrored
 	)
 	return true
+
+
+func _get_wall_clearance_resources(data: BuildingData, wall_transform: Transform3D) -> Array[ResourceBase]:
+	var result: Array[ResourceBase] = []
+	var wall: Node3D = data.building_scene.instantiate() as Node3D
+	var collision: CollisionShape3D = wall.get_node("StaticBody3D/CollisionShape3D") as CollisionShape3D
+	var transform: Transform3D = wall_transform * wall.transform * (collision.get_parent() as Node3D).transform * collision.transform
+	var bounds: AABB = collision.shape.get_debug_mesh().get_aabb()
+	# 只在水平面外扩，给施工站位及居民身体留出空间。
+	bounds.position -= Vector3(0.5, 0.0, 0.5)
+	bounds.size += Vector3(1.0, 0.0, 1.0)
+	for node: Node in get_tree().get_nodes_in_group("resources"):
+		var resource: ResourceBase = node as ResourceBase
+		if resource != null and not resource.is_queued_for_deletion() and resource.overlaps_clearance_box(bounds, transform):
+			result.append(resource)
+	wall.free()
+	return result
 
 
 func cancel_preview() -> void:

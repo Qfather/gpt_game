@@ -5,6 +5,7 @@ signal rift_changed(active: bool, remaining: float)
 signal rift_event_completed(event: LevelEventEntry)
 
 @export var countdown: float = 10.0
+@export var minimum_base_distance: float = 30.0
 @export_range(1, 10, 1) var total_waves: int = 3
 @export var wave_interval: float = 5.0
 var rift_active: bool = false
@@ -131,33 +132,26 @@ func get_current_event_number() -> int:
 	return current_event_number
 
 
-func _find_safe_rift_position(world: AABB, settlement: AABB, center: Vector3) -> Vector3:
-	var map_generator := get_tree().get_first_node_in_group("map_generate_runtime")
-	if map_generator == null or not map_generator.has_method("get_safe_ground_position"):
+func _find_safe_rift_position(_world: AABB, _settlement: AABB, _center: Vector3) -> Vector3:
+	var map_generator: MapGenerateRuntime = get_tree().get_first_node_in_group("map_generate_runtime") as MapGenerateRuntime
+	var base: Node3D = get_tree().get_first_node_in_group("bases") as Node3D
+	if map_generator == null or map_generator.map_data == null or base == null:
 		return Vector3.INF
-	for attempt in range(120):
-		var side := randi_range(0, 3)
-		var candidate := center
-		const OFFSET := 1.5
-		if side == 0:
-			candidate = Vector3(center.x + randf_range(-settlement.size.x * 0.5, settlement.size.x * 0.5), 0.0, settlement.position.z - OFFSET)
-		elif side == 1:
-			candidate = Vector3(center.x + randf_range(-settlement.size.x * 0.5, settlement.size.x * 0.5), 0.0, settlement.end.z + OFFSET)
-		elif side == 2:
-			candidate = Vector3(settlement.position.x - OFFSET, 0.0, center.z + randf_range(-settlement.size.y * 0.5, settlement.size.y * 0.5))
-		else:
-			candidate = Vector3(settlement.end.x + OFFSET, 0.0, center.z + randf_range(-settlement.size.y * 0.5, settlement.size.y * 0.5))
-		candidate.x = clampf(candidate.x, world.position.x + 0.75, world.end.x - 0.75)
-		candidate.z = clampf(candidate.z, world.position.z + 0.75, world.end.z - 0.75)
-		var safe_position: Vector3 = map_generator.get_safe_ground_position(Vector2(candidate.x, candidate.z))
-		if safe_position != Vector3.INF:
-			return safe_position
-	for attempt in range(240):
-		var point := Vector2(
-			randf_range(world.position.x + 1.0, world.end.x - 1.0),
-			randf_range(world.position.z + 1.0, world.end.z - 1.0)
-		)
-		var safe_position: Vector3 = map_generator.get_safe_ground_position(point, 1.0)
-		if safe_position != Vector3.INF:
-			return safe_position
+	var candidates: Array[Vector3] = []
+	var farthest: float = 0.0
+	for cell: Vector2i in map_generator.map_data.occupied_cells:
+		var candidate: Vector3 = map_generator._cell_world_position(cell)
+		var distance: float = Vector2(candidate.x - base.global_position.x, candidate.z - base.global_position.z).length()
+		if distance >= minimum_base_distance:
+			candidates.append(candidate)
+			farthest = maxf(farthest, distance)
+	candidates.shuffle()
+	# 优先远端陆地；兜底仍严格保持与真实据点的最小距离。
+	for threshold: float in [maxf(minimum_base_distance, farthest * 0.75), minimum_base_distance]:
+		for candidate: Vector3 in candidates:
+			if Vector2(candidate.x - base.global_position.x, candidate.z - base.global_position.z).length() < threshold:
+				continue
+			var safe_position: Vector3 = map_generator.get_safe_ground_position(Vector2(candidate.x, candidate.z), 1.0)
+			if safe_position != Vector3.INF:
+				return safe_position
 	return Vector3.INF

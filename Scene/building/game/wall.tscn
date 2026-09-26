@@ -25,3 +25,10 @@ shape = SubResource("BoxShape_wall")
 [node name="BuildingDurability" type="Node" parent="."]
 script = ExtResource("2_durability")
 max_health = 500.0
+
+[node name="StaticBody3D" type="StaticBody3D" parent="."]
+input_ray_pickable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D"]
+position = Vector3(0, 0.75, 0)
+shape = SubResource("BoxShape_wall")

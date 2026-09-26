@@ -42,6 +42,21 @@ func request_dispatch() -> void:
 	call_deferred("_run_dispatch")
 
 
+func rebalance_construction_priority() -> void:
+	var sites: Array[Node] = get_tree().get_nodes_in_group("construction_sites")
+	var highest: int = 0
+	for site: Node in sites:
+		if site is ConstructionSite and site.can_cancel_construction():
+			highest = maxi(highest, site.construction_priority)
+	# 只在玩家修改优先级时打断低优先级工地，沿用取消任务的退料与预约清理。
+	for site: Node in sites:
+		if not site is ConstructionSite or not site.can_cancel_construction() or site.construction_priority >= highest:
+			continue
+		cancel_tasks_for_target(site)
+		site.release_waiting_workers()
+	request_dispatch()
+
+
 func _run_dispatch() -> void:
 	dispatch_queued = false
 	dispatch_running = true
@@ -52,6 +67,8 @@ func _run_dispatch() -> void:
 	construction_sites.sort_custom(_sort_construction_sites_by_priority)
 
 	for site: Node in construction_sites:
+		if site is ConstructionSite and (site.state == ConstructionSite.State.READY_TO_BUILD or site.state == ConstructionSite.State.BUILDING):
+			create_construction_build_tasks(site, site.get_build_preferred_workers())
 		if site.has_method("_create_delivery_tasks_now"):
 			site._create_delivery_tasks_now()
 		elif site.has_method("request_delivery_tasks"):
@@ -69,6 +86,8 @@ func _run_dispatch() -> void:
 
 
 func _sort_construction_sites_by_priority(a: Node, b: Node) -> bool:
+	if a is ConstructionSite and b is ConstructionSite and a.construction_priority != b.construction_priority:
+		return a.construction_priority > b.construction_priority
 	var a_priority: int = (
 		int(a.get_delivery_priority())
 		if a.has_method("get_delivery_priority")
@@ -103,9 +122,13 @@ func _dispatch_available_tasks() -> void:
 
 			if claim_task(task, villager):
 				break
+		if is_instance_valid(task.target) and task.target is ConstructionSite:
+			task.target.prepare_construction_workers()
 
 
 func _sort_task_priority(a: GameTask, b: GameTask) -> bool:
+	if is_instance_valid(a.target) and is_instance_valid(b.target) and a.target is ConstructionSite and b.target is ConstructionSite:
+		return _sort_construction_sites_by_priority(a.target, b.target) if a.target != b.target else str(a.id).naturalnocasecmp_to(str(b.id)) < 0
 	if a.priority != b.priority:
 		return a.priority > b.priority
 
@@ -394,8 +417,6 @@ func create_construction_build_tasks(
 		active_count += 1
 		if preferred_worker != null:
 			assigned_workers.append(preferred_worker)
-		elif preferred_workers.is_empty():
-			break
 
 
 func claim_task(task: GameTask, worker: Node) -> bool:
@@ -415,6 +436,10 @@ func claim_task(task: GameTask, worker: Node) -> bool:
 
 	if not worker.can_take_task(task):
 		return false
+	if task.target is ConstructionSite:
+		for site: Node in get_tree().get_nodes_in_group("construction_sites"):
+			if site != task.target and site is ConstructionSite and site.construction_priority > task.target.construction_priority and site.construction_workers.has(worker):
+				return false
 	var uses_construction_slot: bool = (
 		task.type == GameTask.TaskType.BUILD
 		or task.type == GameTask.TaskType.DELIVER_CONSTRUCTION_RESOURCE
