@@ -1,0 +1,467 @@
+@tool
+extends Control
+
+## This controls the data_inspector panel to visualize the selected node inputs/outputs
+## Allow to specify the bulk and port index to visualize the data
+## The red yellow appearing over the node
+
+@export var data_ex : int = 0:
+	set(new_value):
+		data_ex = new_value
+		refresh()
+
+@onready var tv : TableView = %TableView
+@onready var slot_selector : OptionButton = %SlotSelector
+@onready var bulk_selector : OptionButton = %BulkSelector
+
+var node : FlowNodeBase
+var context: FlowData.EvaluationContext
+var num_rows : int = 0
+var num_cols : int = 0
+var col_titles : Array[String]
+var col_streams_names : Array[String]
+var data : FlowData.Data 
+var visible_rows := PackedInt32Array()
+
+# The slot corresponds to InA, InB, or Out streams for example
+# The settings are not included
+var current_bulk_index := 0
+
+# The current_port_combined_index is used in the combo selector. First outputs, then inputs
+var current_port_combined_index := 0
+
+# These two are derived from the current_port_combined_index
+var current_port_index := 0
+var is_output : bool = true
+
+var container
+
+func setContext(new_context: FlowData.EvaluationContext) -> void:
+	context = new_context
+	if not node:
+		refresh()
+		return
+	populateBulks()
+	refresh()
+
+func setNode(new_node: FlowNodeBase, new_context: FlowData.EvaluationContext = null):
+	# If there was already one active... disabled it
+	if node:
+		%LabelTitle.text = "未选择节点"
+		node.debug_bulk = current_bulk_index
+		node.debug_port_combined_index = current_port_combined_index
+		node.inspect_enabled = false
+		print( "Saving %s Bulk:%d Index:%d" % [node.name, current_bulk_index, current_port_combined_index ])
+		node.notifyChange()
+		
+	if node != new_node and new_node:
+		node = new_node
+		context = new_context
+		%LabelTitle.text = FlowLocale.translate_node_title(node)
+		node.inspect_enabled = true
+		current_port_combined_index = node.debug_port_combined_index
+		print( "Reading %s Bulk:%d Index:%d" % [node.name, current_bulk_index, current_port_combined_index ])
+		_on_slot_selector_item_selected( current_port_combined_index )
+		current_bulk_index = node.debug_bulk
+		node.notifyChange()
+	else:
+		node = null
+		context = null
+		refresh()
+	populateSlots()
+	if current_port_combined_index < slot_selector.item_count:
+		slot_selector.select(current_port_combined_index)
+	if current_bulk_index < bulk_selector.item_count:
+		bulk_selector.select(current_bulk_index)
+
+func updateNumRowsAndCols():
+	num_rows = data.size()
+	col_titles.clear()
+	col_streams_names.clear()
+	for stream in data.streams.values():	
+		var stream_name : String = stream.name
+		match stream.data_type:
+			FlowData.DataType.Vector:
+				if FlowData.Data.isStreamARotation(stream):
+					col_titles.append( "%s.Roll" % stream_name)
+					col_titles.append( "%s.Pitch" % stream_name)
+					col_titles.append( "%s.Yaw" % stream_name)
+				else:
+					col_titles.append( "%s.X" % stream_name)
+					col_titles.append( "%s.Y" % stream_name)
+					col_titles.append( "%s.Z" % stream_name)
+				col_streams_names.append( stream_name)
+				col_streams_names.append( stream_name)
+				col_streams_names.append( stream_name)
+				
+			FlowData.DataType.Color:
+				col_titles.append( stream_name )
+				col_titles.append( "%s.R" % stream_name)
+				col_titles.append( "%s.G" % stream_name)
+				col_titles.append( "%s.B" % stream_name)
+				col_titles.append( "%s.A" % stream_name)
+				col_streams_names.append( stream_name )
+				col_streams_names.append( stream_name )
+				col_streams_names.append( stream_name )
+				col_streams_names.append( stream_name )
+				col_streams_names.append( stream_name )
+			_:
+				col_titles.append( stream_name )
+				col_streams_names.append( stream_name)
+	num_cols = col_titles.size()
+	#print( col_titles )
+	
+func fmt( v : float ) -> String:
+	return "%1.4f" % v
+
+# When the draw of a column starts, we choose which fn will be used
+# to display the data of that column. As all the datas of that column
+# have the same type
+func onColumnBegins( cell : DataTableContainer.CellContents ):
+	cell.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	
+	if cell.col == 0:
+		tv.setCellCallback( getCellContentsIndex )
+		return	
+	
+	# col = 0 is for the Index
+	var data_col = cell.col - 1
+	if data_col >= col_streams_names.size():
+		tv.cell_contents = null
+		return
+		
+	var stream_name = col_streams_names[ data_col ]
+	var stream = data.streams.get( stream_name, null )
+	if !stream:
+		tv.cell_contents = null
+		return
+	container = stream.container
+		
+	var title = col_titles[ data_col ]
+	if stream.data_type == FlowData.DataType.Vector:
+		if title.ends_with(".X"):
+			tv.setCellCallback( getCellContentsVectorX )
+		elif title.ends_with(".Y"):
+			tv.setCellCallback( getCellContentsVectorY )
+		elif title.ends_with(".Z"):
+			tv.setCellCallback( getCellContentsVectorZ )
+			
+		elif title.ends_with(".Yaw"):
+			tv.setCellCallback( getCellContentsVectorYaw )
+		elif title.ends_with(".Pitch"):
+			tv.setCellCallback( getCellContentsVectorPitch )
+		elif title.ends_with(".Roll"):
+			tv.setCellCallback( getCellContentsVectorRoll )
+			
+	elif stream.data_type == FlowData.DataType.Bool:
+		tv.setCellCallback( getCellContentsBool )
+	elif stream.data_type == FlowData.DataType.Color:
+		if title.ends_with(".R"):
+			tv.setCellCallback( getCellContentsColorR )
+		elif title.ends_with(".G"):
+			tv.setCellCallback( getCellContentsColorG )
+		elif title.ends_with(".B"):
+			tv.setCellCallback( getCellContentsColorB )
+		elif title.ends_with(".A"):
+			tv.setCellCallback( getCellContentsColorA )
+		else:
+			tv.setCellCallback( getCellContentsColor )
+			
+	elif stream.data_type == FlowData.DataType.Int:
+		tv.setCellCallback( getCellContentsInt )
+	elif stream.data_type == FlowData.DataType.Float:
+		tv.setCellCallback( getCellContentsFloat )
+	elif stream.data_type == FlowData.DataType.String:
+		tv.setCellCallback( getCellContentsString )
+		cell.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	elif stream.data_type == FlowData.DataType.Resource:
+		tv.setCellCallback( getCellContentsResource )
+		cell.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	elif stream.data_type == FlowData.DataType.NodePath or stream.data_type == FlowData.DataType.NodeMesh:
+		tv.setCellCallback( getCellContentsNode )
+		cell.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		
+func getCellContentsVectorX(cell : DataTableContainer.CellContents ):
+	var real_row : int = visible_rows[cell.row]
+	cell.text = fmt( container[ real_row ].x )
+	
+func getCellContentsVectorY(cell : DataTableContainer.CellContents ):
+	var real_row : int = visible_rows[cell.row]
+	cell.text = fmt( container[ real_row ].y )
+	
+func getCellContentsVectorZ(cell : DataTableContainer.CellContents ):
+	var real_row : int = visible_rows[cell.row]
+	cell.text = fmt( container[ real_row ].z )
+
+func getCellContentsVectorPitch(cell : DataTableContainer.CellContents ):
+	var real_row : int = visible_rows[cell.row]
+	cell.text = fmt( ( container[ real_row ].x ) )
+
+func getCellContentsVectorRoll(cell : DataTableContainer.CellContents ):
+	var real_row : int = visible_rows[cell.row]
+	cell.text = fmt( ( container[ real_row ].z ) )
+	
+func getCellContentsVectorYaw(cell : DataTableContainer.CellContents ):
+	var real_row : int = visible_rows[cell.row]
+	cell.text = fmt( ( container[ real_row ].y ) )	
+
+func getCellContentsColorR(cell : DataTableContainer.CellContents ):
+	var real_row : int = visible_rows[cell.row]
+	cell.text = fmt( container[ real_row ].r )
+	
+func getCellContentsColorG(cell : DataTableContainer.CellContents ):
+	var real_row : int = visible_rows[cell.row]
+	cell.text = fmt( container[ real_row ].g )
+	
+func getCellContentsColorB(cell : DataTableContainer.CellContents ):
+	var real_row : int = visible_rows[cell.row]
+	cell.text = fmt( container[ real_row ].b )
+	
+func getCellContentsColorA(cell : DataTableContainer.CellContents ):
+	var real_row : int = visible_rows[cell.row]
+	cell.text = fmt( container[ real_row ].a )
+	
+func getCellContentsColor(cell : DataTableContainer.CellContents ):
+	var real_row : int = visible_rows[cell.row]
+	# Pure white does not appear... so little quick hack
+	cell.color = container[ real_row ] if container[ real_row ] != Color.WHITE else Color(0.9991,1,1,1)
+	
+func getCellContentsFloat(cell : DataTableContainer.CellContents ):
+	var real_row : int = visible_rows[cell.row]
+	cell.text = fmt( container[ real_row ] )
+	
+func getCellContentsBool(cell : DataTableContainer.CellContents ):
+	var real_row : int = visible_rows[cell.row]
+	cell.text = "是" if container[ real_row ] else "否"
+	
+func getCellContentsInt(cell : DataTableContainer.CellContents ):
+	var real_row : int = visible_rows[cell.row]
+	cell.text = "%d" % container[ real_row ]
+	
+func getCellContentsIndex(cell : DataTableContainer.CellContents ):
+	var real_row : int = visible_rows[cell.row]
+	cell.text = "%d" % real_row
+	
+func getCellContentsString(cell : DataTableContainer.CellContents ):
+	var real_row : int = visible_rows[cell.row]
+	cell.text = container[ real_row ]
+	
+func getCellContentsResource(cell : DataTableContainer.CellContents ):
+	var real_row : int = visible_rows[cell.row]
+	var res = container[ real_row ] as Resource
+	cell.text = res.resource_path if res else ""
+			
+func getCellContentsNode(cell : DataTableContainer.CellContents ):
+	var real_row : int = visible_rows[cell.row]
+	var node = container[ real_row ] as Node3D
+	cell.text = ( "$" + node.name ) if node else ""
+		
+func refresh():
+	
+	if tv == null:
+		return
+
+	tv.clearColumns()
+	tv.setColumnCallback( onColumnBegins )
+	
+	data = null
+	
+	if node and context:
+			
+		if is_output:
+			var output_bulks := context.getOutputBulks(node)
+			if current_bulk_index >= output_bulks.size():
+				current_bulk_index = 0
+
+			if node.debug_bulk != current_bulk_index:
+				print( "Updating node.debug_bulk to %d" % [ current_bulk_index ])
+				node.debug_bulk = current_bulk_index
+				node.notifyChange()				
+				
+			data = context.getOutput(node, current_bulk_index, current_port_index)
+			#print( "Requesting out bulk %d:%d -> %s" % [ current_bulk_index, current_port_index, data ])
+			#data.dump( "Data refresh")
+		else:
+			data = context.getInputAt(node, current_bulk_index, current_port_index)
+		
+	if data != null:
+
+		updateNumRowsAndCols()
+		filterRows( %EditFilter.text )
+		
+		# Index column
+		tv.addColumn( "序号", 0 )
+		tv.num_rows = visible_rows.size()
+		var row_height := get_theme_default_font_size()
+		tv.setRowHeight( row_height )
+		# Auto-size columns based on header text width
+		var base_font = ThemeDB.fallback_font
+		var header_font_size = 12
+		for title in col_titles:
+			var text_w = base_font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, header_font_size).x
+			var col_w = int(max(text_w + 16, 60)) # min 60px, pad 16px
+			tv.addColumn( title, col_w )
+			
+	tv.addColumn( "", 0 )
+	updateNumVisibleRows()
+
+func onCellClicked( row : int, col : int ):
+	tv.setSelectedRow( row )
+	if node:
+		if row < visible_rows.size():
+			node.debug_row = visible_rows[row]
+			node.contents_changed.emit()
+
+func _ready():
+	tv.cell_clicked.connect( onCellClicked )
+	refresh()
+
+func _on_btn_refresh_pressed():
+	refresh()
+
+func _on_slot_selector_item_selected(index: int) -> void:
+	print( "_on_slot_selector_item_selected %d node: %s" % [ index, node ] )
+	if not node:
+		return
+		
+	current_port_combined_index = index
+		
+	var meta = node.getMeta()
+	if index < meta.outs.size():
+		is_output = true
+		current_port_index = index
+		if context and current_bulk_index >= context.getOutputBulks(node).size():
+			current_bulk_index = 0
+		#print( "Selected output Bulk:%d Port:%d" % [ current_bulk_index, current_port_index ] )
+	else:
+		current_port_index = index - meta.outs.size()
+		is_output = false
+		#print( "Selected input Bulk:%d Port:%d" % [ current_bulk_index, current_port_index ] )
+
+	current_bulk_index = 0
+	populateBulks()
+	refresh()
+
+func _on_bulk_selector_item_selected(index):
+	print( "bulk_selector changed to %d node: %s" % [ index, node ] )
+	current_bulk_index = index
+	refresh()
+
+func populateSlots():
+	slot_selector.clear()
+	bulk_selector.clear()
+	
+	if not node:
+		return
+	
+	var meta = node.getMeta()
+	
+	var idx = 0
+	for slot in meta.outs:
+		slot_selector.add_item( slot.label, idx )
+		idx +=1
+
+	for slot in meta.ins:
+		slot_selector.add_item( slot.label, idx )
+		idx +=1
+	populateBulks()
+	
+func tagsAsStr( data : FlowData.Data ) -> String:
+	if not data or data.tags.is_empty():
+		return ""
+	return "(" + ", ".join(data.tags) + ")"
+	
+func populateBulks():
+	bulk_selector.clear()
+	if not node or not context:
+		return
+	if is_output:
+		for bulk_idx in range(context.getOutputBulks(node).size()):
+			var bulk_data = context.getOutput(node, bulk_idx, current_port_index)
+			var tags_str : String = tagsAsStr( bulk_data )
+			var title = "输出组 %d %s" % [ bulk_idx, tags_str ]
+			bulk_selector.add_item( title, bulk_idx )
+				
+	else:
+		for bulk_idx in range(context.getInputBulks(node).size()):
+			var bulk_data = context.getInputAt(node, bulk_idx, current_port_index)
+			var tags_str : String = tagsAsStr( bulk_data )
+			var title = "输入组 %d %s" % [ bulk_idx, tags_str ]
+			bulk_selector.add_item( title, bulk_idx )
+	
+	# Ensure the bulk_index is still valid
+	if bulk_selector.get_item_count() > 0:
+		current_bulk_index = clampi(current_bulk_index, 0, bulk_selector.get_item_count() - 1)
+		bulk_selector.select(current_bulk_index)
+
+func updateStats():
+	if data:
+		%LabelStats.text = "%d/%d 行（%d 列，%d 个数据流）" % [ visible_rows.size(), num_rows, num_cols, data.numFields()]
+	else:
+		%LabelStats.text = "暂无数据"
+		
+func updateNumVisibleRows():
+	# Stats: row/col summary
+	if tv:
+		tv.num_rows = visible_rows.size()
+		tv.refreshUIDeferred()
+		updateStats()
+
+func _on_edit_filter_text_changed(new_text):
+	if data and tv:
+		filterRows( new_text )
+		updateNumVisibleRows()
+
+func rowMathesQuery( filter_lower : String, row_idx : int) -> bool:
+	if filter_lower in str(row_idx):
+		return true
+	for stream in data.streams.values():
+		var val = stream.container[row_idx]
+		match stream.data_type:
+			FlowData.DataType.Vector:
+				if val is Vector3:
+					if filter_lower in fmt(val.x).to_lower() or filter_lower in fmt(val.y).to_lower() or filter_lower in fmt(val.z).to_lower():
+						return true
+			FlowData.DataType.Color:
+				if val is Color:
+					if filter_lower in fmt(val.r).to_lower() or filter_lower in fmt(val.g).to_lower() or filter_lower in fmt(val.b).to_lower() or filter_lower in fmt(val.a).to_lower():
+						return true
+			FlowData.DataType.Float:
+				if filter_lower in fmt(val).to_lower():
+					return true
+			FlowData.DataType.Bool:
+				var b_str = "true" if val else "false"
+				if filter_lower in b_str:
+					return true
+			FlowData.DataType.Int:
+				if filter_lower in str(val).to_lower():
+					return true
+			FlowData.DataType.String:
+				if filter_lower in str(val).to_lower():
+					return true
+			FlowData.DataType.Resource:
+				var res = val as Resource
+				if res and filter_lower in res.resource_path.to_lower():
+					return true
+			FlowData.DataType.NodePath, FlowData.DataType.NodeMesh:
+				var node_val = val as Node3D
+				if node_val and filter_lower in ("$" + node_val.name).to_lower():
+					return true
+	return false
+
+func filterRows( filter_text : String ):
+	visible_rows = PackedInt32Array()
+	if filter_text.is_empty():
+		# Make a 1:1 mapping
+		visible_rows.resize(data.size())
+		for i in range(data.size()):
+			visible_rows[i] = i
+	else:
+		var filter_lc : String = filter_text.to_lower()
+		
+		# For each row...
+		for i in range(data.size()):
+			if rowMathesQuery( filter_lc, i ):
+				visible_rows.append(i)
+				
+		

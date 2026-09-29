@@ -323,17 +323,19 @@ func _has_raid_objective(objective: EnemyData.RaidObjective) -> bool:
 	return (
 		raid_active
 		and enemy_data != null
-		and int(enemy_data.faction) == EnemyData.Faction.RAID
+		and (
+			int(enemy_data.faction) == EnemyData.Faction.RAID
+			or (get_faction() == EnemyData.Faction.RIFT and objective == EnemyData.RaidObjective.KILL_UNITS)
+		)
 		and enemy_data.raid_objective == objective
 	)
 
 
 func _has_configured_raid_objective() -> bool:
 	return (
-		raid_active
-		and enemy_data != null
-		and int(enemy_data.faction) == EnemyData.Faction.RAID
+		enemy_data != null
 		and enemy_data.raid_objective != EnemyData.RaidObjective.NONE
+		and _has_raid_objective(enemy_data.raid_objective)
 	)
 
 
@@ -719,6 +721,18 @@ func _apply_visual_scene() -> void:
 	var visual_instance: Node = enemy_data.visual_scene.instantiate()
 	if visual_instance != null:
 		visual_root.add_child(visual_instance)
+		# 敌人根节点位于胶囊中心，不同模型的脚底原点必须统一到胶囊底部。
+		var lowest: float = INF
+		for node: Node in visual_instance.find_children("*", "MeshInstance3D", true, false):
+			var mesh: MeshInstance3D = node as MeshInstance3D
+			if mesh.mesh == null or mesh.is_queued_for_deletion():
+				continue
+			var bounds: AABB = (visual_root.global_transform.affine_inverse() * mesh.global_transform) * mesh.get_aabb()
+			lowest = minf(lowest, bounds.position.y)
+		if is_finite(lowest):
+			var collision: CollisionShape3D = $CollisionShape3D
+			var bounds: AABB = collision.transform * collision.shape.get_debug_mesh().get_aabb()
+			visual_root.position.y = bounds.position.y - lowest
 	_apply_visual_tint()
 
 

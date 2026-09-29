@@ -1,0 +1,15 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://3k63kx5ola1q"]
+
+[ext_resource type="Texture2D" uid="uid://bex7n4fk8jx7w" path="res://assets/textures/PolygonVikingRealm_01_A.png" id="1_fd7c5"]
+[ext_resource type="Texture2D" uid="uid://bocg8s7knu3ne" path="res://assets/textures/PolygonVikingRealm_01_A_Emissive.png" id="2_86ij8"]
+[ext_resource type="Texture2D" uid="uid://cpqejemiimmm" path="res://assets/textures/PolygonVikingRealm_01_Metallic.tga" id="3_fjgpj"]
+[ext_resource type="Texture2D" uid="uid://drdik1vyifjhx" path="res://assets/textures/PolygonVikingRealm_01_Normals.png" id="4_g37af"]
+
+[resource]
+albedo_texture = ExtResource("1_fd7c5")
+metallic = 1.0
+metallic_texture = ExtResource("3_fjgpj")
+emission_enabled = true
+emission_texture = ExtResource("2_86ij8")
+normal_enabled = true
+normal_texture = ExtResource("4_g37af")

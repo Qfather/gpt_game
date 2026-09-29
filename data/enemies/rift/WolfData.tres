@@ -26,4 +26,5 @@ move_speed = 5.0
 attack_range = 1.4
 detection_range = 14.0
 faction = 2
+raid_objective = 1
 raid_steal_quota = 5.0

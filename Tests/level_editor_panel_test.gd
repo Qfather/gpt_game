@@ -11,6 +11,10 @@ func _run() -> void:
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	await process_frame
 	var environment: Control = panel.environment_panel
+	var previous_fog: bool = panel.level_flow.fog_of_war_enabled
+	environment.fog_toggle.button_pressed = not previous_fog
+	assert(panel.level_flow.fog_of_war_enabled == not previous_fog)
+	environment.fog_toggle.button_pressed = previous_fog
 	var initial: int = panel.level_flow.map_resources.size()
 	environment._add_resource()
 	assert(panel.level_flow.map_resources.size() == initial + 1)
@@ -39,4 +43,3 @@ func _run() -> void:
 	panel.queue_free()
 	await process_frame
 	quit()
-

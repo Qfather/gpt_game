@@ -16,6 +16,7 @@ func _expect(value: bool, message: String) -> void:
 func _run() -> void:
 	var scene: Node = load("res://Scene/main.tscn").instantiate()
 	scene.level_preset = scene.level_preset.duplicate(true)
+	scene.level_preset.fog_of_war_enabled = false
 	scene.level_preset.map_resources.clear()
 	root.add_child(scene)
 	current_scene = scene

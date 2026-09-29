@@ -20,6 +20,14 @@ var build_grid: BuildGrid
 var preview_model: Node3D
 var ghost_material: StandardMaterial3D
 var base_preview_scale: Vector3 = Vector3.ONE
+var preview_model_bounds: AABB = AABB()
+var has_preview_model_bounds: bool = false
+var path_warning: Label3D
+var path_check_timer: float = 0.0
+var has_reachable_approach: bool = true
+var was_paused: bool = false
+var placement_active_when_paused: bool = false
+var placement_cancelled_during_pause: bool = false
 
 
 func _ready() -> void:
@@ -27,6 +35,7 @@ func _ready() -> void:
 	build_grid = get_parent().get_node("BuildGrid") as BuildGrid
 	visible = false
 	_create_preview_mesh()
+	_create_path_warning()
 	if start_preview:
 		_update_preview()
 
@@ -34,6 +43,9 @@ func _ready() -> void:
 func select_building(data: BuildingData) -> void:
 	if data == null:
 		return
+	if get_tree().paused:
+		placement_active_when_paused = true
+		placement_cancelled_during_pause = false
 
 	building_data = data
 	rotation_step = 0
@@ -42,6 +54,7 @@ func select_building(data: BuildingData) -> void:
 	if is_instance_valid(preview_model):
 		preview_model.free()
 	preview_model = null
+	has_preview_model_bounds = false
 	_create_preview_mesh()
 	_update_preview()
 
@@ -50,12 +63,23 @@ func is_placement_active() -> bool:
 	return start_preview
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var paused: bool = get_tree().paused
+	if paused and not was_paused:
+		was_paused = true
+		placement_active_when_paused = start_preview
+		placement_cancelled_during_pause = false
+	elif not paused and was_paused:
+		was_paused = false
+		if placement_cancelled_during_pause or not placement_active_when_paused:
+			start_preview = false
+			visible = false
+		placement_cancelled_during_pause = false
 
 	if not start_preview:
 		return
 
-	_update_preview()
+	_update_preview(delta)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -119,8 +143,65 @@ func _create_preview_mesh() -> void:
 	)
 	preview_model.transform = source_root.transform
 	base_preview_scale = source_root.scale
+	_calculate_preview_model_bounds(source_root)
 	_copy_visual_tree(source_root, preview_model)
 	source_root.free()
+
+
+func _create_path_warning() -> void:
+	path_warning = Label3D.new()
+	path_warning.name = "PathWarning"
+	path_warning.text = "!"
+	path_warning.font_size = 96
+	path_warning.modulate = Color(1.0, 0.78, 0.05, 1.0)
+	path_warning.outline_size = 12
+	path_warning.outline_modulate = Color(0.12, 0.08, 0.0, 1.0)
+	path_warning.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	path_warning.no_depth_test = true
+	path_warning.position = Vector3(0.0, 3.0, 0.0)
+	path_warning.visible = false
+	add_child(path_warning)
+
+
+func _calculate_preview_model_bounds(model: Node3D) -> void:
+	_collect_preview_bounds(model, model.transform)
+
+
+func _collect_preview_bounds(node: Node3D, transform_from_root: Transform3D) -> void:
+	if node is MeshInstance3D:
+		var mesh_instance: MeshInstance3D = node as MeshInstance3D
+		if mesh_instance.mesh != null:
+			var mesh_bounds: AABB = _transform_aabb(
+				mesh_instance.get_aabb(),
+				transform_from_root
+			)
+			if not has_preview_model_bounds:
+				preview_model_bounds = mesh_bounds
+				has_preview_model_bounds = true
+			else:
+				preview_model_bounds = preview_model_bounds.merge(mesh_bounds)
+
+	for child: Node in node.get_children():
+		if child is Node3D:
+			var child_3d: Node3D = child as Node3D
+			_collect_preview_bounds(
+				child_3d,
+				transform_from_root * child_3d.transform
+			)
+
+
+func _transform_aabb(source: AABB, transform: Transform3D) -> AABB:
+	var result: AABB = AABB(transform * source.position, Vector3.ZERO)
+	for corner_index: int in range(1, 8):
+		var corner: Vector3 = source.position
+		if (corner_index & 1) != 0:
+			corner.x += source.size.x
+		if (corner_index & 2) != 0:
+			corner.y += source.size.y
+		if (corner_index & 4) != 0:
+			corner.z += source.size.z
+		result = result.expand(transform * corner)
+	return result
 
 
 func _copy_visual_tree(
@@ -152,20 +233,23 @@ func _copy_visual_tree(
 			_copy_visual_tree(source_node_3d, preview_node)
 
 
-func _update_preview() -> void:
+func _update_preview(delta: float = 0.0) -> void:
 
 	if building_data == null or build_grid == null:
 		visible = false
+		path_warning.visible = false
 		return
 
 	var camera := get_viewport().get_camera_3d()
 	if camera == null:
 		visible = false
+		path_warning.visible = false
 		return
 
 	var world_position: Vector3 = _get_mouse_world_position(camera)
 	if world_position == Vector3.INF:
 		visible = false
+		path_warning.visible = false
 		return
 
 	grid_position = build_grid.world_to_grid(world_position)
@@ -173,13 +257,15 @@ func _update_preview() -> void:
 		grid_position,
 		building_data.grid_size,
 		rotation_step,
-		building_data.id == &"wall"
+		building_data.id == &"wall",
+		building_data.id == &"torch"
 	)
 
 	var rotated_size := build_grid.get_rotated_size(
 		building_data.grid_size,
 		rotation_step
 	)
+	rotation.y = float(rotation_step) * PI * 0.5
 	var first_cell_center := build_grid.grid_to_world(grid_position)
 
 	global_position = first_cell_center + Vector3(
@@ -187,8 +273,11 @@ func _update_preview() -> void:
 		0.0,
 		float(rotated_size.y - 1) * build_grid.cell_size * 0.5
 	)
+	path_check_timer += delta
+	if delta <= 0.0 or path_check_timer >= 0.35:
+		path_check_timer = 0.0
+		has_reachable_approach = _has_reachable_approach_point()
 
-	rotation.y = float(rotation_step) * PI * 0.5
 	preview_model.scale = Vector3(
 		base_preview_scale.x * (-1.0 if mirrored else 1.0),
 		base_preview_scale.y,
@@ -200,8 +289,92 @@ func _update_preview() -> void:
 		if is_valid_position
 		else Color(1.0, 0.15, 0.15, 0.45)
 	)
+	path_warning.visible = is_valid_position and not has_reachable_approach
+	if has_preview_model_bounds:
+		path_warning.position = Vector3(
+			preview_model_bounds.get_center().x * (-1.0 if mirrored else 1.0),
+			preview_model_bounds.end.y + 0.8,
+			preview_model_bounds.get_center().z
+		)
 
 	visible = true
+
+
+func _has_reachable_approach_point() -> bool:
+	if not has_preview_model_bounds:
+		return true
+	var current_scene: Node = get_tree().current_scene
+	if current_scene == null:
+		return true
+	var navigation_region: NavigationRegion3D = current_scene.get_node_or_null(
+		"Systems/NavigationRegion3D"
+	) as NavigationRegion3D
+	if navigation_region == null:
+		return true
+	var navigation_map: RID = navigation_region.get_navigation_map()
+	if NavigationServer3D.map_get_iteration_id(navigation_map) == 0:
+		return true
+
+	var start_points: Array[Vector3] = []
+	for villager: Node in get_tree().get_nodes_in_group("villagers"):
+		if villager is Node3D and is_instance_valid(villager):
+			start_points.append((villager as Node3D).global_position)
+	if start_points.is_empty():
+		var base: Node3D = get_tree().get_first_node_in_group("bases") as Node3D
+		if base != null:
+			start_points.append(base.global_position)
+	if start_points.is_empty():
+		return true
+
+	var bounds_center: Vector3 = preview_model_bounds.get_center()
+	var half_width: float = maxf(preview_model_bounds.size.x * 0.5, 0.5)
+	var half_depth: float = maxf(preview_model_bounds.size.z * 0.5, 0.5)
+	var perimeter: float = 2.0 * (half_width * 2.0 + half_depth * 2.0)
+	for point_index: int in range(8):
+		var distance: float = (float(point_index) + 0.5) / 8.0 * perimeter
+		var local_point: Vector3 = bounds_center
+		local_point.y = 0.0
+		if distance < half_width * 2.0:
+			local_point.x = bounds_center.x - half_width + distance
+			local_point.z = bounds_center.z + half_depth + 0.2
+		elif distance < half_width * 2.0 + half_depth * 2.0:
+			local_point.x = bounds_center.x + half_width + 0.2
+			local_point.z = bounds_center.z + half_depth - (distance - half_width * 2.0)
+		elif distance < half_width * 4.0 + half_depth * 2.0:
+			local_point.x = bounds_center.x + half_width - (distance - half_width * 2.0 - half_depth * 2.0)
+			local_point.z = bounds_center.z - half_depth - 0.2
+		else:
+			local_point.x = bounds_center.x - half_width - 0.2
+			local_point.z = bounds_center.z - half_depth + (distance - half_width * 4.0 - half_depth * 2.0)
+		if mirrored:
+			local_point.x = -local_point.x
+		var approach_point: Vector3 = global_transform * local_point
+		var navigation_point: Vector3 = NavigationServer3D.map_get_closest_point(
+			navigation_map,
+			approach_point
+		)
+		if _horizontal_distance(navigation_point, approach_point) > 0.8:
+			continue
+		if absf(navigation_point.y - approach_point.y) > 1.0:
+			continue
+		for start_position: Vector3 in start_points:
+			var navigation_start: Vector3 = NavigationServer3D.map_get_closest_point(
+				navigation_map,
+				start_position
+			)
+			var path: PackedVector3Array = NavigationServer3D.map_get_path(
+				navigation_map,
+				navigation_start,
+				navigation_point,
+				true
+			)
+			if not path.is_empty() and path[path.size() - 1].distance_to(navigation_point) <= 0.5:
+				return true
+	return false
+
+
+func _horizontal_distance(a: Vector3, b: Vector3) -> float:
+	return Vector2(a.x, a.z).distance_to(Vector2(b.x, b.z))
 
 
 func _get_mouse_world_position(camera: Camera3D) -> Vector3:
@@ -310,7 +483,8 @@ func _create_construction_site(
 			placed_grid_position,
 			placed_data.grid_size,
 			placed_rotation_step,
-			placed_data.id == &"wall"
+			placed_data.id == &"wall",
+			placed_data.id == &"torch"
 		)
 	):
 		print("BuildingGhost 放置时网格已被占用：", placed_grid_position)
@@ -379,5 +553,7 @@ func _get_wall_clearance_resources(data: BuildingData, wall_transform: Transform
 func cancel_preview() -> void:
 
 	print("BuildingGhost 取消")
+	if get_tree().paused:
+		placement_cancelled_during_pause = true
 	start_preview = false
 	visible = false

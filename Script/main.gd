@@ -77,12 +77,19 @@ func _ready():
 
 	_apply_level_config()
 	_spawn_initial_villagers()
+	if level_preset != null and level_preset.fog_of_war_enabled:
+		var fog := Node3D.new()
+		fog.set_script(preload("res://Script/world/fog_of_war.gd"))
+		fog.name = "FogOfWar"
+		add_child(fog)
 	if hud.has_method("connect_building_ghost"):
 		hud.connect_building_ghost(building_ghost)
 	if not hud.enemy_placement_requested.is_connected(_begin_enemy_placement):
 		hud.enemy_placement_requested.connect(_begin_enemy_placement)
 	if not hud.raid_requested.is_connected(_on_raid_requested):
 		hud.raid_requested.connect(_on_raid_requested)
+	if not hud.unreachable_villager_clicked.is_connected(_on_unreachable_villager_clicked):
+		hud.unreachable_villager_clicked.connect(_on_unreachable_villager_clicked)
 
 	print("========== Main启动 ==========")
 
@@ -391,6 +398,15 @@ func _on_villager_clicked(villager: UnitBase) -> void:
 	_close_selection_panels_immediately()
 	_select_world_object(villager)
 	call_deferred("_open_villager_panel", villager)
+
+
+func _on_unreachable_villager_clicked(villager: UnitBase) -> void:
+	if not is_instance_valid(villager):
+		return
+	var camera: GameCameraController = get_viewport().get_camera_3d() as GameCameraController
+	if camera != null:
+		camera.focus_on_position(villager.global_position)
+	_on_villager_clicked(villager)
 
 
 func _on_resource_clicked(resource: ResourceBase) -> void:

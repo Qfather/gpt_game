@@ -1,32 +1,24 @@
 [gd_scene format=3 uid="uid://b35h0wuf0qn8a"]
 
 [ext_resource type="Script" uid="uid://dh0qfrv0n5tnh" path="res://Script/resource/game/stone.gd" id="1_e2ywa"]
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_eg0p3"]
-albedo_color = Color(0.37036446, 0.3703645, 0.37036446, 1)
-roughness = 1.0
-
-[sub_resource type="BoxMesh" id="BoxMesh_ogq8d"]
-material = SubResource("StandardMaterial3D_eg0p3")
-size = Vector3(1, 0.5, 1)
-
-[sub_resource type="StandardMaterial3D" id="Material_light"]
-albedo_color = Color(0.48, 0.5, 0.52, 1)
-roughness = 1.0
-
-[sub_resource type="SphereMesh" id="Mesh_boulder"]
-material = SubResource("Material_light")
-radius = 0.5
-height = 1.0
-radial_segments = 7
-rings = 3
-
-[sub_resource type="CylinderMesh" id="Mesh_crag"]
-material = SubResource("StandardMaterial3D_eg0p3")
-top_radius = 0.22
-bottom_radius = 0.48
-height = 0.7
-radial_segments = 5
+[ext_resource type="PackedScene" uid="uid://dovhsh3luolwj" path="res://assets/modles/env/石头_001.glb" id="2_aeaak"]
+[ext_resource type="Material" uid="uid://3k63kx5ola1q" path="res://assets/materials/VikingRealm.tres" id="3_o2xs6"]
+[ext_resource type="PackedScene" uid="uid://d3e3a2npp6b3" path="res://assets/modles/env/石头_002.glb" id="4_7hbtp"]
+[ext_resource type="PackedScene" uid="uid://c1xgkwpofycj2" path="res://assets/modles/env/石头_003.glb" id="5_66c21"]
+[ext_resource type="PackedScene" uid="uid://dyrcyu8tdliuj" path="res://assets/modles/env/石头_004.glb" id="6_xc0gk"]
+[ext_resource type="PackedScene" uid="uid://cy4iu0j78jjeu" path="res://assets/modles/env/石头_005.glb" id="7_y8e6u"]
+[ext_resource type="PackedScene" uid="uid://dusq5itd3kon0" path="res://assets/modles/env/石头_006.glb" id="8_7g1oq"]
+[ext_resource type="PackedScene" uid="uid://0sfi8watxmri" path="res://assets/modles/env/石头_007.glb" id="9_xsnsj"]
+[ext_resource type="PackedScene" uid="uid://c8dmo527gkuko" path="res://assets/modles/env/石头_008.glb" id="10_b475u"]
+[ext_resource type="PackedScene" uid="uid://bg3hkiuadmicu" path="res://assets/modles/env/石头_009.glb" id="11_psyag"]
+[ext_resource type="PackedScene" uid="uid://dlbgawdjrhift" path="res://assets/modles/env/石头_010.glb" id="12_2w1nw"]
+[ext_resource type="PackedScene" uid="uid://cy6af7ybeq0ao" path="res://assets/modles/env/石头_011.glb" id="13_xsnsj"]
+[ext_resource type="PackedScene" uid="uid://bae0txlskopd3" path="res://assets/modles/env/石头_012.glb" id="14_b475u"]
+[ext_resource type="PackedScene" uid="uid://c0nx7degm5bqj" path="res://assets/modles/env/石头_013.glb" id="15_psyag"]
+[ext_resource type="PackedScene" uid="uid://dkwpdmd2a75ir" path="res://assets/modles/env/石头_014.glb" id="16_2w1nw"]
+[ext_resource type="PackedScene" uid="uid://ca2sbnvt2yx2b" path="res://assets/modles/env/石头_015.glb" id="17_ri4id"]
+[ext_resource type="PackedScene" uid="uid://ur2kis8m6jd" path="res://assets/modles/env/石头_016.glb" id="18_27ln7"]
+[ext_resource type="PackedScene" uid="uid://cqarrb1acutrf" path="res://assets/modles/env/石头_017.glb" id="19_om737"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_ogq8d"]
 size = Vector3(1, 0.5, 1)
@@ -36,50 +28,131 @@ script = ExtResource("1_e2ywa")
 visual_scale_min = 0.5
 visual_scale_max = 1.5
 
-[node name="meshs" type="Node3D" parent="."]
+[node name="meshs" type="Node3D" parent="." unique_id=106610963]
 
-[node name="FlatRock" type="Node3D" parent="meshs"]
+[node name="石头_0012" parent="meshs" unique_id=201833195 instance=ExtResource("2_aeaak")]
+transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, 0)
 
-[node name="Slab" type="MeshInstance3D" parent="meshs/FlatRock"]
-position = Vector3(0, 0.18, 0)
-scale = Vector3(1, 0.72, 0.85)
-mesh = SubResource("BoxMesh_ogq8d")
+[node name="石头_001" parent="meshs/石头_0012" index="0" unique_id=1729509604]
+material_override = ExtResource("3_o2xs6")
 
-[node name="Cap" type="MeshInstance3D" parent="meshs/FlatRock"]
-position = Vector3(0.12, 0.41, -0.08)
-rotation = Vector3(0, 0.35, 0)
-scale = Vector3(0.6, 0.2, 0.6)
-mesh = SubResource("BoxMesh_ogq8d")
+[node name="石头_0022" parent="meshs" unique_id=273696473 instance=ExtResource("4_7hbtp")]
+transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, 0)
 
-[node name="RoundRock" type="Node3D" parent="meshs"]
+[node name="石头_002" parent="meshs/石头_0022" index="0" unique_id=1639078866]
+material_override = ExtResource("3_o2xs6")
+
+[node name="石头_0032" parent="meshs" unique_id=496064702 instance=ExtResource("5_66c21")]
+transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, 0)
+
+[node name="石头_003" parent="meshs/石头_0032" index="0" unique_id=545824141]
+material_override = ExtResource("3_o2xs6")
+
+[node name="石头_0042" parent="meshs" unique_id=1782490049 instance=ExtResource("6_xc0gk")]
+transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, 0)
+
+[node name="石头_004" parent="meshs/石头_0042" index="0" unique_id=1560828060]
+material_override = ExtResource("3_o2xs6")
+
+[node name="石头_0052" parent="meshs" unique_id=1032809823 instance=ExtResource("7_y8e6u")]
+transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, 0)
+
+[node name="石头_005" parent="meshs/石头_0052" index="0" unique_id=1534152161]
+material_override = ExtResource("3_o2xs6")
+
+[node name="石头_0062" parent="meshs" unique_id=1089945960 instance=ExtResource("8_7g1oq")]
+transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, 0)
+
+[node name="石头_006" parent="meshs/石头_0062" index="0" unique_id=865558701]
+material_override = ExtResource("3_o2xs6")
+
+[node name="石头_0072" parent="meshs" unique_id=1596954486 instance=ExtResource("9_xsnsj")]
+transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, 0)
+
+[node name="石头_007" parent="meshs/石头_0072" index="0" unique_id=2081524130]
+material_override = ExtResource("3_o2xs6")
+
+[node name="石头_0082" parent="meshs" unique_id=2078672755 instance=ExtResource("10_b475u")]
+transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, 0)
+
+[node name="石头_008" parent="meshs/石头_0082" index="0" unique_id=502785804]
+material_override = ExtResource("3_o2xs6")
+
+[node name="石头_0092" parent="meshs" unique_id=1042089148 instance=ExtResource("11_psyag")]
+transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, 0)
+
+[node name="石头_009" parent="meshs/石头_0092" index="0" unique_id=508490855]
+material_override = ExtResource("3_o2xs6")
+
+[node name="石头_0102" parent="meshs" unique_id=1462555278 instance=ExtResource("12_2w1nw")]
+transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, 0)
+
+[node name="石头_010" parent="meshs/石头_0102" index="0" unique_id=757633670]
+material_override = ExtResource("3_o2xs6")
+
+[node name="石头_0112" parent="meshs" unique_id=440710040 instance=ExtResource("13_xsnsj")]
+transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, 0)
+
+[node name="石头_011" parent="meshs/石头_0112" index="0" unique_id=715865638]
+material_override = ExtResource("3_o2xs6")
+
+[node name="石头_0122" parent="meshs" unique_id=1672310098 instance=ExtResource("14_b475u")]
+transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, 0)
+
+[node name="石头_012" parent="meshs/石头_0122" index="0" unique_id=2075471818]
+material_override = ExtResource("3_o2xs6")
+
+[node name="石头_0132" parent="meshs" unique_id=2094175843 instance=ExtResource("15_psyag")]
+transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, 0)
+
+[node name="石头_013" parent="meshs/石头_0132" index="0" unique_id=86908058]
+material_override = ExtResource("3_o2xs6")
+
+[node name="石头_0142" parent="meshs" unique_id=2053285746 instance=ExtResource("16_2w1nw")]
+transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, 0)
 visible = false
 
-[node name="Boulder" type="MeshInstance3D" parent="meshs/RoundRock"]
-position = Vector3(-0.08, 0.3, 0)
-scale = Vector3(0.9, 0.6, 0.85)
-mesh = SubResource("Mesh_boulder")
+[node name="石头_014" parent="meshs/石头_0142" index="0" unique_id=1629163786]
+material_override = ExtResource("3_o2xs6")
 
-[node name="SmallBoulder" type="MeshInstance3D" parent="meshs/RoundRock"]
-position = Vector3(0.3, 0.15, 0.2)
-scale = Vector3(0.4, 0.3, 0.45)
-mesh = SubResource("Mesh_boulder")
+[node name="石头_0152" parent="meshs" unique_id=2104442829 instance=ExtResource("17_ri4id")]
+transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, 0)
 
-[node name="CragRock" type="Node3D" parent="meshs"]
-visible = false
+[node name="石头_015" parent="meshs/石头_0152" index="0" unique_id=844173700]
+material_override = ExtResource("3_o2xs6")
 
-[node name="Peak" type="MeshInstance3D" parent="meshs/CragRock"]
-position = Vector3(-0.08, 0.35, -0.04)
-scale = Vector3(0.85, 1, 0.8)
-mesh = SubResource("Mesh_crag")
+[node name="石头_0162" parent="meshs" unique_id=372833384 instance=ExtResource("18_27ln7")]
+transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, 0)
 
-[node name="SmallPeak" type="MeshInstance3D" parent="meshs/CragRock"]
-position = Vector3(0.27, 0.175, 0.2)
-rotation = Vector3(0, 0.5, 0)
-scale = Vector3(0.5, 0.5, 0.5)
-mesh = SubResource("Mesh_crag")
+[node name="石头_016" parent="meshs/石头_0162" index="0" unique_id=295296894]
+material_override = ExtResource("3_o2xs6")
+
+[node name="石头_0172" parent="meshs" unique_id=1388316963 instance=ExtResource("19_om737")]
+transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, 0)
+
+[node name="石头_017" parent="meshs/石头_0172" index="0" unique_id=1525470203]
+material_override = ExtResource("3_o2xs6")
 
 [node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=1284541980]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D" unique_id=1972710538]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
 shape = SubResource("BoxShape3D_ogq8d")
+
+[editable path="meshs/石头_0012"]
+[editable path="meshs/石头_0022"]
+[editable path="meshs/石头_0032"]
+[editable path="meshs/石头_0042"]
+[editable path="meshs/石头_0052"]
+[editable path="meshs/石头_0062"]
+[editable path="meshs/石头_0072"]
+[editable path="meshs/石头_0082"]
+[editable path="meshs/石头_0092"]
+[editable path="meshs/石头_0102"]
+[editable path="meshs/石头_0112"]
+[editable path="meshs/石头_0122"]
+[editable path="meshs/石头_0132"]
+[editable path="meshs/石头_0142"]
+[editable path="meshs/石头_0152"]
+[editable path="meshs/石头_0162"]
+[editable path="meshs/石头_0172"]

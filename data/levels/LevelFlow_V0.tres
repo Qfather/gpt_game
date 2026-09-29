@@ -39,7 +39,6 @@ count = 520
 nearby_ratio = 0.6
 minimum_spacing = 1.1
 neighbor_distance_max = 1.8
-spacing_version = null
 cluster_radius = 13.0
 cluster_separation = 10.0
 near_distance_min = 15.0
@@ -56,12 +55,10 @@ display_name = "石头"
 scene = ExtResource("7_stone")
 minimum_spacing = 0.1
 neighbor_distance_max = 0.30000000000000004
-spacing_version = null
 
 [resource]
 script = ExtResource("1_flow")
 map_config = SubResource("MapConfig")
-rift_min_base_distance = null
 map_resources = Array[ExtResource("5_resource")]([SubResource("Trees"), SubResource("Stones")])
 monster_database = ExtResource("3_groups")
 events = Array[ExtResource("2_event")]([SubResource("RaidEvent_02"), SubResource("Resource_dsvsc")])

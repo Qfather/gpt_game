@@ -1,0 +1,62 @@
+@tool
+extends FlowNodeBase
+
+@export var offset_min := Vector3(0,0,0)
+@export var offset_max := Vector3(0,0,0)
+@export var offset_local_space := true
+@export var rotation_min := Vector3(0,0,0)
+@export var rotation_max := Vector3(0,0,0)
+@export var rotation_local_space := false
+@export var scale_min := Vector3(1,1,1)
+@export var scale_max := Vector3(1,1,1)
+@export var uniform_scale := true
+
+func _init():
+	meta_node = {
+		"title" : "Transform Points",
+		"category" : "Math",
+		"ins" : [{ "label": "In" }], 
+		"outs" : [{ "label" : "Out" }],
+		"tooltip" : "Applies the random translation/rotation/scale to each point",
+	}
+
+func execute( ctx : FlowData.EvaluationContext ):
+	var in_data : FlowData.Data = getInput(ctx, 0)
+	# Check if we have something to transform
+	if not (in_data and in_data.hasStream(FlowData.AttrPosition) and in_data.hasStream(FlowData.AttrRotation) and  in_data.hasStream(FlowData.AttrSize)):
+		setOutput(ctx, 0, FlowData.Data.new() )
+		return
+	var out_data : FlowData.Data = in_data.duplicate()
+	var spos : PackedVector3Array = out_data.cloneStream( FlowData.AttrPosition )
+	var srot : PackedVector3Array = out_data.cloneStream( FlowData.AttrRotation )
+	var ssizes : PackedVector3Array = out_data.cloneStream( FlowData.AttrSize )
+	var offset_min : Vector3 = getSettingValue( ctx, "offset_min" )
+	var offset_max : Vector3 = getSettingValue( ctx, "offset_max" )
+	var rotation_min : Vector3 = getSettingValue( ctx, "rotation_min" )
+	var rotation_max : Vector3 = getSettingValue( ctx, "rotation_max" )
+	var scale_min : Vector3 = getSettingValue( ctx, "scale_min" )
+	var scale_max : Vector3 = getSettingValue( ctx, "scale_max" )
+	var uniform_scale : bool = getSettingValue( ctx, "uniform_scale" )
+	var offset_local_space : bool = getSettingValue( ctx, "offset_local_space" )
+	var rotation_local_space : bool = getSettingValue( ctx, "rotation_local_space" )
+	for i in spos.size():
+		var amount_pos = Vector3( rng.randf(), rng.randf(), rng.randf() )
+		var basis := FlowData.eulerToBasis( srot[i] )
+		if offset_local_space:
+			spos[i] += basis * (offset_min + ( offset_max - offset_min ) * amount_pos)
+		else:
+			spos[i] += (offset_min + ( offset_max - offset_min ) * amount_pos)
+			
+		var amount_rot = Vector3( rng.randf(), rng.randf(), rng.randf() )
+		if rotation_local_space:
+			var delta_rot = rotation_min + ( rotation_max - rotation_min ) * amount_rot
+			srot[i] = FlowData.basisToEuler( basis * FlowData.eulerToBasis( delta_rot ) )
+		else:
+			srot[i] += rotation_min + ( rotation_max - rotation_min ) * amount_rot
+		if uniform_scale:
+			var amount_scale = rng.randf()
+			ssizes[i] *= scale_min.x + ( scale_max.x - scale_min.x ) * amount_scale
+		else:
+			var amount_scale = Vector3( rng.randf(), rng.randf(), rng.randf() )
+			ssizes[i] *= scale_min + ( scale_max - scale_min ) * amount_scale
+	setOutput(ctx, 0, out_data )

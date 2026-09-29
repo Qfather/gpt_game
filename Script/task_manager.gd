@@ -695,31 +695,22 @@ func _is_registered(task: GameTask) -> bool:
 
 
 func _clear_worker_task(task: GameTask) -> void:
-
-	if (
-		task.assigned_worker != null
-		and task.assigned_worker.has_method("clear_current_task")
-	):
-		task.assigned_worker.clear_current_task()
+	var worker: Variant = task.assigned_worker
+	if is_instance_valid(worker) and worker.has_method("clear_current_task"):
+		worker.clear_current_task()
 
 
 func _return_worker_to_idle(task: GameTask) -> void:
-
-	if (
-		task.assigned_worker != null
-		and task.assigned_worker.has_method("return_to_idle")
-	):
-		task.assigned_worker.return_to_idle()
+	var worker: Variant = task.assigned_worker
+	if is_instance_valid(worker) and worker.has_method("return_to_idle"):
+		worker.return_to_idle()
 
 
 func _return_worker_resources(task: GameTask) -> bool:
-
-	if (
-		task.assigned_worker != null
-		and task.assigned_worker.has_method("return_carried_resource_to_base")
-	):
-		print("📦 取消任务，检查居民携带资源：", task.assigned_worker)
-		return bool(task.assigned_worker.return_carried_resource_to_base())
+	var worker: Variant = task.assigned_worker
+	if is_instance_valid(worker) and worker.has_method("return_carried_resource_to_base"):
+		print("📦 取消任务，检查居民携带资源：", worker)
+		return bool(worker.return_carried_resource_to_base())
 	return false
 
 

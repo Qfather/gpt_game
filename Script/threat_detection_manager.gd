@@ -34,6 +34,8 @@ func _find_nearest_enemy(base: Node3D) -> Node3D:
 			continue
 		if enemy.has_method("is_dead") and enemy.is_dead():
 			continue
+		if bool(enemy.get_meta("fog_hidden", false)):
+			continue
 		var distance: float = base.global_position.distance_squared_to(enemy.global_position)
 		if distance < nearest_distance:
 			nearest_distance = distance

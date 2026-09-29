@@ -1,0 +1,13 @@
+[gd_scene format=3 uid="uid://frsumpobsped"]
+
+[ext_resource type="PackedScene" uid="uid://bn7cvmxm3a864" path="res://assets/modles/env/阶梯.glb" id="1_0yflb"]
+[ext_resource type="Material" uid="uid://udsgrhrufmou" path="res://assets/materials/ladder.tres" id="2_fcwsx"]
+
+[node name="Node3D" type="Node3D" unique_id=1074059174]
+
+[node name="阶梯" parent="." unique_id=1547069028 instance=ExtResource("1_0yflb")]
+
+[node name="SM_Env_Stone_Stairs_03" parent="阶梯" index="0" unique_id=557418861]
+surface_material_override/0 = ExtResource("2_fcwsx")
+
+[editable path="阶梯"]

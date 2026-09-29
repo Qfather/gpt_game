@@ -83,7 +83,22 @@ enum State {
 	MOVE_TO_LOOT
 }
 
-var state: State = State.IDLE
+var gather_previous_target_desired_distance: float = 1.5
+var gather_previous_path_desired_distance: float = 0.5
+var state: State = State.IDLE:
+	set(value):
+		if state == value:
+			return
+		if navigation_agent != null:
+			if state == State.MOVE_TO_RESOURCE:
+				navigation_agent.target_desired_distance = gather_previous_target_desired_distance
+				navigation_agent.path_desired_distance = gather_previous_path_desired_distance
+			if value == State.MOVE_TO_RESOURCE:
+				gather_previous_target_desired_distance = navigation_agent.target_desired_distance
+				gather_previous_path_desired_distance = navigation_agent.path_desired_distance
+				navigation_agent.target_desired_distance = 0.2
+				navigation_agent.path_desired_distance = 0.2
+		state = value
 var patrol_barracks: Node = null
 var patrol_resume_state: int = -1
 var patrol_resume_target_position: Vector3 = Vector3.ZERO
@@ -100,6 +115,14 @@ var patrol_queue_delay: float = 0.0
 var patrol_previous_target_desired_distance: float = 1.5
 var navigation_last_position: Vector3 = Vector3.ZERO
 var navigation_stuck_time: float = 0.0
+var unreachable_time: float = 0.0
+var unreachable_last_position: Vector3 = Vector3.ZERO
+var unreachable_target_position: Vector3 = Vector3.ZERO
+var unreachable_state: State = State.IDLE
+var unreachable_warning: bool = false
+var unreachable_marker: Label3D
+var abandoning_work: bool = false
+var abandoned_work_target_id: int = 0
 var garrison_resume_state: int = -1
 var garrison_resume_target_position: Vector3 = Vector3.ZERO
 var resupply_barracks: Node = null
@@ -580,6 +603,7 @@ func _ready():
 	idle_reposition_timer = randf_range(3.0, 10.0)
 	_update_combat_visual()
 	_create_aggro_range_display()
+	_create_unreachable_marker()
 	input_event.connect(_on_input_event)
 	call_deferred("start")
 
@@ -595,7 +619,24 @@ func _create_aggro_range_display() -> void:
 	add_child(range_display)
 
 
+func _create_unreachable_marker() -> void:
+	unreachable_marker = Label3D.new()
+	unreachable_marker.name = "UnreachableMarker"
+	unreachable_marker.text = "!"
+	unreachable_marker.modulate = Color(1.0, 0.85, 0.1)
+	unreachable_marker.outline_modulate = Color(0.2, 0.15, 0.02)
+	unreachable_marker.outline_size = 12
+	unreachable_marker.font_size = 128
+	unreachable_marker.pixel_size = 0.008
+	unreachable_marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	unreachable_marker.no_depth_test = true
+	unreachable_marker.position.y = 2.5
+	unreachable_marker.visible = false
+	add_child(unreachable_marker)
+
+
 func _on_unit_died(_source: Node) -> void:
+	_set_unreachable_warning(false)
 	remove_from_group("villagers")
 	var population_manager: Node = get_tree().get_first_node_in_group(
 		"population_manager"
@@ -803,6 +844,59 @@ func _physics_process(delta):
 
 		State.WORKING_FIELD:
 			work_field(delta)
+
+	_update_unreachable_warning(delta)
+
+
+func _update_unreachable_warning(delta: float) -> void:
+	if state != unreachable_state:
+		unreachable_state = state
+		unreachable_time = 0.0
+		_set_unreachable_warning(false)
+	var moving_to_work: bool = state in [
+		State.MOVE_TO_TASK_SOURCE, State.MOVE_TO_TASK_SITE,
+		State.MOVE_TO_BUILD_SITE, State.WAIT_CONSTRUCTION_SITE,
+		State.MOVE_TO_DEMOLITION, State.MOVE_TO_WORKPLACE,
+		State.MOVE_TO_RESOURCE, State.MOVE_TO_FIELD,
+		State.MOVE_TO_BASE, State.MOVE_TO_DEMOLITION_BASE,
+		State.MOVE_TO_TRAINING, State.MOVE_TO_BARRACKS,
+		State.MOVE_TO_LOOT, State.RETURN_TO_IDLE
+	]
+	if not moving_to_work or is_dead():
+		_set_unreachable_warning(false)
+		unreachable_time = 0.0
+		return
+	var target: Vector3 = navigation_agent.target_position
+	if target.distance_to(unreachable_target_position) > 0.5:
+		unreachable_target_position = target
+		unreachable_last_position = global_position
+		unreachable_time = 0.0
+		_set_unreachable_warning(false)
+		return
+	if global_position.distance_to(unreachable_last_position) >= 0.2:
+		unreachable_last_position = global_position
+		unreachable_time = 0.0
+		_set_unreachable_warning(false)
+		return
+	var remaining: Vector3 = target - global_position
+	remaining.y = 0.0
+	if remaining.length() <= navigation_agent.target_desired_distance + 0.5:
+		unreachable_time = 0.0
+		_set_unreachable_warning(false)
+		return
+	unreachable_time += delta
+	if unreachable_time >= 5.0:
+		_set_unreachable_warning(true)
+
+
+func _set_unreachable_warning(active: bool) -> void:
+	unreachable_warning = active
+	if unreachable_marker != null:
+		unreachable_marker.visible = active
+
+
+func has_unreachable_warning() -> bool:
+	return unreachable_warning
 
 
 func _process_combat(delta: float) -> bool:
@@ -1034,6 +1128,11 @@ func move_to_task_source() -> void:
 
 	if not navigation_agent.is_navigation_finished():
 		move_along_navigation()
+		return
+	var source_delta: Vector3 = navigation_agent.target_position - global_position
+	source_delta.y = 0.0
+	if source_delta.length() > navigation_agent.target_desired_distance + 0.5:
+		velocity = Vector3.ZERO
 		return
 
 	var task: GameTask = current_task as GameTask
@@ -1982,9 +2081,7 @@ func move_to_resource():
 		return
 
 
-	# 采集采用较小到点容差，不改变搬运、施工等状态原有的容差。
-	var previous_distance: float = navigation_agent.target_desired_distance
-	navigation_agent.target_desired_distance = 0.2
+	# 到点容差在进入/退出采集移动状态时切换，跨帧保持一致。
 	if navigation_agent.is_navigation_finished():
 		var candidate: Vector3 = target_resource.get_gather_position(global_position, navigation_agent.get_navigation_map())
 		if candidate.is_finite():
@@ -1994,7 +2091,6 @@ func move_to_resource():
 			target_resource = null
 			state = State.FIND_RESOURCE
 	move_along_navigation()
-	navigation_agent.target_desired_distance = previous_distance
 
 
 # ============================================================
@@ -2175,6 +2271,9 @@ func move_to_base():
 
 	# 已经到达据点
 	if navigation_agent.is_navigation_finished():
+		if not _has_reached_task_site_navigation_target():
+			velocity = Vector3.ZERO
+			return
 
 		velocity = Vector3.ZERO
 
@@ -2716,6 +2815,7 @@ func is_idle() -> bool:
 		job == Job.NONE
 		and current_task == null
 		and not is_quitting_job
+		and not abandoning_work
 		and garrisoned_in == null
 		and not is_instance_valid(construction_cancellation_target)
 		and carried_amount <= 0.0
@@ -2725,6 +2825,17 @@ func is_idle() -> bool:
 # ============================================================
 
 func return_to_idle():
+	if abandoning_work:
+		if target_base == null:
+			find_base()
+		if target_base != null:
+			navigation_agent.target_position = get_random_idle_position(
+				target_base.global_position, target_base.idle_radius
+			)
+			state = State.RETURN_TO_IDLE
+		else:
+			state = State.IDLE
+		return
 	if is_instance_valid(garrisoned_in):
 		state = State.GARRISONED
 		return
@@ -2840,13 +2951,18 @@ func try_find_available_barracks() -> bool:
 func move_to_idle_area():
 
 	var reached_idle_position: bool = (
-		navigation_agent.is_navigation_finished()
+		(not abandoning_work and navigation_agent.is_navigation_finished())
 		or global_position.distance_to(navigation_agent.target_position) <= 0.8
 	)
 	if reached_idle_position:
 
 		velocity = Vector3.ZERO
 		state = State.IDLE
+		if abandoning_work:
+			abandoning_work = false
+			var task_managers: Array[Node] = get_tree().get_nodes_in_group("task_manager")
+			if not task_managers.is_empty():
+				task_managers[0].request_dispatch()
 
 		if job != Job.NONE:
 			print("💤 已回到工作地点附近待命：", workplace.name)
@@ -3059,6 +3175,9 @@ func move_to_workplace():
 
 
 	if navigation_agent.is_navigation_finished():
+		if not _has_reached_task_site_navigation_target():
+			velocity = Vector3.ZERO
+			return
 
 		velocity = Vector3.ZERO
 
@@ -3390,6 +3509,57 @@ func get_random_idle_position(center: Vector3,radius: float) -> Vector3:
 
 	return random_position
 #离职
+func can_work_at(target: Node) -> bool:
+	return not is_instance_valid(target) or target.get_instance_id() != abandoned_work_target_id
+
+
+func abandon_current_work() -> void:
+	var previous_site: Variant = task_site
+	var task: GameTask = current_task as GameTask
+	var previous_target: Variant = task.target if task != null else previous_site
+	if not is_instance_valid(previous_target):
+		previous_target = workplace
+	abandoned_work_target_id = previous_target.get_instance_id() if is_instance_valid(previous_target) else 0
+	abandoning_work = true
+	_set_unreachable_warning(false)
+	unreachable_time = 0.0
+	if task != null:
+		var managers: Array[Node] = get_tree().get_nodes_in_group("task_manager")
+		if not managers.is_empty():
+			managers[0].cancel_task(task, false)
+		else:
+			clear_current_task()
+	if is_instance_valid(previous_target) and previous_target is ConstructionSite:
+		previous_target.stop_assigning_workers()
+	if is_instance_valid(previous_site) and previous_site.has_method("remove_construction_worker"):
+		previous_site.remove_construction_worker(self)
+	if is_instance_valid(target_resource):
+		target_resource.release(self)
+	target_resource = null
+	release_target_field()
+	var previous_workplace: Variant = workplace
+	job = Job.NONE
+	workplace = null
+	is_quitting_job = false
+	is_transporting = false
+	if is_instance_valid(previous_workplace) and previous_workplace.has_method("remove_worker"):
+		previous_workplace.remove_worker(self)
+	if is_instance_valid(garrisoned_in):
+		if garrisoned_in.has_method("remove_unit_from_rosters"):
+			garrisoned_in.remove_unit_from_rosters(self)
+		leave_garrison()
+	task_source = null
+	task_site = null
+	current_task = null
+	state = State.IDLE
+	if target_base == null:
+		find_base()
+	if carried_amount > 0.0:
+		go_to_base()
+	else:
+		return_to_idle()
+
+
 func quit_job():
 
 	if job == Job.NONE:
@@ -3438,11 +3608,16 @@ func finish_quit_job():
 # ============================================================
 
 func can_take_task(_task: Object) -> bool:
+	if _task != null:
+		var task_target: Variant = _task.get("target")
+		if is_instance_valid(task_target) and task_target.get_instance_id() == abandoned_work_target_id:
+			return false
 
 	return (
 		job == Job.NONE
 		and current_task == null
 		and not is_quitting_job
+		and not abandoning_work
 		and not has_combat_role()
 		and not is_instance_valid(construction_cancellation_target)
 		and carried_amount <= 0.0

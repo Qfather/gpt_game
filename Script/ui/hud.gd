@@ -4,6 +4,7 @@ extends CanvasLayer
 signal build_requested(building_data: BuildingData)
 signal enemy_placement_requested(enemy_data: EnemyData)
 signal raid_requested()
+signal unreachable_villager_clicked(villager: UnitBase)
 
 const LUMBER_CAMP_DATA: BuildingData = preload(
 	"res://data/buildings/LumberCampData.tres"
@@ -29,6 +30,9 @@ const WALL_DATA: BuildingData = preload(
 const GATE_DATA: BuildingData = preload(
 	"res://data/buildings/GateData.tres"
 )
+const TORCH_DATA: BuildingData = preload(
+	"res://data/buildings/TorchData.tres"
+)
 const RESOURCE_DATABASE: ResourceDatabase = preload(
 	"res://data/resources/resource_database.tres"
 )
@@ -46,6 +50,7 @@ const MILITARY_BUILDINGS: Array[BuildingData] = [
 	WALL_DATA,
 	GATE_DATA
 ]
+const STRATEGY_BUILDINGS: Array[BuildingData] = [TORCH_DATA]
 
 
 # ============================================================
@@ -85,6 +90,11 @@ var defeat_overlay: Control = null
 var victory_overlay: Control = null
 var threat_label: Label = null
 var raid_countdown_label: Label = null
+var debug_scroll: ScrollContainer
+var debug_toggle: Button
+var game_clock: Control
+var unreachable_icons: HBoxContainer
+var unreachable_buttons: Dictionary = {}
 
 
 # ============================================================
@@ -93,6 +103,7 @@ var raid_countdown_label: Label = null
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_configure_status_layout()
 	_create_debug_panel()
 	_create_building_popup()
 	_configure_building_menu()
@@ -100,6 +111,7 @@ func _ready() -> void:
 	_create_victory_overlay()
 	_create_threat_label()
 	_create_raid_countdown_label()
+	_create_unreachable_icons()
 
 	await get_tree().process_frame
 
@@ -133,8 +145,12 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	var director: EncounterDirector = get_tree().get_first_node_in_group("encounter_director") as EncounterDirector
+	if director != null:
+		game_clock.set_elapsed_time(director.elapsed_time)
 	_refresh_debug_panel()
 	_refresh_raid_countdown()
+	_refresh_unreachable_icons()
 	if population_manager != null:
 		_refresh_population_display(
 			population_manager.get_population(),
@@ -232,7 +248,9 @@ func _on_restart_pressed() -> void:
 func _create_threat_label() -> void:
 	threat_label = Label.new()
 	threat_label.name = "ThreatDirectionLabel"
-	threat_label.position = Vector2(350.0, 12.0)
+	threat_label.set_anchors_preset(Control.PRESET_CENTER_LEFT)
+	threat_label.position = Vector2(12.0, -16.0)
+	threat_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	threat_label.text = "威胁方向：暂无"
 	threat_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.35, 1.0))
 	threat_label.z_index = 20
@@ -250,6 +268,56 @@ func _create_raid_countdown_label() -> void:
 	raid_countdown_label.add_theme_color_override("font_color", Color(1.0, 0.75, 0.35, 1.0))
 	raid_countdown_label.z_index = 20
 	add_child(raid_countdown_label)
+
+
+func _create_unreachable_icons() -> void:
+	unreachable_icons = HBoxContainer.new()
+	unreachable_icons.name = "UnreachableVillagerIcons"
+	unreachable_icons.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	unreachable_icons.offset_left = 12.0
+	unreachable_icons.offset_right = 290.0
+	unreachable_icons.offset_top = -172.0
+	unreachable_icons.offset_bottom = -124.0
+	unreachable_icons.z_index = 20
+	unreachable_icons.hide()
+	add_child(unreachable_icons)
+
+
+func _refresh_unreachable_icons() -> void:
+	var wanted: Dictionary = {}
+	for node: Node in get_tree().get_nodes_in_group("villagers"):
+		var villager: UnitBase = node as UnitBase
+		if villager == null or villager.is_queued_for_deletion() or villager.is_dead():
+			continue
+		if not villager.has_method("has_unreachable_warning") or not villager.has_unreachable_warning():
+			continue
+		var key: int = villager.get_instance_id()
+		wanted[key] = true
+		if unreachable_buttons.has(key):
+			continue
+		var button := Button.new()
+		button.custom_minimum_size = Vector2(42.0, 42.0)
+		button.tooltip_text = "无法到达：点击定位并选择 " + villager.name
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0.65, 0.47, 0.18)
+		style.set_border_width_all(2)
+		style.border_color = Color(1.0, 0.82, 0.15)
+		button.add_theme_stylebox_override("normal", style)
+		button.add_theme_stylebox_override("hover", style)
+		button.pressed.connect(unreachable_villager_clicked.emit.bind(villager))
+		unreachable_icons.add_child(button)
+		var alert := Label.new()
+		alert.text = "!"
+		alert.add_theme_color_override("font_color", Color(1.0, 0.95, 0.2))
+		alert.position = Vector2(30.0, -5.0)
+		button.add_child(alert)
+		unreachable_buttons[key] = button
+	for key: int in unreachable_buttons.keys():
+		if wanted.has(key):
+			continue
+		unreachable_buttons[key].queue_free()
+		unreachable_buttons.erase(key)
+	unreachable_icons.visible = not unreachable_buttons.is_empty()
 
 
 func _refresh_raid_countdown() -> void:
@@ -371,19 +439,34 @@ func _refresh_immigration_display() -> void:
 func _create_debug_panel() -> void:
 	debug_panel = PanelContainer.new()
 	debug_panel.name = "DebugPanel"
-	debug_panel.position = Vector2(8.0, 150.0)
+	debug_panel.position = Vector2(8.0, 52.0)
 	debug_panel.custom_minimum_size = Vector2(245.0, 0.0)
 	debug_panel.z_index = 10
 	add_child(debug_panel)
 
-	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", 5)
-	debug_panel.add_child(content)
+	var box := VBoxContainer.new()
+	debug_panel.add_child(box)
+	var header := HBoxContainer.new()
+	box.add_child(header)
 
 	var title := Label.new()
 	title.text = "调试工具"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	content.add_child(title)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title)
+	debug_toggle = Button.new()
+	debug_toggle.text = "▶"
+	debug_toggle.tooltip_text = "展开调试工具"
+	header.add_child(debug_toggle)
+	debug_toggle.pressed.connect(_toggle_debug_panel)
+	debug_scroll = ScrollContainer.new()
+	debug_scroll.custom_minimum_size = Vector2(270, 240)
+	debug_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	box.add_child(debug_scroll)
+	debug_scroll.hide()
+	var content := VBoxContainer.new()
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.add_theme_constant_override("separation", 5)
+	debug_scroll.add_child(content)
 
 	enemy_placement_button = Button.new()
 	enemy_placement_button.text = "放置史莱姆"
@@ -492,6 +575,54 @@ func _create_debug_need_row(
 	row.add_child(add_button)
 
 
+func _toggle_debug_panel() -> void:
+	debug_scroll.visible = not debug_scroll.visible
+	debug_toggle.text = "▼" if debug_scroll.visible else "▶"
+	debug_toggle.tooltip_text = "收起调试工具" if debug_scroll.visible else "展开调试工具"
+	debug_panel.reset_size()
+
+
+func _configure_status_layout() -> void:
+	# 保留原暂停/倍速按钮路径及其信号，资源与人口单独移动到右上角。
+	$PanelContainer.position = Vector2(8, 8)
+	var status_panel := PanelContainer.new()
+	status_panel.name = "TopRightStatus"
+	add_child(status_panel)
+	status_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	status_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	status_panel.offset_right = -12
+	status_panel.offset_top = 12
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 20)
+	status_panel.add_child(row)
+	var population := VBoxContainer.new()
+	row.add_child(population)
+	population_label.reparent(population)
+	swordsman_label.reparent(population)
+	var materials := VBoxContainer.new()
+	row.add_child(materials)
+	wood_label.reparent(materials)
+	stone_label.reparent(materials)
+	grain_label.reparent(materials)
+	$PanelContainer.reset_size()
+	var immigration: Control = $ImmigrationPanel
+	immigration.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	immigration.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	immigration.offset_left = 12
+	immigration.offset_right = 290
+	immigration.offset_top = -116
+	immigration.offset_bottom = -12
+	game_clock = Control.new()
+	game_clock.name = "GameClock"
+	game_clock.set_script(preload("res://Script/ui/game_clock.gd"))
+	add_child(game_clock)
+	game_clock.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	game_clock.offset_left = -48
+	game_clock.offset_right = 48
+	game_clock.offset_top = 12
+	game_clock.offset_bottom = 108
+
+
 func set_debug_villager(villager: Node) -> void:
 	debug_villager = villager
 	_refresh_debug_panel()
@@ -592,16 +723,17 @@ func _apply_debug_villager_adjust(
 
 
 func _configure_building_menu() -> void:
-	building_tabs.tab_count = 2
+	building_tabs.tab_count = 3
 	building_tabs.set_tab_title(0, "生产建筑")
 	building_tabs.set_tab_title(1, "军事建筑")
+	building_tabs.set_tab_title(2, "战略")
 	if not building_tabs.tab_changed.is_connected(_on_building_tab_changed):
 		building_tabs.tab_changed.connect(_on_building_tab_changed)
 	_refresh_building_buttons()
 
 
 func _on_building_tab_changed(tab_index: int) -> void:
-	selected_building_category = clampi(tab_index, 0, 1)
+	selected_building_category = clampi(tab_index, 0, 2)
 	_refresh_building_buttons()
 
 
@@ -609,11 +741,11 @@ func _refresh_building_buttons() -> void:
 	for child: Node in build_buttons.get_children():
 		child.free()
 
-	var building_options: Array[BuildingData] = (
-		PRODUCTION_BUILDINGS
-		if selected_building_category == 0
-		else MILITARY_BUILDINGS
-	)
+	var building_options: Array[BuildingData] = STRATEGY_BUILDINGS
+	if selected_building_category == 0:
+		building_options = PRODUCTION_BUILDINGS
+	elif selected_building_category == 1:
+		building_options = MILITARY_BUILDINGS
 	for building_data: BuildingData in building_options:
 		var button := Button.new()
 		button.custom_minimum_size = Vector2(115.0, 48.0)

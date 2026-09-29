@@ -7,6 +7,7 @@ var resource_inspector: EditorInspector
 var resource_list: ItemList
 var seed_spin: SpinBox
 var rift_distance_spin: SpinBox
+var fog_toggle: CheckBox
 const LABELS: Dictionary = {
 	"map_size": "地图格数", "cell_size_m": "单格尺寸（米）", "seed_value": "地形种子",
 	"island_ratio_percent": "岛屿占比（%）", "protrusion_percent": "轮廓突出程度（%）",
@@ -36,6 +37,13 @@ func _init() -> void:
 	var title := Label.new()
 	title.text = "地图生成配置（保存到当前关卡预设）"
 	map_column.add_child(title)
+	fog_toggle = CheckBox.new()
+	fog_toggle.text = "启用战争迷雾"
+	fog_toggle.toggled.connect(func(value: bool) -> void:
+		if preset != null:
+			preset.fog_of_war_enabled = value
+	)
+	map_column.add_child(fog_toggle)
 	var seed_label := Label.new()
 	seed_label.text = "据点/资源布局种子（-1 每局随机）"
 	map_column.add_child(seed_label)
@@ -107,6 +115,7 @@ func edit_preset(value: LevelFlowData) -> void:
 	if preset.map_config == null:
 		preset.map_config = WFCLevelConfig.new()
 	seed_spin.set_value_no_signal(preset.layout_seed)
+	fog_toggle.set_pressed_no_signal(preset.fog_of_war_enabled)
 	rift_distance_spin.set_value_no_signal(preset.rift_min_base_distance)
 	map_inspector.edit(preset.map_config)
 	call_deferred("_translate_labels")

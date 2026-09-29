@@ -13,7 +13,7 @@ func _ready() -> void:
 		rift_manager.rift_event_completed.connect(_on_rift_event_completed)
 
 func _process(delta: float) -> void:
-	if level_flow == null:
+	if level_flow == null or get_tree().paused:
 		return
 	elapsed_time += maxf(delta, 0.0)
 	var raid_manager: RaidSpawnManager = get_tree().get_first_node_in_group("raid_spawn_manager") as RaidSpawnManager

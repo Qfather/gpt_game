@@ -1,0 +1,987 @@
+extends Object
+class_name FlowData
+
+## Defines the DataTypes and Data class that is passed between nodes
+## A FlowData.Data is basically a dict of streams, where each stream is:
+##   Container: Continuous typed array of the actual data stored
+##   data_type
+##   name
+## The storage is column oriented, not row oriented, meaning we work with arrays
+## of homogeneous typed data.
+
+enum DataType {
+	Bool,
+	Int,
+	Float,
+	Vector,
+	String,
+	Resource,
+	NodeMesh,
+	NodePath,
+	Color,
+	Any,
+	Invalid = 999
+}
+
+const AttrPosition : StringName = &"position"
+const AttrRotation : StringName = &"rotation"
+const AttrSize     : StringName = &"size"
+
+class DebugLine:
+	var from: Vector3
+	var to: Vector3
+	var color: Color
+	var width: float
+
+	func _init(p_from: Vector3, p_to: Vector3, p_color: Color, p_width: float) -> void:
+		from = p_from
+		to = p_to
+		color = p_color
+		width = p_width
+
+class DebugLabel:
+	var position: Vector3
+	var text: String
+	var color: Color
+	var offset: Vector2
+	var font_size: int
+
+	func _init(p_position: Vector3, p_text: String, p_color: Color, p_offset: Vector2, p_font_size: int) -> void:
+		position = p_position
+		text = p_text
+		color = p_color
+		offset = p_offset
+		font_size = p_font_size
+
+class NodeRuntime:
+	var inputs: Array = []
+	var input_bulks: Array = []
+	var output_bulks: Array = []
+	var debug_lines: Array[DebugLine] = []
+	var debug_labels: Array[DebugLabel] = []
+	var last_eval_id: int = -1
+	var has_evaluated: bool = false
+	var dirty: bool = true
+	var applied_revision: int = -1
+	var error: String = ""
+	var exec_time_usec: int = 0
+
+	func reset_for_execution() -> void:
+		inputs.clear()
+		input_bulks.clear()
+		output_bulks.clear()
+
+	func clear_debug_draw() -> void:
+		debug_lines.clear()
+		debug_labels.clear()
+
+class EvaluationContext:
+	var parent_ctx : EvaluationContext
+	var owner : FlowGraphNode3D
+	var eval_id : int = 0
+	var execution_index : int = 0
+	var graph : FlowGraphResource
+	var node_runtimes: Dictionary = {}
+	var child_contexts: Dictionary = {}
+	var _executing_node: FlowNodeBase
+	
+	# Used by loops/subgraphs/non_ctes_input_params : string : FlowData
+	var inputs : Dictionary = {}
+	
+	# For debug/identification
+	var trace : bool = false
+	var name : String 
+	
+	# Filled by the user of the context
+	var nodes_to_eval : Array[ FlowNodeBase ]
+	var active_nodes : Array[ FlowNodeBase ]
+
+	func getNodeRuntime(node: FlowNodeBase) -> NodeRuntime:
+		if not node_runtimes.has(node.name):
+			node_runtimes[node.name] = NodeRuntime.new()
+		return node_runtimes[node.name]
+
+	func getChildContext(
+		node: FlowNodeBase,
+		invocation_idx: int,
+		child_graph: FlowGraphResource
+	) -> EvaluationContext:
+		if not child_contexts.has(node.name):
+			child_contexts[node.name] = {}
+
+		var node_contexts: Dictionary = child_contexts[node.name]
+		var child: EvaluationContext = node_contexts.get(invocation_idx)
+		if child == null or child.graph != child_graph:
+			child = EvaluationContext.new()
+			node_contexts[invocation_idx] = child
+
+		child.parent_ctx = self
+		child.owner = owner
+		child.graph = child_graph
+		child.execution_index = invocation_idx
+		child.trace = trace or node.trace
+		child.name = "%s/%s[%d]" % [name, node.name, invocation_idx]
+		child.nodes_to_eval = child.getEvalOrder(child_graph.all_nodes)
+		return child
+
+	func findChildContext(node: FlowNodeBase, invocation_idx: int) -> EvaluationContext:
+		var node_contexts: Dictionary = child_contexts.get(node.name, {})
+		return node_contexts.get(invocation_idx)
+
+	func clearChildContexts(node: FlowNodeBase) -> void:
+		child_contexts.erase(node.name)
+
+	func resetNodeForExecution(node: FlowNodeBase) -> void:
+		getNodeRuntime(node).reset_for_execution()
+
+	func debugLine(from: Vector3, to: Vector3, color := Color.WHITE, width := 1.0) -> void:
+		if _executing_node == null:
+			push_warning("debugLine called outside a node execution")
+			return
+		getNodeRuntime(_executing_node).debug_lines.append(DebugLine.new(from, to, color, width))
+
+	func debugText(position: Vector3, text: String, color := Color.WHITE, offset := Vector2(6.0, -6.0), font_size := 14) -> void:
+		if _executing_node == null:
+			push_warning("debugText called outside a node execution")
+			return
+		getNodeRuntime(_executing_node).debug_labels.append(DebugLabel.new(position, text, color, offset, font_size))
+
+	func getInputBulks(node: FlowNodeBase) -> Array:
+		return getNodeRuntime(node).input_bulks
+
+	func getOutputBulks(node: FlowNodeBase) -> Array:
+		return getNodeRuntime(node).output_bulks
+
+	func setOutput(node: FlowNodeBase, port_idx: int, data: FlowData.Data) -> void:
+		var output_bulks := getNodeRuntime(node).output_bulks
+		if port_idx == 0:
+			output_bulks.append([])
+		var bulk_idx := output_bulks.size() - 1
+		assert(bulk_idx >= 0, "Node %s must write output port 0 before port %d" % [node.name, port_idx])
+		var bulk: Array = output_bulks[bulk_idx]
+		if port_idx >= bulk.size():
+			bulk.resize(port_idx + 1)
+		bulk[port_idx] = data
+
+	func setNodeInputs(node: FlowNodeBase, new_inputs: Array) -> void:
+		var runtime := getNodeRuntime(node)
+		var current_inputs := new_inputs.duplicate()
+		runtime.inputs = new_inputs
+		runtime.input_bulks.append(	current_inputs )
+
+	func getInput(node: FlowNodeBase, port_idx: int) -> FlowData.Data:
+		var current_inputs := getNodeRuntime(node).inputs
+		if port_idx < 0 or port_idx >= current_inputs.size():
+			return null
+		return current_inputs[port_idx]
+
+	func getInputCount(node: FlowNodeBase) -> int:
+		return getNodeRuntime(node).inputs.size()
+
+	func getConnectedBulkCount(node: FlowNodeBase) -> int:
+		var count := 0
+		for conn in node.deps:
+			if conn.to_port != 0:
+				continue
+			var source_node = graph.nodes_by_name.get(conn.from_node)
+			if source_node:
+				count += getOutputBulks(source_node).size()
+		if count == 0:
+			count = 1
+		return count
+
+	func getInputAt(node: FlowNodeBase, bulk_idx: int, port_idx: int) -> FlowData.Data:
+		var bulks := getNodeRuntime(node).input_bulks
+		if bulk_idx < 0 or bulk_idx >= bulks.size():
+			return null
+		var bulk: Array = bulks[bulk_idx]
+		if port_idx < 0 or port_idx >= bulk.size():
+			return null
+		return bulk[port_idx]
+
+	func getOutput(node: FlowNodeBase, bulk_idx: int, port_idx: int) -> FlowData.Data:
+		var bulks := getNodeRuntime(node).output_bulks
+		if bulk_idx < 0 or bulk_idx >= bulks.size():
+			return null
+		var bulk: Array = bulks[bulk_idx]
+		if port_idx < 0 or port_idx >= bulk.size():
+			return null
+		return bulk[port_idx]
+
+	func isNodeDirty(node: FlowNodeBase) -> bool:
+		var runtime := getNodeRuntime(node)
+		return runtime.dirty or runtime.applied_revision < node.runtime_revision
+
+	func markNodeDirty(node: FlowNodeBase) -> void:
+		getNodeRuntime(node).dirty = true
+
+	func markAllNodesDirty() -> void:
+		if not graph:
+			return
+		for node in graph.all_nodes:
+			if node:
+				markNodeDirty(node)
+
+	func markInputNodesDirty(input_name: StringName = StringName()) -> void:
+		if not graph:
+			return
+		for node in graph.input_nodes:
+			if node and (input_name.is_empty() or node.input_name == input_name):
+				markNodeDirty(node)
+
+	func markNodeClean(node: FlowNodeBase) -> void:
+		var runtime := getNodeRuntime(node)
+		runtime.dirty = false
+		runtime.applied_revision = node.runtime_revision
+
+	func getNodeError(node: FlowNodeBase) -> String:
+		return getNodeRuntime(node).error
+
+	func setNodeError(node: FlowNodeBase, error: String) -> void:
+		getNodeRuntime(node).error = error
+
+	func getNodeExecTime(node: FlowNodeBase) -> int:
+		return getNodeRuntime(node).exec_time_usec
+
+	func setNodeExecTime(node: FlowNodeBase, usec: int) -> void:
+		getNodeRuntime(node).exec_time_usec = usec
+	
+	# Priority:
+	#   ctx.inputs
+	#   ctx.graph.in_params
+	#   ctx.parent_ctx?.resolveInput
+	# Root contexts additionally resolve FlowGraphNode3D overrides before their
+	# graph defaults. Child contexts must not read the root owner directly.
+	func resolveInput( input_name : String ) -> FlowData.Data:
+		var input = inputs.get( input_name )
+		if input: 
+			if trace:
+				print( "Input %s requested to ctx %s -> ctx.input -> %s" % [ input_name, name, input ])
+			return input
+		
+		if parent_ctx == null and owner:
+			input = owner.get_or_create_override( input_name )
+			if input and input.enabled: 
+				if trace:
+					print( "Input %s requested to ctx %s -> ctx.owner.args -> %s" % [ input_name, name, input ])
+				return input.getAsFlowData()
+		elif parent_ctx == null:
+			print( "Input %s requested, owner is null," % [ input_name ])
+		
+		input = graph.findInParamByName( input_name )
+		if input: 
+			if trace:
+				print( "Input %s requested to ctx %s -> ctx.graph.inputs defs -> %s" % [ input_name, name, input ])
+			return input.getAsFlowData()
+		
+		if parent_ctx:
+			input = parent_ctx.resolveInput( input_name )
+			if trace:
+				print( "Input %s requested to ctx %s -> ctx.parent_ctx -> %s" % [ input_name, name, input ])
+			return input
+				
+		return FlowData.Data.new()
+	
+	func getDeps( node : FlowNodeBase ) -> Array[ FlowNodeBase ]:
+		var deps : Array[ FlowNodeBase ] = [ node ]
+		if graph:
+			for conn in node.deps:
+				var dep_node = graph.nodes_by_name.get( conn.from_node, null )
+				if not dep_node:
+					push_error( "%s dep %s NOT FOUND in the nodes_by_name %d" %[ node, conn.from_node, graph.nodes_by_name.size() ])
+					for n in graph.nodes_by_name:
+						print( "  %s" % n )
+					continue
+				var req_deps = getDeps( dep_node )
+				deps.append_array( req_deps )
+		return deps
+		
+	func getEvalOrder( all_nodes : Array[ FlowNodeBase ] ):
+		# Find targets, like spawn meshes
+		var finals := all_nodes.filter( func ( node : FlowNodeBase ) -> bool:
+			return ( node.inspect_enabled or node.debug_enabled or node.getMeta().get( "is_final", false ) )
+		)
+		#print( "Finals nodes are ", finals)
+		
+		# for each node, find requirements
+		# A -
+		#    -- C - D
+		# B -
+		# D -> C -> A -> B
+		var all_deps : Array[ FlowNodeBase ]
+		for node in finals:
+			if trace:
+				print( "finals.dep %s:" % node.name)
+			var node_deps = getDeps( node )
+			if trace:
+				print( "Deps of %s:" % node.name)
+				for dep_node in node_deps:
+					print( "  Dep: %s" % dep_node.name)
+			all_deps.append_array( node_deps )
+		
+		# Evaluate in inverse order
+		# B, A, C, D
+		all_deps.reverse()	
+		
+		if trace:
+			print( "%s Nodes to eval in order:" % name)
+			for node in all_deps:
+				print( "  -> %s" % node.name if node else "<null>" )
+		
+		return all_deps
+		
+	func resolveSpawnParent( node : FlowNodeBase ) -> Node3D:
+		var path = node.getPreferredSpawnPath()
+		if path:
+			var n = owner.get_node_or_null(path)
+			if n is Node3D:
+				return n
+			setNodeError(node, "Spawn parent path '%s' is invalid or not a Node3D" % path)
+		return owner
+		
+	func removeRegisteredInstancedNodes( node : FlowNodeBase ):
+		var spawn_root := resolveSpawnParent( node )
+		node.removeRegisteredInstancedNodes( spawn_root )
+
+	func getDirtyNodes() -> Array[ FlowNodeBase ]:
+		var dirty_nodes : Array[ FlowNodeBase ]
+		for node in graph.all_nodes:
+			if node and isNodeDirty(node):
+				dirty_nodes.append( node )
+		return dirty_nodes
+		
+	func expandDirtyFlagToDependants( node : FlowNodeBase ):
+		#print( "%s is dirty" % [ node.name ] )
+		for out_conn in node.dependants:
+			#print( "  -> %s" % [ out_conn ])
+			var dst_node = graph.nodes_by_name.get( out_conn.to_node )
+			if dst_node:
+				if not isNodeDirty(dst_node):
+					markNodeDirty(dst_node)
+					expandDirtyFlagToDependants( dst_node )
+				
+	func computeDirtyNodesAndRun():
+		var dirty_nodes := getDirtyNodes()
+		
+		if trace:
+			print( "computeDirtyNodesAndRun %d/%d dirty nodes at %s..." % [ dirty_nodes.size(), graph.all_nodes.size(), owner ])
+		
+		for node in dirty_nodes:
+			expandDirtyFlagToDependants( node )
+		
+		if trace:
+			print( "computeDirtyNodesAndRun:" )
+			for node in graph.all_nodes:
+				if node:
+					print( "  %s : %s" % [node.name, isNodeDirty(node)] )
+				else:
+					print( "  _null_" )
+		nodes_to_eval = getEvalOrder( graph.all_nodes )
+		run()
+		
+	func run():
+		
+		eval_id += 1
+		active_nodes.clear()
+		for node : FlowNodeBase in nodes_to_eval:
+			var runtime := getNodeRuntime(node)
+			var trace_node := trace or node.trace
+			if trace_node:
+				print( "  Eval: %s (%d) Dirty:%s" % [ node.name, runtime.last_eval_id, isNodeDirty(node)] )
+				
+			# The node has already been evaluated or it's not dirty. No need to reevaluate it
+			if runtime.last_eval_id == eval_id or not isNodeDirty(node):
+				if trace_node:
+					print( "  %s Already eval or not diry" % [ node.name ])
+				continue
+			
+			var time_node_start := Time.get_ticks_usec()
+			active_nodes.append( node )
+			_executing_node = node
+			runtime.clear_debug_draw()
+			
+			node.preExecute( self )
+			
+			#print( "Evaluating %s" % node.name )
+			if node.disabled:
+				if trace_node:
+					print( "  %s is disabled. Skipping" % [ node.name ])
+				node.executedDisabled( self )
+			elif node.is_operational:
+				if trace_node:
+					print( "  %s.run.starts. %d bulks to process" % [ node.name, getConnectedBulkCount(node) ])
+				node.run( self )
+			elif trace_node:
+				print("  %s has disconnected required inputs. Skipping" % node.name)
+			_executing_node = null
+			
+			var time_node_ends := Time.get_ticks_usec()
+			var exec_usec := time_node_ends - time_node_start
+			
+			# Always show execution time on the node
+			if trace_node:
+				print( "  %s run completed in %f. Generated %d bulks" % [ node.name, exec_usec, runtime.output_bulks.size() ])
+			runtime.last_eval_id = eval_id
+			runtime.has_evaluated = true
+			setNodeExecTime(node, exec_usec)
+			markNodeClean(node)
+
+## Build a stable orthonormal Basis from a surface normal.
+## - `normal` is the axis you want to align (default aligns to +Z).
+## - `up` is your preferred up; a safe fallback is chosen if nearly parallel.
+## - `axis` can be "z" (default), "y", or "x" for which axis the normal should align to.
+static func basisFromNormal(normal: Vector3, up: Vector3 = Vector3.UP, axis: String = "z") -> Basis:
+	var n := normal.normalized()
+	if n.length() == 0.0 or not n.is_finite():
+		return Basis.IDENTITY
+
+	# Pick a safe up if nearly parallel to n
+	var safe_up := up
+	if abs(n.dot(safe_up)) > 0.999: # ~parallel
+		# pick the axis least aligned with n
+		safe_up = Vector3.UP if (abs(n.y) < 0.9) else Vector3.RIGHT
+
+	# Build tangent/bitangent
+	var t := safe_up.cross(n).normalized()    # tangent
+	var b := n.cross(t)                       # bitangent; already unit-length if t,n are
+
+	var basis: Basis
+	match axis:
+		"x":
+			basis = Basis(n, t, b)            # X=n, Y=t, Z=b
+		"y":
+			basis = Basis(t, n, b)            # X=t, Y=n, Z=b
+		_:
+			basis = Basis(t, b, n)            # X=t, Y=b, Z=n (default: Z=n)
+
+	return basis.orthonormalized()
+
+# basis.get_euler() * 180.0 / PI		# <-- This is much faster
+static func basisToEuler( basis : Basis ) -> Vector3:
+	var euler = basis.get_euler()
+	euler.x = rad_to_deg( euler.x )
+	euler.y = rad_to_deg( euler.y )
+	euler.z = rad_to_deg( euler.z )
+	return euler
+
+static func eulerToBasis( euler : Vector3) -> Basis:
+	euler.x = deg_to_rad( euler.x )
+	euler.y = deg_to_rad( euler.y )
+	euler.z = deg_to_rad( euler.z )
+	return Basis.from_euler( euler )
+
+# A wrapper around the Position/Rotation/Scale streams
+class TransformsStream:
+	var positions : PackedVector3Array
+	var eulers : PackedVector3Array
+	var sizes : PackedVector3Array
+	func atIndex( id: int ) -> Transform3D:
+		var basis := FlowData.eulerToBasis( eulers[id] )
+		return Transform3D( basis, positions[id] ).scaled_local( sizes[id] )
+	
+	func atIndexAbsScale( id: int, scale: float ) -> Transform3D:
+		var basis := FlowData.eulerToBasis( eulers[id] )
+		return Transform3D( basis.scaled( Vector3.ONE * scale ), positions[id] )
+
+	func size() -> int:
+		return positions.size()
+
+# The basic information that is passed between nodes
+class Data:
+	var streams : Dictionary = {}
+	var last_added_stream_name : String
+	var tags : PackedStringArray = PackedStringArray()
+
+	static func newContainerOfType( data_type : DataType ):
+		match data_type:
+			DataType.Bool:
+				return PackedByteArray()
+			DataType.Int:
+				return PackedInt32Array()
+			DataType.Float:
+				return PackedFloat32Array()
+			DataType.Vector:
+				return PackedVector3Array()
+			DataType.String:
+				return PackedStringArray()
+			DataType.Resource:
+				return Array([], TYPE_OBJECT, "Resource", null)
+			DataType.NodeMesh:
+				return Array([], TYPE_OBJECT, "Node", null)
+			DataType.NodePath:
+				return Array([], TYPE_OBJECT, "Node", null)
+			DataType.Color:
+				return PackedColorArray()
+			_:
+				push_error( "newContainerOfType(%d) type not supported" % [ data_type ])
+		return null
+		
+	# Infer a DataType from a concrete packed-array container. Returns Invalid
+	# when the container type isn't one of the recognized packed arrays.
+	static func _inferContainerType( container ) -> DataType:
+		if container is PackedFloat32Array:
+			return FlowData.DataType.Float
+		elif container is PackedInt32Array:
+			return FlowData.DataType.Int
+		elif container is PackedVector3Array:
+			return FlowData.DataType.Vector
+		elif container is PackedColorArray:
+			return FlowData.DataType.Color
+		elif container is PackedStringArray:
+			return FlowData.DataType.String
+		elif container is PackedByteArray:
+			return FlowData.DataType.Bool
+		return FlowData.DataType.Invalid
+	
+	func numFields() -> int:
+		return streams.size()
+		
+	func size() -> int:
+		if streams.size() == 0:
+			return 0
+		var key0 = streams.keys()[0]
+		return streams[ key0 ].container.size()
+	
+	func hasStream( name : StringName ) -> bool:
+		return streams.has( name )
+		
+	func hasStreamOfType( name : StringName, data_type : DataType ) -> bool:
+		return streams.has( name ) and streams[ name ].data_type == data_type
+	
+	func markStreamAsRotation( name : StringName ):
+		name = translateStreamName( name )
+		var stream = streams.get( name, null )
+		if stream:
+			stream.is_rotation = true
+	
+	static func isStreamARotation( stream : Dictionary ):
+		return stream.has( "is_rotation" )
+	
+	func equals( other : FlowData.Data ) -> bool:
+		return size() == other.size() and tags == other.tags && streams == other.streams
+	
+	func getContainerChecked(name: String, data_type: DataType, ctx: EvaluationContext = null, node: FlowNodeBase = null):
+		var stream = findStream( name )
+		if stream and stream.data_type == data_type:
+			return stream.container
+		if node and ctx:
+			if stream:
+				node.setError(ctx, "Attribute %s should be of type %s" % [name, DataType.keys()[data_type]])
+			else:
+				node.setError(ctx, "Attribute %s not found" % name)
+		return null
+		
+	func isTRSStream( name : String ):
+		var parts = name.split(".")
+		if parts.size() == 1:
+			return false
+		return parts[1] == AttrPosition or parts[1] == AttrRotation or parts[1] == AttrSize
+		
+	# converts 'Yaw' into "Rotation.Y" 
+	func translateStreamName( name : String ):
+		name = name.to_lower()
+		if name == "@last":
+			if not last_added_stream_name:
+				push_error( "@last is not valid" )
+			return last_added_stream_name
+		# as described in the doc X = Pitch, Y = Yaw, Z = Roll
+		if name == "yaw" or name.ends_with(".yaw"):
+			return name.trim_suffix( "yaw" ) + ( "%s.y" % FlowData.AttrRotation )
+		if name == "pitch" or name.ends_with(".pitch"):
+			return name.trim_suffix( "pitch" ) + ( "%s.x" % FlowData.AttrRotation )
+		if name == "roll" or name.ends_with(".roll"):
+			return name.trim_suffix( "roll" ) + ( "%s.z" % FlowData.AttrRotation )
+		return name
+		
+	func getSubStreamIndex( sub_comp : String ):
+		var sc_up = sub_comp.to_lower()
+		# as described in the doc X = Pitch, Y = Yaw, Z = Roll
+		if sc_up == "x" or sc_up == "r" or sc_up == "pitch":
+			return 0
+		elif sc_up == "y" or sc_up == "g" or sc_up == "yaw":
+			return 1
+		elif sc_up == "z" or sc_up == "b" or sc_up == "roll":
+			return 2
+		elif sc_up == "w" or sc_up == "a":
+			return 3
+		return -1
+	
+	func getSubStream( stream : Dictionary, sub_comp : String ):
+		var subcomp_idx = getSubStreamIndex( sub_comp )
+		if subcomp_idx == -1:
+			push_error( "Invalid sub_stream name %s" % sub_comp )
+			return null
+		if stream.data_type != DataType.Vector and stream.data_type != DataType.Color:
+			push_error( "getSubStream.Parent stream must be of type Vector or Color" )
+			return null
+		if stream.data_type == DataType.Vector and subcomp_idx == 3:
+			push_error( "Vector parent does not support W/A component" )
+			return null
+		var big_container = stream.container
+		var new_container = PackedFloat32Array()
+		new_container.resize( big_container.size() )
+		for idx in range( big_container.size() ):
+			new_container[idx] = big_container[idx][ subcomp_idx ]
+		return {
+			"data_type" : DataType.Float,
+			"container" : new_container,
+			"name" : "%s.%s" % [ stream.name, sub_comp ]
+		}
+		
+	func setSubStream( stream : Dictionary, sub_comp : String, sub_container  ):
+		var subcomp_idx = getSubStreamIndex( sub_comp )
+		if subcomp_idx == -1:
+			return "Invalid sub stream name %s" % sub_comp
+		if stream.data_type != DataType.Vector and stream.data_type != DataType.Color:
+			return "setSubStream.Parent stream must be of type Vector or Color"
+		if stream.data_type == DataType.Vector and subcomp_idx == 3:
+			return "Vector parent does not support W/A component"
+		var big_container = stream.container
+		if sub_container.size() != big_container.size():
+			return "Container sizes do not match (%d vs %d)" % [sub_container.size(), big_container.size()]
+		#print( "big_container %s[%d] << %s" % [ big_container, subcomp_idx, sub_container ])
+		# Because we are mutating the container (part of it), we need to create
+		# a new copy of the original and insert it as the new current container
+		# Fixes bug expresion updating position.y and refreshing
+		big_container = big_container.duplicate()
+		for idx in range( big_container.size() ):
+			big_container[idx][ subcomp_idx ] = sub_container[idx]
+		stream.container = big_container
+		
+	# rotation.front
+	# front
+	# my_rot
+	# my_rot.front
+	# my_rot.yaw
+	# my_trans
+	# my_trans.front
+	# my_trans.rotation.front
+	# my_trans.rotation.yaw
+	# my_trans.position
+	# my_trans.position.y
+	func findStream( name : String ):
+		
+		name = translateStreamName( name )
+		
+		# Special case, index is always generated on the fly
+		if name == "index":
+			var new_container = PackedInt32Array()
+			new_container.resize( size() )
+			for idx in range( new_container.size() ):
+				new_container[idx] = idx
+			return {
+				"data_type" : DataType.Int,
+				"container" : new_container,
+				"name" : "Index"
+			}
+			
+		# Check if they want .x/.y/.z of a vector3/4 stream
+		var last_dot_idx := name.rfind(".")
+		#print( "name.rfind( %s ) = %d" % [ name, last_dot_idx ] )
+		if last_dot_idx >= 0:
+			var ss_name : String = name.substr(last_dot_idx + 1)     # .x
+			if getSubStreamIndex( ss_name ) != -1:
+				#print( "It's a valid substream at %d %s" % [last_dot_idx, ss_name] )
+				var s0_name : String = name.substr(0, last_dot_idx)  # tx.pos
+				var s0 = findStream( s0_name )
+				if s0 == null:
+					push_error( "Failed to find stream root %s" % s0_name )
+					return null
+				#print( "searching (%s) in %s" % [ ss_name, s0.name])
+				return getSubStream( s0, ss_name )
+			# mtx.rotation 
+		
+		#print( "findStream-%s-" % name)
+		if isTRSStream( name ):
+			print( "findStream-%s- is TRS" % name)
+			return streams.get( name, null )
+		
+		if name == "front" or name == "up" or name == "right":
+			var rot_stream = streams.get(AttrRotation, null)
+			if rot_stream != null:
+				var eulers = rot_stream.container
+				var new_container := PackedVector3Array()
+				new_container.resize(eulers.size())
+				for idx in range(eulers.size()):
+					var basis := FlowData.eulerToBasis(eulers[idx])
+					match name:
+						"front":
+							new_container[idx] = basis.z
+						"up":
+							new_container[idx] = basis.y
+						"right":
+							new_container[idx] = -basis.x
+				return {
+					"data_type": DataType.Vector,
+					"container": new_container,
+					"name": name
+				}
+			return null
+			
+		return streams.get( name, null )
+	
+	func _registerResolvedNameStream( in_name : String, container, data_type : DataType ):
+		if data_type == FlowData.DataType.Invalid:
+			data_type = _inferContainerType( container )
+			if data_type == FlowData.DataType.Invalid:
+				print( "Invalid data type ", in_name, " Container:", container)
+				return "Invalid container type"
+		streams[ in_name ] = { 
+			"container" : container,
+			"name" : in_name,
+			"data_type" : data_type
+			}
+		last_added_stream_name = in_name		
+	
+	func registerStream( in_name : String, container, data_type : DataType = FlowData.DataType.Invalid ):
+		if not in_name:
+			print( "registerStream empty name!. Container size:", container.size() )
+			push_error("registerStream name can't be empty of data_type %d" % [ data_type ] )
+			return null
+		if container == null:
+			push_error("registerStream. Can't register a null container with name %s" % in_name )
+			return null	
+			
+		var last_dot_idx := in_name.rfind(".")
+		#print( "registerStream.rfind( %s ) = %d" % [ in_name, last_dot_idx ] )
+		if last_dot_idx >= 0:
+			var ss_name : String = in_name.substr(last_dot_idx + 1)     # .x
+			if getSubStreamIndex( ss_name ) != -1:
+				#print( "It's a valid substream at %d %s" % [last_dot_idx, ss_name] )
+				var s0_name : String = in_name.substr(0, last_dot_idx)  # tx.pos
+				var s0 = streams.get( s0_name, null )
+				if s0 == null:
+					push_error( "Failed to find stream root %s" % s0_name )
+					return null
+				#print( "searching (%s) in %s" % [ ss_name, s0.name])
+				return setSubStream( s0, ss_name, container )
+			
+		if isTRSStream(in_name):
+			_registerResolvedNameStream( in_name, container, data_type )
+
+		else:
+			var name : String = translateStreamName( in_name )
+			var parts = name.split( "." )
+			if parts.size() == 2:
+				var s0 = streams.get( parts[0], null )
+				if s0 == null:
+					return "Failed to find stream %s" % parts[0] 
+				return setSubStream( s0, parts[1], container )
+			elif parts.size() > 2:
+				print( "in_name:%s -> name:%s -> %s" % [ in_name, name, parts ] )
+				return "Too many '.' in stream name"
+			else:
+				_registerResolvedNameStream( name, container, data_type )
+
+		#print( "Registered stream %s : %s " % [ name, streams[ name ] ])
+		return null
+	
+	func addStream( name : String, data_type : DataType):
+		if not name:
+			push_error("addStream: name can't be empty" )
+			return null
+		var sz := size()
+		var new_container = newContainerOfType(data_type)
+		if sz:
+			new_container.resize( sz )
+		registerStream( name, new_container, data_type )
+		return new_container
+	
+	func delStream( name : String):
+		if streams.has( name ):
+			streams.erase( name )
+		
+	func cloneStream( name : String ):
+		var prev_stream = findStream( name )
+		if not prev_stream:
+			push_error("cloneStream: Data does not have a stream named %s" % name )
+			return null
+		var new_container
+		match prev_stream.data_type:
+			DataType.Bool:
+				new_container = PackedByteArray( prev_stream.container )
+			DataType.Int:
+				new_container = PackedInt32Array( prev_stream.container )
+			DataType.Float:
+				new_container = PackedFloat32Array( prev_stream.container )
+			DataType.Vector:
+				new_container = PackedVector3Array( prev_stream.container )
+				#print( "Duped container vec3 %s %s" % [ name, new_container ])
+			DataType.Color:
+				new_container = PackedColorArray( prev_stream.container )
+			DataType.String:
+				new_container = PackedStringArray( prev_stream.container )
+			_:  # Resource
+				new_container = prev_stream.container.duplicate()	
+		prev_stream.container = new_container
+		return new_container
+		
+	func filteredStream( old_stream : Dictionary, indices : PackedInt32Array ):
+		var new_size : int = indices.size()
+		match old_stream.data_type:
+			
+			DataType.Bool:
+				var old_container : PackedByteArray = old_stream.container
+				var new_container := PackedByteArray( )
+				new_container.resize( new_size )
+				for idx in range( new_size ):
+					new_container[idx] = old_container[ indices[idx] ]
+				return new_container
+				
+			DataType.Int:
+				var old_container : PackedInt32Array = old_stream.container
+				var new_container := PackedInt32Array( )
+				new_container.resize( new_size )
+				for idx in range( new_size ):
+					new_container[idx] = old_container[ indices[idx] ]
+				return new_container
+				
+			DataType.Float:
+				var old_container : PackedFloat32Array = old_stream.container
+				var new_container := PackedFloat32Array( )
+				new_container.resize( new_size )
+				for idx in range( new_size ):
+					new_container[idx] = old_container[ indices[idx] ]
+				return new_container
+				
+			DataType.Vector:
+				var old_container : PackedVector3Array = old_stream.container
+				var new_container := PackedVector3Array(  )		
+				new_container.resize( new_size )
+				for idx in range( new_size ):
+					new_container[idx] = old_container[ indices[idx] ]
+				return new_container
+				
+			DataType.Color:
+				var old_container : PackedColorArray = old_stream.container
+				var new_container := PackedColorArray( )
+				new_container.resize( new_size )
+				for idx in range( new_size ):
+					new_container[idx] = old_container[ indices[idx] ]
+				return new_container
+				
+			DataType.String:
+				var old_container : PackedStringArray = old_stream.container
+				var new_container : PackedStringArray
+				new_container.resize( new_size )
+				for idx in range( new_size ):
+					new_container[idx] = old_container[ indices[idx] ]
+				return new_container
+				
+			DataType.Resource:
+				var old_container : Array = old_stream.container
+				var new_container : Array[ Resource ] = []
+				new_container.resize( new_size )
+				for idx in range( new_size ):
+					new_container[idx] = old_container[ indices[idx] ]
+				return new_container
+				
+			DataType.NodeMesh:
+				var old_container : Array = old_stream.container
+				var new_container : Array = []
+				new_container.resize( new_size )
+				for idx in range( new_size ):
+					new_container[idx] = old_container[ indices[idx] ]
+				return new_container
+				
+			DataType.NodePath:
+				var old_container : Array = old_stream.container
+				var new_container : Array = []
+				new_container.resize( new_size )
+				for idx in range( new_size ):
+					new_container[idx] = old_container[ indices[idx] ]
+				return new_container
+				
+		return null
+
+	func duplicate() -> Data:
+		# This is not a deep clone, the packed*arrays are shared,
+		# use cloneStream to create an independent copy
+		var s := Data.new()
+		for name in streams:
+			s.streams[ name ] = streams[ name ].duplicate()
+		s.last_added_stream_name = last_added_stream_name
+		s.tags = tags.duplicate()
+		return s
+
+	# Returns a String if it was not possible to perform the rename
+	# Remember to work in your own copy of the Data
+	func renameStream( old_name : String, new_name : String, allow_override : bool ):
+		old_name = old_name.strip_edges()
+		new_name = new_name.strip_edges()
+		old_name = translateStreamName( old_name )
+		if not streams.has(old_name):
+			return "Data does not have a stream named %s" % old_name
+		if new_name.is_empty():
+			return "new renamed stream can't be empty"
+		if old_name in [ AttrPosition, AttrRotation, AttrSize ]:
+			return "Can't rename position, rotation or size attributes" 
+		if new_name != old_name:
+			if not allow_override and streams.has( new_name ):
+				return "Data already has a stream named %s" % new_name
+			streams[ new_name ] = streams[old_name]
+			streams[ new_name ].name = new_name
+			delStream( old_name )
+			last_added_stream_name = new_name
+		return null
+		
+	func filter( indices : PackedInt32Array ) -> Data:
+		var new_data := Data.new()
+		for old_stream in streams.values():
+			var new_container = filteredStream( old_stream, indices )
+			new_data.registerStream( old_stream.name, new_container, old_stream.data_type )
+		new_data.tags = tags.duplicate()
+		return new_data
+
+	func dump( title : String ):
+		print( "== %s (%d streams) ==" % [title, streams.size()] )
+		for stream in streams.values():
+			print( "%s (%s) %d elems" % [ stream.name, stream.data_type, stream.container.size() ] )
+			for data in stream.container:
+				print( "  %s" % str(data ))
+
+	func addTRSStreams( num_points : int, optional_prefix : StringName = "" ):
+		var attr_pos : StringName = AttrPosition if optional_prefix.is_empty() else "%s.%s" % [ optional_prefix, AttrPosition ]
+		var attr_rot : StringName = AttrRotation if optional_prefix.is_empty() else "%s.%s" % [ optional_prefix, AttrRotation ]
+		var attr_size : StringName = AttrSize if optional_prefix.is_empty() else "%s.%s" % [ optional_prefix, AttrSize]
+
+		# Initialize with zeros
+		var spos = addStream( attr_pos, FlowData.DataType.Vector )
+		spos.resize( num_points )
+		var srot = addStream( attr_rot, FlowData.DataType.Vector )
+		markStreamAsRotation( attr_rot )
+		srot.resize( num_points )
+		
+		# Initialize with ones
+		var ssizes : PackedVector3Array = addStream( attr_size, FlowData.DataType.Vector )
+		ssizes.resize( num_points )
+		var init_value := Vector3.ONE
+		for idx : int in range( num_points ):
+			ssizes[idx] = init_value
+			
+	func addCommonStreams( num_points : int ):
+		addTRSStreams( num_points )
+		
+	func getVector3Container( stream_name : StringName ) -> PackedVector3Array:
+		var container = getContainerChecked( stream_name, DataType.Vector )
+		if container == null:
+			container = PackedVector3Array()
+		return container
+
+	func getTransformsStream( optional_prefix : String = "" ) -> TransformsStream:
+		optional_prefix = translateStreamName( optional_prefix )
+		var attr_pos : StringName = AttrPosition if optional_prefix.is_empty() else "%s.%s" % [ optional_prefix, AttrPosition ]
+		var attr_rot : StringName = AttrRotation if optional_prefix.is_empty() else "%s.%s" % [ optional_prefix, AttrRotation ]
+		var attr_size : StringName = AttrSize if optional_prefix.is_empty() else "%s.%s" % [ optional_prefix, AttrSize]
+		if not (streams.has(attr_pos) and streams.has(attr_rot) and streams.has(attr_size)):
+			print( "streams not found %s/%s/%s" % [ attr_pos, attr_rot, attr_size ])
+			return null
+		var trs := TransformsStream.new()
+		trs.positions = getVector3Container( attr_pos )
+		trs.eulers = getVector3Container( attr_rot )
+		trs.sizes = getVector3Container( attr_size )
+		if trs.sizes.size() == trs.positions.size() and trs.sizes.size() == trs.eulers.size() and trs.sizes.size() > 0:
+			return trs
+			
+		#print( "getTransformsStream sizes do not match: %d %d %d" % [ trs.positions.size(), trs.eulers.size(), trs.sizes.size() ] )
+		return null

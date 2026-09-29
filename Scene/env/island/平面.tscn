@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://bxyev1b25rvi8"]
+
+[ext_resource type="PackedScene" uid="uid://bj0u471k4on8a" path="res://assets/modles/env/平面.glb" id="1_a4boi"]
+[ext_resource type="Shader" uid="uid://bh1ppvgwx3np1" path="res://assets/materials/grass_cliff.tres" id="2_0163f"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_giyyh"]
+render_priority = 0
+shader = ExtResource("2_0163f")
+
+[node name="Node3D" type="Node3D" unique_id=1817197747]
+
+[node name="平面" parent="." unique_id=1104434143 instance=ExtResource("1_a4boi")]
+
+[node name="平面_002" parent="平面" index="0" unique_id=1653420125]
+surface_material_override/0 = SubResource("ShaderMaterial_giyyh")
+
+[editable path="平面"]

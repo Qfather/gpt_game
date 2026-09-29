@@ -1,0 +1,35 @@
+[gd_scene format=3 uid="uid://b58spwt3fnjpd"]
+
+[ext_resource type="PackedScene" uid="uid://bj0u471k4on8a" path="res://assets/modles/env/平面.glb" id="1_tceem"]
+[ext_resource type="Shader" uid="uid://bh1ppvgwx3np1" path="res://assets/materials/grass_cliff.tres" id="2_at4gu"]
+[ext_resource type="PackedScene" uid="uid://3d1hamwo2pk0" path="res://assets/modles/env/悬崖侧面.glb" id="3_8kggk"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_l3huo"]
+render_priority = 0
+shader = ExtResource("2_at4gu")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_vv7dk"]
+render_priority = 0
+shader = ExtResource("2_at4gu")
+
+[node name="Node3D" type="Node3D" unique_id=619691627]
+
+[node name="平面" parent="." unique_id=1104434143 instance=ExtResource("1_tceem")]
+
+[node name="平面_002" parent="平面" index="0" unique_id=1330113677]
+surface_material_override/0 = SubResource("ShaderMaterial_l3huo")
+
+[node name="悬崖侧面" parent="." unique_id=695427990 instance=ExtResource("3_8kggk")]
+
+[node name="SM_Env_Rock_Cliff_03" parent="悬崖侧面" index="0" unique_id=867430712]
+surface_material_override/0 = SubResource("ShaderMaterial_vv7dk")
+
+[node name="悬崖侧面3" parent="." unique_id=1397204280 instance=ExtResource("3_8kggk")]
+transform = Transform3D(-1, 0, 8.742278e-08, 0, 1, 0, -8.742278e-08, 0, -1, 0, 0, 0)
+
+[node name="SM_Env_Rock_Cliff_03" parent="悬崖侧面3" index="0" unique_id=867430712]
+surface_material_override/0 = SubResource("ShaderMaterial_vv7dk")
+
+[editable path="平面"]
+[editable path="悬崖侧面"]
+[editable path="悬崖侧面3"]

@@ -339,42 +339,42 @@ func _spawn_migrant_group(group_size: int) -> void:
 		return
 
 	var bases: Array[Node] = get_tree().get_nodes_in_group("bases")
-	var arrival_points: Array[Node] = get_tree().get_nodes_in_group(
-		"arrival_points"
-	)
-	if bases.is_empty() or arrival_points.is_empty():
-		push_warning("PopulationManager：没有 Base 或 ArrivalPoint，无法生成移民")
+	if bases.is_empty():
+		push_warning("PopulationManager：没有 Base，无法生成移民")
 		return
 
 	var base: Node3D = bases[0] as Node3D
 	var map_runtime: MapGenerateRuntime = get_tree().get_first_node_in_group("map_generate_runtime") as MapGenerateRuntime
-	if map_runtime == null:
+	if map_runtime == null or map_runtime.map_data == null:
 		push_warning("PopulationManager：地图尚未生成，无法生成移民")
 		_immigration_ready_emitted = false
 		return
 	var spawn_positions: Array[Vector3] = []
-	var shuffled_arrivals: Array[Node] = arrival_points.duplicate()
-	shuffled_arrivals.shuffle()
-	var offsets: Array[Vector2] = [Vector2.ZERO, Vector2(3, 0), Vector2(-3, 0), Vector2(0, 3), Vector2(0, -3), Vector2(3, 3), Vector2(-3, -3)]
-	for marker_node: Node in shuffled_arrivals:
-		var marker: Node3D = marker_node as Node3D
-		for offset: Vector2 in offsets:
-			var ground: Vector3 = map_runtime.get_safe_ground_position(Vector2(marker.global_position.x, marker.global_position.z) + offset, 1.0)
-			if ground == Vector3.INF:
-				continue
-			var occupied: bool = false
-			for existing: Vector3 in spawn_positions:
-				if Vector2(existing.x, existing.z).distance_to(Vector2(ground.x, ground.z)) < 2.0:
-					occupied = true
-					break
-			if not occupied:
-				spawn_positions.append(ground)
-			if spawn_positions.size() >= group_size:
+	var candidates: Array[Vector3] = []
+	for cell: Vector2i in map_runtime.map_data.occupied_cells:
+		var point: Vector3 = map_runtime._cell_world_position(cell)
+		if Vector2(point.x - base.global_position.x, point.z - base.global_position.z).length() >= 30.0:
+			candidates.append(point)
+	candidates.shuffle()
+	# 同一批尽量从同一片远端区域进场；每个点仍验证到据点的导航连通性。
+	if not candidates.is_empty():
+		var origin: Vector3 = candidates[0]
+		candidates.sort_custom(func(a: Vector3, b: Vector3) -> bool: return a.distance_squared_to(origin) < b.distance_squared_to(origin))
+	for candidate: Vector3 in candidates:
+		var ground: Vector3 = map_runtime.get_safe_ground_position(Vector2(candidate.x, candidate.z), 1.0)
+		if ground == Vector3.INF:
+			continue
+		var occupied: bool = false
+		for existing: Vector3 in spawn_positions:
+			if Vector2(existing.x - ground.x, existing.z - ground.z).length() < 2.0:
+				occupied = true
 				break
+		if not occupied:
+			spawn_positions.append(ground)
 		if spawn_positions.size() >= group_size:
 			break
 	if spawn_positions.size() < group_size:
-		push_warning("PopulationManager：地图上没有足够的移民出生点")
+		push_warning("PopulationManager：距据点30米以外没有足够的可达移民出生点，本次暂不生成")
 		_immigration_ready_emitted = false
 		return
 	var migrant_container: Node = get_tree().current_scene.get_node_or_null(

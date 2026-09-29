@@ -1,46 +1,23 @@
 [gd_scene format=3 uid="uid://bjhgmbhk67241"]
 
 [ext_resource type="Script" uid="uid://c8mjjdoc3ruyg" path="res://Script/resource/game/tree.gd" id="1_1i8wt"]
-
-[sub_resource type="StandardMaterial3D" id="Material_bark"]
-albedo_color = Color(0.32, 0.18, 0.08, 1)
-
-[sub_resource type="CylinderMesh" id="Mesh_trunk"]
-material = SubResource("Material_bark")
-top_radius = 0.19
-bottom_radius = 0.3
-height = 1.8
-radial_segments = 8
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_m2va7"]
-albedo_color = Color(0.22, 0.48, 0.16, 1)
-
-[sub_resource type="SphereMesh" id="Mesh_round"]
-material = SubResource("StandardMaterial3D_m2va7")
-radius = 0.95
-height = 1.8
-radial_segments = 12
-rings = 6
-
-[sub_resource type="StandardMaterial3D" id="Material_pine"]
-albedo_color = Color(0.08, 0.3, 0.19, 1)
-
-[sub_resource type="CylinderMesh" id="Mesh_cone"]
-material = SubResource("Material_pine")
-top_radius = 0.0
-bottom_radius = 1.0
-height = 1.8
-radial_segments = 10
-
-[sub_resource type="StandardMaterial3D" id="Material_light"]
-albedo_color = Color(0.42, 0.6, 0.18, 1)
-
-[sub_resource type="SphereMesh" id="Mesh_light"]
-material = SubResource("Material_light")
-radius = 0.7
-height = 1.7
-radial_segments = 10
-rings = 5
+[ext_resource type="PackedScene" uid="uid://ccyqqk2wrv1uw" path="res://assets/modles/env/tree_001.glb" id="2_06ltb"]
+[ext_resource type="PackedScene" uid="uid://bbadatvpagd6h" path="res://assets/modles/env/tree_002.glb" id="3_15vpp"]
+[ext_resource type="Material" uid="uid://3k63kx5ola1q" path="res://assets/materials/VikingRealm.tres" id="3_yn3el"]
+[ext_resource type="PackedScene" uid="uid://naekoergacrt" path="res://assets/modles/env/tree_003.glb" id="4_yn3el"]
+[ext_resource type="PackedScene" uid="uid://slsyskr885os" path="res://assets/modles/env/tree_004.glb" id="5_ig7xv"]
+[ext_resource type="PackedScene" uid="uid://cig0ottd8wpex" path="res://assets/modles/env/tree_005.glb" id="6_8kwlu"]
+[ext_resource type="PackedScene" uid="uid://ded13ab4a1hrd" path="res://assets/modles/env/tree_006.glb" id="7_bmk6y"]
+[ext_resource type="PackedScene" uid="uid://dkkydhppcbkq7" path="res://assets/modles/env/tree_007.glb" id="8_qa7k8"]
+[ext_resource type="PackedScene" uid="uid://87kcllwyakoi" path="res://assets/modles/env/tree_008.glb" id="9_33rsh"]
+[ext_resource type="PackedScene" uid="uid://d3304psdk2nh5" path="res://assets/modles/env/tree_009.glb" id="10_b0cpa"]
+[ext_resource type="PackedScene" uid="uid://c8ay7otoxggxo" path="res://assets/modles/env/tree_010.glb" id="11_3o1ik"]
+[ext_resource type="PackedScene" uid="uid://dvc45nsfom6bh" path="res://assets/modles/env/tree_011.glb" id="12_17ks1"]
+[ext_resource type="PackedScene" uid="uid://dd7k3f2aehuqv" path="res://assets/modles/env/tree_012.glb" id="13_leo5k"]
+[ext_resource type="PackedScene" uid="uid://bq2nec2i2n1ep" path="res://assets/modles/env/tree_013.glb" id="14_atanx"]
+[ext_resource type="PackedScene" uid="uid://bc8vndl0xp11" path="res://assets/modles/env/tree_014.glb" id="15_gk5od"]
+[ext_resource type="PackedScene" uid="uid://bnr75prvvygsp" path="res://assets/modles/env/tree_015.glb" id="16_i5bd0"]
+[ext_resource type="PackedScene" uid="uid://equt50i5iovr" path="res://assets/modles/env/tree_016.glb" id="17_4403x"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_t2dwb"]
 
@@ -51,48 +28,122 @@ visual_scale_max = 1.5
 
 [node name="meshs" type="Node3D" parent="." unique_id=213125988]
 
-[node name="RoundTree" type="Node3D" parent="meshs" unique_id=437670370]
+[node name="tree_0012" parent="meshs" unique_id=691729818 instance=ExtResource("2_06ltb")]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="Trunk" type="MeshInstance3D" parent="meshs/RoundTree" unique_id=336882674]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
-mesh = SubResource("Mesh_trunk")
+[node name="tree_001" parent="meshs/tree_0012" index="0" unique_id=77699317]
+material_override = ExtResource("3_yn3el")
+surface_material_override/0 = ExtResource("3_yn3el")
 
-[node name="Crown" type="MeshInstance3D" parent="meshs/RoundTree" unique_id=1243969496]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 2.05, 0)
-mesh = SubResource("Mesh_round")
+[node name="tree_0022" parent="meshs" unique_id=1393159158 instance=ExtResource("3_15vpp")]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="PineTree" type="Node3D" parent="meshs" unique_id=965869602]
-visible = false
+[node name="tree_002" parent="meshs/tree_0022" index="0" unique_id=391333001]
+material_override = ExtResource("3_yn3el")
 
-[node name="Trunk" type="MeshInstance3D" parent="meshs/PineTree" unique_id=149083339]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
-mesh = SubResource("Mesh_trunk")
+[node name="tree_0032" parent="meshs" unique_id=568217417 instance=ExtResource("4_yn3el")]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="LowerCrown" type="MeshInstance3D" parent="meshs/PineTree" unique_id=480449598]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.65, 0)
-mesh = SubResource("Mesh_cone")
+[node name="tree_003" parent="meshs/tree_0032" index="0" unique_id=1140322256]
+material_override = ExtResource("3_yn3el")
 
-[node name="UpperCrown" type="MeshInstance3D" parent="meshs/PineTree" unique_id=166051332]
-transform = Transform3D(0.7, 0, 0, 0, 0.8, 0, 0, 0, 0.7, 0, 2.55, 0)
-mesh = SubResource("Mesh_cone")
+[node name="tree_0042" parent="meshs" unique_id=274210775 instance=ExtResource("5_ig7xv")]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="TwinTree" type="Node3D" parent="meshs" unique_id=1740176893]
-visible = false
+[node name="tree_004" parent="meshs/tree_0042" index="0" unique_id=1470459969]
+material_override = ExtResource("3_yn3el")
 
-[node name="Trunk" type="MeshInstance3D" parent="meshs/TwinTree" unique_id=152361133]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
-mesh = SubResource("Mesh_trunk")
+[node name="tree_0052" parent="meshs" unique_id=1981103364 instance=ExtResource("6_8kwlu")]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="LeftCrown" type="MeshInstance3D" parent="meshs/TwinTree" unique_id=1437035399]
-transform = Transform3D(0.9800666, -0.19866933, 0, 0.19866933, 0.9800666, 0, 0, 0, 1, -0.4, 1.9, 0)
-mesh = SubResource("Mesh_light")
+[node name="tree_005" parent="meshs/tree_0052" index="0" unique_id=871940598]
+material_override = ExtResource("3_yn3el")
 
-[node name="RightCrown" type="MeshInstance3D" parent="meshs/TwinTree" unique_id=539688888]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.35, 2.35, 0.15)
-mesh = SubResource("Mesh_light")
+[node name="tree_0062" parent="meshs" unique_id=114190451 instance=ExtResource("7_bmk6y")]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
+
+[node name="tree_006" parent="meshs/tree_0062" index="0" unique_id=605932235]
+material_override = ExtResource("3_yn3el")
+
+[node name="tree_0072" parent="meshs" unique_id=1398222230 instance=ExtResource("8_qa7k8")]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
+
+[node name="tree_007" parent="meshs/tree_0072" index="0" unique_id=1031789920]
+material_override = ExtResource("3_yn3el")
+
+[node name="tree_0082" parent="meshs" unique_id=1810916632 instance=ExtResource("9_33rsh")]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
+
+[node name="tree_008" parent="meshs/tree_0082" index="0" unique_id=2031030811]
+material_override = ExtResource("3_yn3el")
+
+[node name="tree_0092" parent="meshs" unique_id=355415312 instance=ExtResource("10_b0cpa")]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
+
+[node name="tree_009" parent="meshs/tree_0092" index="0" unique_id=1501750212]
+material_override = ExtResource("3_yn3el")
+
+[node name="tree_0102" parent="meshs" unique_id=920144896 instance=ExtResource("11_3o1ik")]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
+
+[node name="tree_010" parent="meshs/tree_0102" index="0" unique_id=249845908]
+material_override = ExtResource("3_yn3el")
+
+[node name="tree_0112" parent="meshs" unique_id=621220395 instance=ExtResource("12_17ks1")]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
+
+[node name="tree_011" parent="meshs/tree_0112" index="0" unique_id=1803247557]
+material_override = ExtResource("3_yn3el")
+
+[node name="tree_0122" parent="meshs" unique_id=90668617 instance=ExtResource("13_leo5k")]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
+
+[node name="tree_012" parent="meshs/tree_0122" index="0" unique_id=959595764]
+material_override = ExtResource("3_yn3el")
+
+[node name="tree_0132" parent="meshs" unique_id=130603768 instance=ExtResource("14_atanx")]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
+
+[node name="tree_013" parent="meshs/tree_0132" index="0" unique_id=195295902]
+material_override = ExtResource("3_yn3el")
+
+[node name="tree_0142" parent="meshs" unique_id=511723481 instance=ExtResource("15_gk5od")]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
+
+[node name="tree_014" parent="meshs/tree_0142" index="0" unique_id=690409127]
+material_override = ExtResource("3_yn3el")
+
+[node name="tree_0152" parent="meshs" unique_id=1459408566 instance=ExtResource("16_i5bd0")]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
+
+[node name="tree_015" parent="meshs/tree_0152" index="0" unique_id=1898926848]
+material_override = ExtResource("3_yn3el")
+
+[node name="tree_0162" parent="meshs" unique_id=1975676823 instance=ExtResource("17_4403x")]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
+
+[node name="tree_016" parent="meshs/tree_0162" index="0" unique_id=1845315531]
+material_override = ExtResource("3_yn3el")
 
 [node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=1716066164]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D" unique_id=1894125417]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.957702, 0)
 shape = SubResource("CylinderShape3D_t2dwb")
+
+[editable path="meshs/tree_0012"]
+[editable path="meshs/tree_0022"]
+[editable path="meshs/tree_0032"]
+[editable path="meshs/tree_0042"]
+[editable path="meshs/tree_0052"]
+[editable path="meshs/tree_0062"]
+[editable path="meshs/tree_0072"]
+[editable path="meshs/tree_0082"]
+[editable path="meshs/tree_0092"]
+[editable path="meshs/tree_0102"]
+[editable path="meshs/tree_0112"]
+[editable path="meshs/tree_0122"]
+[editable path="meshs/tree_0132"]
+[editable path="meshs/tree_0142"]
+[editable path="meshs/tree_0152"]
+[editable path="meshs/tree_0162"]

@@ -77,13 +77,8 @@ func _ready():
 func _on_remove_pressed() -> void:
 	if current_unit == null or not is_instance_valid(current_unit):
 		return
-	var population_manager := get_tree().get_first_node_in_group(
-		"population_manager"
-	) as PopulationManager
-	if population_manager == null:
-		return
-	if population_manager.remove_villager(current_unit):
-		close_panel_immediately()
+	current_unit.abandon_current_work()
+	refresh()
 
 
 func refresh():

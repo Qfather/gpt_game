@@ -60,7 +60,7 @@ func _run_test() -> void:
 	var collision_shape: CollisionShape3D = enemy.get_node("CollisionShape3D")
 	_expect(collision_shape.shape is CapsuleShape3D, "敌人碰撞体使用竖直胶囊，避免球形碰撞互相爬升")
 	if collision_shape.shape is CapsuleShape3D:
-		_expect(is_equal_approx((collision_shape.shape as CapsuleShape3D).radius, 0.48), "敌人碰撞半径缩小至原始模型尺度的0.8倍")
+		_expect(is_equal_approx((collision_shape.shape as CapsuleShape3D).radius, 0.24), "敌人碰撞半径保持减半后的0.24米")
 	enemy.free()
 	main_scene.queue_free()
 	print("裂缝出生布局测试", "失败" if _failed else "通过")

@@ -1,0 +1,37 @@
+@tool
+extends FlowNodeBase
+
+@export var tags: String = ""
+
+func _init():
+	meta_node = {
+		"title" : "Filter Data By Tag",
+		"category" : "Filter",
+		"ins" : [{ "label": "In" }], 
+		"outs" : [{ "label" : "Inside" }, { "label" : "Outside" }],
+		"tooltip" : "Separates data according to their tags. You can specify a comma-separated list of Tags to filter by.",
+	}
+
+func execute( ctx : FlowData.EvaluationContext ):
+	var in_data : FlowData.Data = getInput(ctx, 0)
+	
+	var filter_tags := []
+	var raw_tags = tags.split(",")
+	for raw in raw_tags:
+		var clean = raw.strip_edges()
+		if clean != "":
+			filter_tags.append(clean)
+			
+	var match_found = false
+	for tag in in_data.tags:
+		if tag in filter_tags:
+			match_found = true
+			break
+			
+	var empty_data = FlowData.Data.new()
+	if match_found:
+		setOutput(ctx, 0, in_data)
+		setOutput(ctx, 1, empty_data)
+	else:
+		setOutput(ctx, 0, empty_data)
+		setOutput(ctx, 1, in_data)

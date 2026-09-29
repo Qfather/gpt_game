@@ -83,6 +83,8 @@ func _refresh() -> void:
 		ratio = clampf(current_health / max_health, 0.0, 1.0)
 
 	var should_show: bool = ratio < 1.0
+	if bool(target.get_meta("fog_hidden", false)):
+		should_show = false
 	if only_combat_units and not _is_combat_unit():
 		should_show = false
 	if target is Node3D and not (target as Node3D).is_visible_in_tree():

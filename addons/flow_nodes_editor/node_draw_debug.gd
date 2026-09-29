@@ -1,0 +1,220 @@
+## This script is a separate helper script to store all the code associated with rendering the debug boxes in the 3D viewer
+
+extends Node
+class_name NodeDrawDebug
+
+var node : FlowNodeBase
+
+# Render
+var scenario_rid : RID
+var multimesh_rid : RID
+var instance_rid : RID
+var current_mesh_resource : Mesh
+const default_mesh_resource : Mesh = preload( "res://addons/flow_nodes_editor/resources/unit_cube.tres" )
+var selection_color := Color.MAGENTA
+
+func generate_resource_axis_mesh():
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_LINES)
+
+	surface.set_color(Color.RED)
+	surface.add_vertex(Vector3.ZERO)
+	surface.set_color(Color.RED)
+	surface.add_vertex(Vector3.RIGHT)
+
+	surface.set_color(Color.GREEN)
+	surface.add_vertex(Vector3.ZERO)
+	surface.set_color(Color.GREEN)
+	surface.add_vertex(Vector3.UP)
+
+	surface.set_color(Color.BLUE)
+	surface.add_vertex(Vector3.ZERO)
+	surface.set_color(Color.BLUE)
+	surface.add_vertex(Vector3.FORWARD)
+
+	var mesh := surface.commit()
+
+	var material := StandardMaterial3D.new()
+	material.vertex_color_use_as_albedo = true
+	material.disable_fog = true
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mesh.surface_set_material(0, material)
+	ResourceSaver.save(mesh, "res://addons/flow_nodes_editor/resources/unit_axis.tres")
+	
+func _ready():
+	var viewport = get_viewport()
+	if viewport and viewport.get_world_3d():
+		scenario_rid = viewport.get_world_3d().scenario
+	
+	# uncomment to regenerate the unit_axis.tres mesh
+	#generate_resource_axis_mesh()
+	
+func _exit_tree():
+	cleanup_multimesh_direct()
+	
+func cleanup_multimesh_direct():
+	if instance_rid.is_valid():
+		RenderingServer.free_rid(instance_rid)
+		instance_rid = RID()
+
+	if multimesh_rid.is_valid():
+		RenderingServer.free_rid(multimesh_rid)
+		multimesh_rid = RID()	
+
+	current_mesh_resource = null
+
+func create_multimesh_direct( mesh_resource : Mesh ):
+	if not mesh_resource:
+		print("No mesh resource assigned")
+		return
+	
+	cleanup_multimesh_direct()  # Clean up any existing
+	
+	# Create MultiMesh resource
+	multimesh_rid = RenderingServer.multimesh_create()
+	
+	# Setup MultiMesh
+	RenderingServer.multimesh_set_mesh(multimesh_rid, mesh_resource.get_rid())
+	#RenderingServer.multimesh_allocate_data(multimesh_rid, instance_count, RS.MULTIMESH_TRANSFORM_3D)
+	
+	# Create instance transforms
+	#setup_instance_transforms()
+	
+	# Create rendering instance
+	instance_rid = RenderingServer.instance_create()
+	RenderingServer.instance_set_base(instance_rid, multimesh_rid)
+	
+	# Add to current scenario (viewport world)
+	if scenario_rid.is_valid():
+		RenderingServer.instance_set_scenario(instance_rid, scenario_rid)
+	
+	# Set transform
+	var global_transform : Transform3D = Transform3D.IDENTITY
+	RenderingServer.instance_set_transform(instance_rid, global_transform)
+
+	current_mesh_resource = mesh_resource
+
+func setupColors(out_data: FlowData.Data, ctx: FlowData.EvaluationContext):
+	var instance_count = out_data.size()
+	var color : Color = node.debug_color
+	if node.debug_modulate_by:
+		var stream = out_data.findStream( node.debug_modulate_by )
+		if not stream:
+			ctx.setNodeError(node, "Attribute %s of type Float not found" % node.debug_modulate_by)
+			return
+		if stream.data_type == FlowData.DataType.Float:
+			var smod : PackedFloat32Array = stream.container
+			for idx in range( instance_count ):
+				RenderingServer.multimesh_instance_set_color( multimesh_rid, idx, color * smod[idx] )
+			return
+		elif stream.data_type == FlowData.DataType.Vector:
+			var smod : PackedVector3Array = stream.container
+			for idx in range( instance_count ):
+				var c := smod[idx]
+				RenderingServer.multimesh_instance_set_color( multimesh_rid, idx, color * Color( c.x, c.y, c.z, 1.0 ) )
+			return
+		elif stream.data_type == FlowData.DataType.Color:
+			var smod : PackedColorArray = stream.container
+			for idx in range( instance_count ):
+				RenderingServer.multimesh_instance_set_color( multimesh_rid, idx, color * smod[idx] )
+			return
+		else:
+			ctx.setNodeError(node, "Attribute %s must be of type float or vector to modulate" % node.debug_modulate_by)
+			
+	for idx in range( instance_count ):
+		RenderingServer.multimesh_instance_set_color( multimesh_rid, idx, color )
+
+func setupDraw():
+	if not is_inside_tree():
+		return
+
+	# The resource can be open in a tab even when none of its FlowGraphNode3D
+	# instances belongs to the currently edited scene. Never keep or create a
+	# RenderingServer instance unless this graph has a valid active executor.
+	var ui_node := get_parent() as FlowGraphNodeUI
+	if not ui_node or not ui_node.editor or not ui_node.editor.canExecuteCurrentOwner():
+		cleanup_multimesh_direct()
+		return
+
+	var world := get_viewport().get_world_3d()
+	if not world:
+		cleanup_multimesh_direct()
+		return
+		
+	var current_scenario := world.scenario
+	if scenario_rid != current_scenario:
+		scenario_rid = current_scenario
+		if instance_rid.is_valid():
+			RenderingServer.instance_set_scenario(instance_rid, scenario_rid)		
+		
+	var s = node
+	if !s.debug_enabled or s.disabled:
+		cleanup_multimesh_direct()
+		return
+
+	var ctx: FlowData.EvaluationContext = ui_node.editor.active_context
+	var output_bulks := ctx.getOutputBulks(node)
+	var num_bulks := output_bulks.size()
+	s.debug_bulk = clampi( s.debug_bulk, 0, maxi( 0, num_bulks - 1) )
+	if s.debug_bulk >= num_bulks :
+		return
+	s.debug_output = clampi(s.debug_output, 0, output_bulks[s.debug_bulk].size() - 1)
+		
+	var out_data := ctx.getOutput(node, s.debug_bulk, s.debug_output)
+	if not out_data || !out_data.hasStream( FlowData.AttrPosition ):
+		print( "setupDebugDraw failed - out_data" )
+		return
+	var instance_count = out_data.size()
+	
+	# Allow customization of the debug mesh resource
+	var mesh_resource = s.debug_mesh_resource
+	if not mesh_resource or mesh_resource == null:
+		mesh_resource = default_mesh_resource
+	if not multimesh_rid.is_valid() or RenderingServer.multimesh_get_instance_count(multimesh_rid) < instance_count or mesh_resource != current_mesh_resource:
+		create_multimesh_direct( mesh_resource )
+		current_mesh_resource = mesh_resource
+		
+	if not multimesh_rid.is_valid():
+		print( "setupDebugDraw failed - multimesh_rid" )
+		return
+		
+	var transforms := out_data.getTransformsStream()
+	if transforms == null:
+		print( "setupDebugDraw failed - positions/eulers" )
+		return
+	
+	var debug_row = node.debug_row
+	var allocated_count = instance_count
+	if debug_row != -1 and debug_row < instance_count:
+		allocated_count += 1
+		
+	var current_count = RenderingServer.multimesh_get_instance_count(multimesh_rid)
+	if allocated_count != current_count:
+		RenderingServer.multimesh_allocate_data(multimesh_rid, allocated_count, RenderingServer.MultimeshTransformFormat.MULTIMESH_TRANSFORM_3D, true )
+	
+	var time_start_loop = Time.get_ticks_usec()
+	if node.debug_mode == FlowNodeBase.eDebugMode.EXTENDS:
+		var positions := transforms.positions
+		var eulers := transforms.eulers
+		var sizes := transforms.sizes
+		for idx in range( instance_count ):
+			var t := Transform3D( Basis.from_euler( eulers[idx] * PI / 180.0 ), positions[idx] ).scaled_local( sizes[idx] )
+			RenderingServer.multimesh_instance_set_transform( multimesh_rid, idx, t)
+
+	elif node.debug_mode == FlowNodeBase.eDebugMode.ABSOLUTE:
+		var abs_scale := Vector3.ONE * node.debug_scale
+		var positions := transforms.positions
+		var eulers := transforms.eulers
+		for idx in range( instance_count ):
+			# Inlining the calls reduced from 40ms to 16ms
+			var t := Transform3D( Basis.from_euler( eulers[idx] * PI / 180.0 ).scaled( abs_scale ), positions[idx] )
+			RenderingServer.multimesh_instance_set_transform( multimesh_rid, idx, t)
+	if node.trace: print( "Debug.Loop: %f (%d)" % [ Time.get_ticks_usec() - time_start_loop, instance_count ] )
+	setupColors(out_data, ctx)
+
+	# Copy the transform and color at Nth and paste it at the end
+	if allocated_count != instance_count:
+		var t = RenderingServer.multimesh_instance_get_transform( multimesh_rid, debug_row)
+		t = t.scaled_local( Vector3.ONE * 1.01 )
+		RenderingServer.multimesh_instance_set_transform( multimesh_rid, instance_count, t)
+		RenderingServer.multimesh_instance_set_color( multimesh_rid, instance_count, selection_color )

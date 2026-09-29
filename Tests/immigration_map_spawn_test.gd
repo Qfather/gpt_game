@@ -26,6 +26,7 @@ func _run() -> void:
 		var migrant: Node3D = migrant_node as Node3D
 		var position: Vector3 = migrant.global_position
 		initial_positions.append(position)
+		_expect(Vector2(position.x - base.global_position.x, position.z - base.global_position.z).length() >= 30.0, "移民仍在据点附近生成")
 		var ground: Vector3 = map_runtime.get_safe_ground_position(Vector2(position.x, position.z), 1.0)
 		_expect(ground != Vector3.INF, "移民不在安全陆地上")
 		_expect(is_equal_approx(position.y, ground.y), "移民在地图地面下方")

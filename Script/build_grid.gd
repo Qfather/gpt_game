@@ -49,12 +49,16 @@ func is_area_free(
 	grid_position: Vector2i,
 	area_size: Vector2i,
 	rotation_step: int = 0,
-	ignore_resources: bool = false
+	ignore_resources: bool = false,
+	ignore_fog: bool = false
 ) -> bool:
-	return is_area_buildable(grid_position, area_size, rotation_step, ignore_resources)
+	return is_area_buildable(grid_position, area_size, rotation_step, ignore_resources, ignore_fog)
 
 
-func is_cell_buildable(grid_position: Vector2i) -> bool:
+func is_cell_buildable(grid_position: Vector2i, ignore_fog: bool = false) -> bool:
+	var fog: Node = get_tree().get_first_node_in_group("fog_of_war") if is_inside_tree() else null
+	if not ignore_fog and fog != null and not fog.is_visible_at(grid_to_world(grid_position)):
+		return false
 	if not _is_in_bounds(grid_position):
 		return false
 	if buildability_rule.is_valid():
@@ -66,7 +70,8 @@ func is_area_buildable(
 	grid_position: Vector2i,
 	area_size: Vector2i,
 	rotation_step: int = 0,
-	ignore_resources: bool = false
+	ignore_resources: bool = false,
+	ignore_fog: bool = false
 ) -> bool:
 
 	var first_height: float = get_ground_height(grid_position)
@@ -76,7 +81,7 @@ func is_area_buildable(
 		rotation_step
 	):
 
-		if not is_cell_buildable(cell):
+		if not is_cell_buildable(cell, ignore_fog):
 			return false
 		if not is_equal_approx(get_ground_height(cell), first_height):
 			return false
@@ -126,14 +131,16 @@ func occupy_area(
 	grid_position: Vector2i,
 	area_size: Vector2i,
 	rotation_step: int = 0,
-	ignore_resources: bool = false
+	ignore_resources: bool = false,
+	ignore_fog: bool = false
 ) -> bool:
 
 	if not is_area_free(
 		grid_position,
 		area_size,
 		rotation_step,
-		ignore_resources
+		ignore_resources,
+		ignore_fog
 	):
 		return false
 

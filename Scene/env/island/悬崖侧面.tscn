@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://bexia72b1lhg1"]
+
+[ext_resource type="PackedScene" uid="uid://3d1hamwo2pk0" path="res://assets/modles/env/悬崖侧面.glb" id="1_ipw0g"]
+[ext_resource type="Shader" uid="uid://bh1ppvgwx3np1" path="res://assets/materials/grass_cliff.tres" id="2_vlmym"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_wjj04"]
+render_priority = 0
+shader = ExtResource("2_vlmym")
+
+[node name="Node3D" type="Node3D" unique_id=933822884]
+
+[node name="悬崖侧面" parent="." unique_id=695427990 instance=ExtResource("1_ipw0g")]
+
+[node name="SM_Env_Rock_Cliff_03" parent="悬崖侧面" index="0" unique_id=867430712]
+surface_material_override/0 = SubResource("ShaderMaterial_wjj04")
+
+[editable path="悬崖侧面"]

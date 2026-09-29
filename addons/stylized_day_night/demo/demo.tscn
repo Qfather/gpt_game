@@ -1,0 +1,65 @@
+[gd_scene format=3 uid="uid://c372iwd1810bf"]
+
+[ext_resource type="Script" uid="uid://b3qeu3h4gs68g" path="res://addons/stylized_day_night/stylized_day_night.gd" id="1_sky"]
+[ext_resource type="Script" uid="uid://mmw66o28otqv" path="res://addons/stylized_day_night/demo/demo.gd" id="2_demo"]
+[ext_resource type="PackedScene" uid="uid://lxbgsabrubts" path="res://addons/曲爸爸工具/桥接/几何节点桥接godot测试.glb" id="3_gl2up"]
+
+[sub_resource type="StandardMaterial3D" id="GroundMaterial"]
+albedo_color = Color(0.22, 0.36, 0.25, 1)
+
+[sub_resource type="PlaneMesh" id="GroundMesh"]
+material = SubResource("GroundMaterial")
+size = Vector2(100, 100)
+
+[sub_resource type="BoxMesh" id="BlockMesh"]
+size = Vector3(3, 4, 3)
+
+[sub_resource type="StandardMaterial3D" id="BlockMaterial"]
+albedo_color = Color(0.62, 0.44, 0.29, 1)
+roughness = 0.85
+
+[sub_resource type="SphereMesh" id="SphereMesh"]
+radius = 1.5
+height = 3.0
+
+[sub_resource type="StandardMaterial3D" id="SphereMaterial"]
+albedo_color = Color(0.36, 0.54, 0.72, 1)
+roughness = 0.7
+
+[node name="StylizedSkyDemo" type="Node3D" unique_id=489591175]
+script = ExtResource("2_demo")
+
+[node name="StylizedDayNight" type="Node3D" parent="." unique_id=1134399068]
+script = ExtResource("1_sky")
+cycle_length_seconds = 120.0
+start_hour = 14.0
+
+[node name="Ground" type="MeshInstance3D" parent="." unique_id=27964949]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.03926468, -0.1, -0.09185028)
+mesh = SubResource("GroundMesh")
+
+[node name="Block" type="MeshInstance3D" parent="." unique_id=384177031]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 2, 0)
+mesh = SubResource("BlockMesh")
+surface_material_override/0 = SubResource("BlockMaterial")
+
+[node name="Sphere" type="MeshInstance3D" parent="." unique_id=1835058062]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 1.5, 0)
+mesh = SubResource("SphereMesh")
+surface_material_override/0 = SubResource("SphereMaterial")
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=932546747]
+transform = Transform3D(0.79863554, -0.20583284, 0.5655211, 0, 0.9396926, 0.34202012, -0.601815, -0.27314943, 0.75047195, 12, 8, 16)
+current = true
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1889791025]
+
+[node name="TimeLabel" type="Label" parent="CanvasLayer" unique_id=1325490894]
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 540.0
+offset_bottom = 64.0
+theme_override_font_sizes/font_size = 22
+
+[node name="几何节点桥接godot测试" parent="." unique_id=1359203000 instance=ExtResource("3_gl2up")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -89.80874, 54.788406, 38.476147)

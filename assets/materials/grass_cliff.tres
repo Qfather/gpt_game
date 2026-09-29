@@ -1,0 +1,76 @@
+[gd_resource type="VisualShader" format=3 uid="uid://bh1ppvgwx3np1"]
+
+[ext_resource type="Texture2D" uid="uid://bgpu8feprhqni" path="res://assets/textures/Grass_Texture_01.png" id="1_4k187"]
+[ext_resource type="Texture2D" uid="uid://bscec38kvhqwi" path="res://assets/textures/PolygonNatureBiomes_Tropical_Texture_01.png" id="2_uhxby"]
+
+[sub_resource type="VisualShaderNodeTexture" id="VisualShaderNodeTexture_4k187"]
+texture = ExtResource("1_4k187")
+texture_type = 1
+
+[sub_resource type="VisualShaderNodeTexture" id="VisualShaderNodeTexture_uhxby"]
+texture = ExtResource("2_uhxby")
+texture_type = 1
+
+[sub_resource type="VisualShaderNodeMix" id="VisualShaderNodeMix_1t1nt"]
+default_input_values = [0, Vector3(0, 0, 0), 1, Vector3(1, 1, 1), 2, Vector3(0.5, 0.5, 0.5)]
+op_type = 3
+
+[sub_resource type="VisualShaderNodeInput" id="VisualShaderNodeInput_tbfun"]
+input_name = "normal"
+
+[sub_resource type="VisualShaderNodeVectorDecompose" id="VisualShaderNodeVectorDecompose_163mt"]
+
+[sub_resource type="VisualShaderNodeInput" id="VisualShaderNodeInput_awuo4"]
+input_name = "inv_view_matrix"
+
+[sub_resource type="VisualShaderNodeTransformVecMult" id="VisualShaderNodeTransformVecMult_41rax"]
+operator = 2
+
+[sub_resource type="VisualShaderNodeSmoothStep" id="VisualShaderNodeSmoothStep_ayhhw"]
+
+[sub_resource type="VisualShaderNodeTexture" id="VisualShaderNodeTexture_1t1nt"]
+texture = ExtResource("1_4k187")
+
+[sub_resource type="VisualShaderNodeTexture" id="VisualShaderNodeTexture_tbfun"]
+texture = ExtResource("2_uhxby")
+
+[sub_resource type="VisualShaderNodeInput" id="VisualShaderNodeInput_163mt"]
+output_port_for_preview = 0
+input_name = "normal"
+
+[sub_resource type="VisualShaderNodeMix" id="VisualShaderNodeMix_awuo4"]
+default_input_values = [0, Vector3(0, 0, 0), 1, Vector3(1, 1, 1), 2, Vector3(0.5, 0.5, 0.5)]
+op_type = 3
+
+[sub_resource type="VisualShaderNodeVectorDecompose" id="VisualShaderNodeVectorDecompose_41rax"]
+
+[resource]
+nodes/vertex/0/position = Vector2(400, 160)
+nodes/vertex/2/node = SubResource("VisualShaderNodeTexture_1t1nt")
+nodes/vertex/2/position = Vector2(-260, 640)
+nodes/vertex/3/node = SubResource("VisualShaderNodeTexture_tbfun")
+nodes/vertex/3/position = Vector2(-260, 300)
+nodes/vertex/4/node = SubResource("VisualShaderNodeInput_163mt")
+nodes/vertex/4/position = Vector2(-620, 60)
+nodes/vertex/5/node = SubResource("VisualShaderNodeMix_awuo4")
+nodes/vertex/5/position = Vector2(140, 160)
+nodes/vertex/7/node = SubResource("VisualShaderNodeVectorDecompose_41rax")
+nodes/vertex/7/position = Vector2(-260, 80)
+nodes/vertex/connections = PackedInt32Array(3, 0, 5, 0, 2, 0, 5, 1, 4, 0, 7, 0, 7, 1, 5, 2, 3, 0, 0, 6)
+nodes/fragment/2/node = SubResource("VisualShaderNodeTexture_4k187")
+nodes/fragment/2/position = Vector2(-720, 340)
+nodes/fragment/3/node = SubResource("VisualShaderNodeTexture_uhxby")
+nodes/fragment/3/position = Vector2(-720, 680)
+nodes/fragment/4/node = SubResource("VisualShaderNodeMix_1t1nt")
+nodes/fragment/4/position = Vector2(-280, 240)
+nodes/fragment/5/node = SubResource("VisualShaderNodeInput_tbfun")
+nodes/fragment/5/position = Vector2(-1500, 100)
+nodes/fragment/6/node = SubResource("VisualShaderNodeVectorDecompose_163mt")
+nodes/fragment/6/position = Vector2(-920, 120)
+nodes/fragment/7/node = SubResource("VisualShaderNodeInput_awuo4")
+nodes/fragment/7/position = Vector2(-1500, 200)
+nodes/fragment/8/node = SubResource("VisualShaderNodeTransformVecMult_41rax")
+nodes/fragment/8/position = Vector2(-1140, 100)
+nodes/fragment/9/node = SubResource("VisualShaderNodeSmoothStep_ayhhw")
+nodes/fragment/9/position = Vector2(-700, 120)
+nodes/fragment/connections = PackedInt32Array(3, 0, 4, 0, 2, 0, 4, 1, 4, 0, 0, 0, 7, 0, 8, 0, 5, 0, 8, 1, 8, 0, 6, 0, 9, 0, 4, 2, 6, 1, 9, 2)

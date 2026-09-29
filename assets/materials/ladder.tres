@@ -1,0 +1,10 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://udsgrhrufmou"]
+
+[ext_resource type="Texture2D" uid="uid://cyhog5ktf5yb6" path="res://assets/textures/PolygonVikingRealm_Stone_Wall_01.png" id="1_drqiy"]
+[ext_resource type="Texture2D" uid="uid://bsafo30ih0u5" path="res://assets/textures/PolygonVikingRealm_Stone_Wall_01_Normals.png" id="2_chlwp"]
+
+[resource]
+albedo_texture = ExtResource("1_drqiy")
+normal_enabled = true
+normal_scale = 5.02
+normal_texture = ExtResource("2_chlwp")

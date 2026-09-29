@@ -1,0 +1,84 @@
+[gd_scene format=3 uid="uid://dicxnpnlvr6qv"]
+
+[ext_resource type="Material" uid="uid://bjkelbrtb3k1j" path="res://assets/materials/water/water.tres" id="1_water"]
+[ext_resource type="Script" uid="uid://b0n2f8k6fopae" path="res://assets/materials/water/water_preview_camera.gd" id="2_camera_script"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_water"]
+size = Vector2(12, 12)
+subdivide_width = 48
+subdivide_depth = 48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_floor"]
+size = Vector2(14, 14)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_floor"]
+albedo_color = Color(0.27, 0.22, 0.14, 1)
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_shallow"]
+size = Vector2(3.5, 12)
+subdivide_width = 48
+subdivide_depth = 48
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_shallow"]
+albedo_color = Color(0.43, 0.36, 0.23, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_rock"]
+albedo_color = Color(0.31, 0.32, 0.29, 1)
+roughness = 0.95
+
+[sub_resource type="SphereMesh" id="SphereMesh_rock"]
+radial_segments = 8
+rings = 4
+
+[node name="WaterPreview" type="Node3D" unique_id=1622011080]
+
+[node name="Water" type="MeshInstance3D" parent="." unique_id=659118887]
+material_override = ExtResource("1_water")
+mesh = SubResource("PlaneMesh_water")
+
+[node name="DeepBottom" type="MeshInstance3D" parent="." unique_id=878445655]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2, 0)
+mesh = SubResource("PlaneMesh_floor")
+surface_material_override/0 = SubResource("StandardMaterial3D_floor")
+
+[node name="ShallowShelfLeft" type="MeshInstance3D" parent="." unique_id=644649776]
+transform = Transform3D(0.9238795, -0.38268346, 0, 0.38268346, 0.9238795, 0, 0, 0, 1, -4.15, -0.875, 0)
+mesh = SubResource("PlaneMesh_shallow")
+surface_material_override/0 = SubResource("StandardMaterial3D_shallow")
+
+[node name="ShallowShelfRight" type="MeshInstance3D" parent="." unique_id=227078687]
+transform = Transform3D(0.9238795, 0.38268346, 0, -0.38268346, 0.9238795, 0, 0, 0, 1, 4.15, -0.875, 0)
+mesh = SubResource("PlaneMesh_shallow")
+surface_material_override/0 = SubResource("StandardMaterial3D_shallow")
+
+[node name="RockA" type="MeshInstance3D" parent="." unique_id=961408558]
+transform = Transform3D(0.7112669, 0.13451608, 0.2631114, -0.16471066, 0.5327456, -0.094637714, -0.32706258, 0.024239847, 0.6198517, -1.8, -0.18, -1.2)
+material_override = SubResource("StandardMaterial3D_rock")
+mesh = SubResource("SphereMesh_rock")
+
+[node name="RockB" type="MeshInstance3D" parent="." unique_id=470197352]
+transform = Transform3D(0.39231628, -0.12418766, 0.5047492, 0.09410837, 0.42167392, 0.16934533, -0.47077763, -0.019197589, 0.45447814, 1.05, -0.28, 0.5)
+material_override = SubResource("StandardMaterial3D_rock")
+mesh = SubResource("SphereMesh_rock")
+
+[node name="RockC" type="MeshInstance3D" parent="." unique_id=1342528650]
+transform = Transform3D(0.729235, -0.25127614, -0.17730866, 0.21614651, 0.6618666, -0.17542303, 0.3064262, 0.13112189, 0.5457, 3.7, -0.62, -1.25)
+material_override = SubResource("StandardMaterial3D_rock")
+mesh = SubResource("SphereMesh_rock")
+
+[node name="RockD" type="MeshInstance3D" parent="." unique_id=1169251479]
+transform = Transform3D(0.63530856, 0.17756762, 0.15647511, -0.21923183, 0.5711533, 0.10577156, -0.103539646, -0.11980681, 0.73615754, -3.35, -0.48, 1.7)
+material_override = SubResource("StandardMaterial3D_rock")
+mesh = SubResource("SphereMesh_rock")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=2099484958]
+transform = Transform3D(0.88294756, 0.36994863, -0.2890356, 0, 0.6156615, 0.7880107, 0.46947157, -0.6957722, 0.5435968, 0, 0, 0)
+light_energy = 1.15
+shadow_enabled = true
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=947861003]
+transform = Transform3D(0.70710677, -0.39540908, 0.5862181, 0, 0.8290376, 0.5591929, -0.70710677, -0.39540908, 0.5862181, 13, 12, 13)
+projection = 1
+current = true
+size = 18.0
+script = ExtResource("2_camera_script")

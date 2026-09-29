@@ -15,6 +15,10 @@ func _ready() -> void:
 
 
 func refresh() -> void:
+	# 资源采尽后节点已释放，必须在类型转换之前检查旧引用。
+	if not is_instance_valid(current_building):
+		close_panel_immediately()
+		return
 	var current_resource: ResourceBase = current_building as ResourceBase
 	if not is_instance_valid(current_resource):
 		close_panel_immediately()

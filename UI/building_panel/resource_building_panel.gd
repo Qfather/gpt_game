@@ -221,6 +221,21 @@ func refresh():
 		)
 		return
 
+	if current_building.has_method("get_lifetime_ratio"):
+		storage_label.hide()
+		material_label.show()
+		worker_label.hide()
+		hire_button.hide()
+		fire_button.hide()
+		demolition_progress_bar.show()
+		demolition_progress_bar.value = current_building.get_lifetime_ratio() * 100.0
+		material_label.text = "剩余时间：%d / %d 秒\n视野半径：%.1f 米" % [
+			ceili(current_building.get_remaining_lifetime()),
+			int(current_building.lifetime),
+			current_building.get_sight_radius()
+		]
+		return
+
 	worker_label.show()
 	hire_button.show()
 	fire_button.show()

@@ -29,9 +29,16 @@ func _initialize() -> void:
 	_expect(site.register_construction_worker(third_worker), "释放名额后新居民可以补位")
 	_expect(site.get_worker_count() == 2, "补位后施工人数仍保持 2/2")
 
-	first_worker.free()
 	second_worker.free()
+	_expect(site.get_worker_count() == 1, "已释放的施工居民未从人数中清理")
+	_expect(site.builders.is_empty(), "已释放的施工居民仍留在施工数组")
 	third_worker.free()
+	_expect(site.get_worker_count() == 0, "已释放的候工居民未从人数中清理")
+	_expect(site.waiting_workers.is_empty(), "已释放的候工居民仍留在等待数组")
+	site.delivery_workers.append(first_worker)
+	first_worker.free()
+	_expect(site.get_worker_count() == 0, "已释放的搬运居民未从人数中清理")
+	_expect(site.delivery_workers.is_empty(), "已释放的搬运居民仍留在搬运数组")
 	site.free()
 
 	if _failed:

@@ -11,6 +11,8 @@ func _init() -> void:
 
 func _run() -> void:
 	var scene: Node = load("res://Scene/main.tscn").instantiate()
+	scene.level_preset = scene.level_preset.duplicate(true)
+	scene.level_preset.fog_of_war_enabled = not "--no-fog" in OS.get_cmdline_user_args()
 	var runtime: MapGenerateRuntime = scene.get_node("Systems/MapGenerateRuntime") as MapGenerateRuntime
 	runtime.settlement_seed = 42
 	root.add_child(scene)
@@ -37,17 +39,34 @@ func _run() -> void:
 	var worker: CharacterBody3D = load("res://Scene/unit/villager.tscn").instantiate() as CharacterBody3D
 	root.add_child(worker)
 	worker.set_physics_process(false)
+	# 等待居民异步启动结束，避免待命初始化覆盖本测试的采集状态。
+	for frame: int in range(5):
+		await physics_frame
 	worker.global_position = start
 	worker.target_resource = tree
+	var original_distance: float = worker.navigation_agent.target_desired_distance
+	var original_path_distance: float = worker.navigation_agent.path_desired_distance
 	worker.state = VILLAGER_SCRIPT.State.MOVE_TO_RESOURCE
+	_expect(is_equal_approx(worker.navigation_agent.target_desired_distance, 0.2), "采集移动未启用小容差")
 	worker.navigation_agent.target_position = gather_point
 	for frame: int in range(300):
 		await physics_frame
 		worker.move_to_resource()
 		if worker.state == VILLAGER_SCRIPT.State.GATHER_RESOURCE:
 			break
+		_expect(is_equal_approx(worker.navigation_agent.target_desired_distance, 0.2), "采集移动容差未跨帧保持")
 	_expect(worker.state == VILLAGER_SCRIPT.State.GATHER_RESOURCE, "居民未实际抵达采集范围")
 	_expect(worker.global_position.x < center.x, "居民绕到了树的背面采集")
+	_expect(is_equal_approx(worker.navigation_agent.target_desired_distance, original_distance), "开始采集后未恢复容差")
+	_expect(is_equal_approx(worker.navigation_agent.path_desired_distance, original_path_distance), "开始采集后未恢复路径容差")
+	var amount_before: int = tree.resource_amount
+	worker.gather_resource(worker.chop_interval)
+	_expect(tree.resource_amount < amount_before and worker.carried_amount > 0.0, "到树边后未实际采集木材")
+	for next_state: int in [VILLAGER_SCRIPT.State.MOVE_TO_WORKPLACE, VILLAGER_SCRIPT.State.MOVE_TO_BUILD_SITE, VILLAGER_SCRIPT.State.RETURN_TO_IDLE]:
+		worker.state = VILLAGER_SCRIPT.State.MOVE_TO_RESOURCE
+		worker.state = next_state
+		_expect(is_equal_approx(worker.navigation_agent.target_desired_distance, original_distance), "中断采集后影响其他状态容差")
+		_expect(is_equal_approx(worker.navigation_agent.path_desired_distance, original_path_distance), "中断采集后影响其他状态路径容差")
 	worker.queue_free()
 	var blocked_path: PackedVector3Array = NavigationServer3D.map_get_path(navigation_map, start, finish, true)
 	_expect(blocked_path.size() > 2, "路径没有绕开挡路树")

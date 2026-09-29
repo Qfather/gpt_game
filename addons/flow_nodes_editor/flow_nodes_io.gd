@@ -1,0 +1,339 @@
+extends RefCounted
+class_name FlowNodeIO
+
+# Here are all functions related to read/write the resources, including 
+# serialization to/from json for the clipboard
+const discardted_props = {
+	"resource_local_to_scene" : 1,
+	"resource_name" : 1,
+	"metadata/_custom_type_script" : 1,
+	"metadata/exec_time_usec" : 1,
+	"script" : 1,
+	"data" : 1,
+	"name" : 1,  # This is from node.gd
+}
+
+static func resource_to_dict(resource: Resource) -> Dictionary:
+	var dict := {}
+	var script := resource.get_script() as Script
+	for prop : Dictionary in resource.get_property_list():
+		var prop_name = prop.name
+		if prop_name in discardted_props:
+			continue
+		if prop.usage & PROPERTY_USAGE_STORAGE == 0:
+			continue
+		var current_value: Variant = resource.get(prop_name)
+		var default_value: Variant = script.get_property_default_value(prop_name)
+		if current_value == default_value:
+			continue
+		dict[prop_name] = resource.get(prop_name)
+	return dict
+	
+static func split_floats(in_str : String) -> Array:
+	var parts = in_str.lstrip("(").rstrip(")").split(",")
+	var vfloats = []
+	for part in parts:
+		vfloats.append( part.to_float() )
+	return vfloats
+
+static func _parse_resource_from_string(s: String) -> String:
+	var start := s.find("res://")
+	if start == -1:
+		return ""
+
+	var end := s.find("):", start)
+	if end == -1:
+		return ""
+
+	return s.substr(start, end - start)
+
+static func _parse_color(value) -> Color:
+	if typeof(value) == TYPE_STRING:
+		var parts = split_floats(value)
+		return Color(parts[0], parts[1], parts[2], parts[3])
+	return value
+
+static func _parse_vector2(value) -> Vector2:
+	if typeof(value) == TYPE_STRING:
+		var parts = split_floats(value)
+		return Vector2(parts[0], parts[1])
+	if value == null:
+		return Vector2(0,0)
+	#print( "returning...", value)
+	return value
+
+static  func _parse_vector3(value) -> Vector3:
+	if typeof(value) == TYPE_STRING:
+		var parts = split_floats(value)
+		return Vector3(parts[0], parts[1], parts[2])
+	return value
+
+static func dict_to_resource(data: Dictionary, resource: Resource) -> void:
+	for prop in resource.get_property_list():
+		var name = prop.name
+		if name in discardted_props:
+			continue
+		if not data.has(name):
+			continue
+		var value = data[name]
+		var type = prop.type
+		#print( "Updating res.%s to %s" % [ name, value ])
+		match type:
+			TYPE_COLOR:
+				resource.set(name, _parse_color(value))
+			TYPE_VECTOR2:
+				resource.set(name, _parse_vector2(value))
+			TYPE_VECTOR3:
+				resource.set(name, _parse_vector3(value))
+			_:
+				if type == TYPE_ARRAY and typeof(value) == TYPE_ARRAY:
+					var target_arr = resource.get(name)
+					if target_arr != null and target_arr.is_typed():
+						var target_arrary : Array = target_arr
+						target_arr.clear()
+						if target_arr.get_typed_builtin() == TYPE_VECTOR3:
+							for item in value:
+								target_arr.append(_parse_vector3(item))
+						elif target_arr.get_typed_builtin() == TYPE_VECTOR2:
+							for item in value:
+								target_arr.append(_parse_vector2(item))
+						elif target_arr.get_typed_builtin() == TYPE_COLOR:
+							for item in value:
+								target_arr.append(_parse_color(item))
+						elif target_arr.get_typed_builtin() == TYPE_OBJECT:
+							for item in value:
+								if item and typeof(item) == TYPE_STRING:
+									var res_name = _parse_resource_from_string( item )
+									if res_name:
+										var obj = load( res_name )
+										if obj:
+											target_arr.append(obj)
+								else:
+									target_arr.append(item)
+									
+						else:
+							# print( "Array is of type %s" % [ target_arr.get_typed_builtin() ])
+							for item in value:
+								target_arr.append(item)
+					else:
+						resource.set(name, value)
+				else:
+					resource.set(name, value)
+
+static func nodes_as_dict( nodes, frames, editor : FlowGraphEditor ):
+	var exported_node_names = {}
+	
+	nodes.sort_custom(func(a, b): return a.name < b.name)
+	frames.sort_custom(func(a, b): return a.name < b.name)
+	
+	# Find the top-left coord of every exported graph element. Frames must take
+	# part too, especially when a comment is copied without any attached nodes.
+	var min_pos = null
+	for node in nodes:
+		var pos = node.position_offset / editor.ui_scale
+		if min_pos == null:
+			min_pos = pos
+		else:
+			min_pos.x = minf( min_pos.x, pos.x )
+			min_pos.y = minf( min_pos.y, pos.y )
+	for frame in frames:
+		var pos = frame.position_offset / editor.ui_scale
+		if min_pos == null:
+			min_pos = pos
+		else:
+			min_pos.x = minf( min_pos.x, pos.x )
+			min_pos.y = minf( min_pos.y, pos.y )
+	if min_pos == null:
+		min_pos = Vector2.ZERO
+	
+	var nodes_clean = nodes.map( func( ui_node : FlowGraphNodeUI ):
+		var node = ui_node.flow_node
+		exported_node_names[ node.name ] = 1
+		node.refreshConnectionFlags( editor )
+		var template_name = node.template_name
+		# print( "Name: ", template_name, " Meta:", node.getMeta() )
+		return {
+			"position" : ( ui_node.position_offset - min_pos ) / editor.ui_scale,
+			"size" : ui_node.size,
+			"name" : node.name,
+			"template" : template_name,
+			"show_disconnected_inputs" : node.show_disconnected_inputs,
+			"args_port" : node.args_ports_by_name,
+			"settings" : resource_to_dict( node ),
+		}
+	)
+	
+	var links = []
+	for connection in editor.gedit.connections:
+		if connection.from_node in exported_node_names and connection.to_node in exported_node_names:
+			links.append( connection )
+			
+	var frames_clean = frames.map( func( graph_frame ):
+		var attached : Array[StringName] = editor.gedit.get_attached_nodes_of_frame(graph_frame.name)
+		return {
+			"position" : ( graph_frame.position_offset - min_pos ) / editor.ui_scale,
+			"size" : graph_frame.size,
+			"name" : graph_frame.name,
+			"tint_color" : graph_frame.tint_color,
+			"title" : graph_frame.title,
+			"attached" : attached,
+		}
+	)
+	for frame in frames:
+		print( "stored frame", frame.title )
+			
+	var data := {
+		"type" : "flow_graph_nodes",
+		"version" : 1,
+		"min_pos" : min_pos,
+		"nodes" : nodes_clean,
+		"links" : links,
+		"frames" : frames_clean,
+	}
+	return data
+
+static func _paste_nodes_from_dict( dict, editor : FlowGraphEditor, at_graph_coords = null):
+	if typeof(dict) != TYPE_DICTIONARY:
+		return []
+	# Read paste coords from mouse
+	var mouse_pos = editor.get_local_mouse_position()
+	var graph_coords : Vector2 = editor.localToGraphCoords( mouse_pos )
+	if at_graph_coords:
+		graph_coords = at_graph_coords
+		
+	var new_data = create_nodes_from_dict( dict, editor.current_resource, graph_coords )
+	
+	# Update selection
+	for graph_node in editor.getSelectedGraphNodes():
+		graph_node.selected = false
+		
+	var new_nodes = new_data.get( "nodes", [] )
+	for node in new_nodes:
+		var graph_node = editor.onNodeCreated( node )
+		graph_node.selected = true
+		
+	var new_conns = new_data.get( "conns", [] )
+	for conn in new_conns:
+		editor.onConnCreated( conn )
+
+	var new_frames = new_data.get( "frames", [] )
+	for frame_data in new_frames:
+		var graph_frame = editor.onFrameCreated( frame_data )
+		graph_frame.selected = true
+
+static func create_nodes_from_dict( dict, graph : FlowGraphResource, paste_offset = null) -> Dictionary:
+	print( "at create_nodes_from_dict ", dict)
+	if dict.get( "type", null) != "flow_graph_nodes":
+		push_error( "Invalid dict to paste nodes from" )
+		return {}
+	graph.loading = true
+	var new_nodes = []
+	var new_conns = []
+	var new_frames = []
+	var old_to_new_names = {}
+	
+	var ui_scale = 1.0			# container.ui_scale
+	
+	for in_node in dict.nodes:
+		if not in_node:
+			return {}
+		var in_name = in_node.name
+		print( "Parsing node %s  Template:%s Settings:%s" % [ in_name, in_node.template, in_node.settings ] )
+		
+		# Apply saved settings...
+		#dict_to_resource( in_node.settings, settings )
+		
+		# Never import the inspect_enabled
+		in_node.settings.inspect_enabled = false
+		
+		#print( "Creating node %s" % in_name )
+		var node = graph.addNodeFromTemplate( in_node.template, in_name, in_node.settings )
+		if not node:
+			return {}
+		var in_pos = _parse_vector2( in_node.position )
+		node.ui_position_offset = ( in_pos + paste_offset ) * ui_scale
+		var in_size = _parse_vector2( in_node.get("size", "(0,0)" ) )
+		node.ui_size = in_size
+		#print( "New node pos %s will be %s" % [ in_name, node.ui_position_offset ] )
+		node.show_disconnected_inputs = in_node.get("show_disconnected_inputs", false)
+		node.args_ports_by_name = in_node.get("args_port", {})
+		
+		#print( "Node %s show_disconnected:%s args_ports:%s" % [node.name, node.show_disconnected_inputs, node.args_ports_by_name])
+		
+		# Update relation old -> new for the links
+		old_to_new_names[ in_name ] = node.name
+		new_nodes.append( node )
+		
+	# Recreate the links
+	for link in dict.links:
+		var new_from = old_to_new_names.get( link.from_node, null )
+		var new_to = old_to_new_names.get( link.to_node, null )
+		if new_from == null or new_to == null:
+			push_error( "Failed to identify params links", link)
+			continue
+		var new_conn = graph.connect_nodes(new_from, link.from_port, new_to, link.to_port )
+		new_conns.append( new_conn )
+
+	for frame_data in dict.get( "frames", [] ):
+		print( "Parsing frame %s" % frame_data )
+		while graph.all_frames.any(func(existing): return existing.name == frame_data.name):
+			frame_data.name = FlowPlugin.get_instance().nodes_factory.getNewName("comment")
+		var new_names = []
+		for old_name in frame_data.attached:
+			var new_name = old_to_new_names.get( old_name, null )
+			if new_name != null:
+				new_names.append( new_name )
+		frame_data.attached = new_names
+		
+		var in_pos = _parse_vector2( frame_data.position )
+		frame_data.position = ( in_pos + paste_offset ) * ui_scale
+		graph.addFrame(frame_data)
+		new_frames.append(frame_data)
+
+	graph.loading = false
+	return { "nodes" : new_nodes, "conns" : new_conns, "frames" : new_frames }
+
+static func copySelectionToClipboard( editor : FlowGraphEditor ):
+	var graph_nodes = editor.getSelectedGraphNodes()
+	var frames = editor.getSelectedFrames()
+	var json_str = JSON.stringify( nodes_as_dict( graph_nodes, frames, editor ), "\t")
+	DisplayServer.clipboard_set( json_str )
+
+static func pasteNodeFromClipboard( editor : FlowGraphEditor ):
+	var json_str = DisplayServer.clipboard_get( )
+	var dict := JSON.parse_string(json_str)
+	_paste_nodes_from_dict( dict, editor )
+
+static func duplicateSelecteddNodes( editor : FlowGraphEditor ):
+	var graph_nodes = editor.getSelectedGraphNodes()
+	var frames = editor.getSelectedFrames()
+	var dict = nodes_as_dict(graph_nodes, frames, editor )
+	_paste_nodes_from_dict( dict, editor )
+
+static func saveEditorStateToResource( editor : FlowGraphEditor ):
+	var res = editor.current_resource
+	if not res:
+		return
+	var all_nodes := editor.getAllGraphNodes()
+	var all_frames = editor.gedit.get_children().filter( func( n ): return n is GraphFrame )
+	print( "saveEditorStateToResource %d nodes, %d conns and %d frames (%s) (%d:%d)" % [ all_nodes.size(), editor.gedit.connections.size(), all_frames.size(), res.resource_path, res.all_nodes.size(), res.all_connections.size() ] )
+	res.data = FlowNodeIO.nodes_as_dict( all_nodes, all_frames, editor )
+
+	# Nodes need no equivalent synchronization because their GraphNode UIs are
+	# bound to the live FlowNodeBase objects already stored in res.all_nodes.
+	# Frames are native GraphFrame controls without a separate backing model, so
+	# refresh res.all_frames from those controls before they are removed.
+	res.all_frames.clear()
+	for graph_frame: GraphFrame in all_frames:
+		res.all_frames.append({
+			"position": graph_frame.position_offset,
+			"size": graph_frame.size,
+			"name": graph_frame.name,
+			"tint_color": graph_frame.tint_color,
+			"title": graph_frame.title,
+			"attached": editor.gedit.get_attached_nodes_of_frame(graph_frame.name),
+		})
+
+	res.view_zoom = editor.gedit.zoom
+	res.view_offset = editor.gedit.scroll_offset
+	#print( "Saved graph:", res.data )

@@ -834,7 +834,7 @@ func get_worker_count() -> int:
 
 func _cleanup_construction_worker_references() -> void:
 	var valid_workers: Array[Node] = []
-	for worker: Node in construction_workers:
+	for worker: Variant in construction_workers:
 		if (
 			is_instance_valid(worker)
 			and not _is_combat_unit(worker)
@@ -843,15 +843,21 @@ func _cleanup_construction_worker_references() -> void:
 			valid_workers.append(worker)
 	construction_workers = valid_workers
 
-	for worker: Node in waiting_workers.duplicate():
-		if not is_instance_valid(worker) or not construction_workers.has(worker):
-			waiting_workers.erase(worker)
-	for worker: Node in delivery_workers.duplicate():
-		if not is_instance_valid(worker) or not construction_workers.has(worker):
-			delivery_workers.erase(worker)
-	for worker: Node in builders.duplicate():
-		if not is_instance_valid(worker) or not construction_workers.has(worker):
-			builders.erase(worker)
+	var valid_waiting: Array[Node] = []
+	for worker: Variant in waiting_workers:
+		if is_instance_valid(worker) and construction_workers.has(worker):
+			valid_waiting.append(worker)
+	waiting_workers = valid_waiting
+	var valid_delivery: Array[Node] = []
+	for worker: Variant in delivery_workers:
+		if is_instance_valid(worker) and construction_workers.has(worker):
+			valid_delivery.append(worker)
+	delivery_workers = valid_delivery
+	var valid_builders: Array[Node] = []
+	for worker: Variant in builders:
+		if is_instance_valid(worker) and construction_workers.has(worker):
+			valid_builders.append(worker)
+	builders = valid_builders
 
 
 func can_register_construction_worker(worker: Node) -> bool:
@@ -935,6 +941,30 @@ func request_additional_worker() -> void:
 				managers[0].request_dispatch()
 		else:
 			call_deferred("_request_build_tasks")
+
+
+func stop_assigning_workers() -> void:
+	construction_worker_limit = 0
+	delivery_replenishment_blocked = true
+	worker_replenishment_requested = false
+	next_delivery_worker = null
+	var managers: Array[Node] = get_tree().get_nodes_in_group("task_manager")
+	if not managers.is_empty():
+		managers[0].cancel_tasks_for_target(self)
+	for worker: Variant in construction_workers.duplicate():
+		if not is_instance_valid(worker):
+			continue
+		if float(worker.get("carried_amount")) > 0.0 and worker.has_method("go_to_base"):
+			worker.go_to_base()
+		elif worker.has_method("return_to_idle"):
+			worker.return_to_idle()
+	construction_workers.clear()
+	waiting_workers.clear()
+	delivery_workers.clear()
+	builders.clear()
+	if state == State.BUILDING:
+		state = State.READY_TO_BUILD
+		state_changed.emit(state)
 
 
 func cancel_one_worker() -> void:
@@ -1021,6 +1051,8 @@ func fill_waiting_workers() -> void:
 		var assigned: bool = false
 		for villager: Node in villagers:
 			if _is_combat_unit(villager):
+				continue
+			if villager.has_method("can_work_at") and not villager.can_work_at(self):
 				continue
 			if not villager.has_method("is_idle") or not villager.is_idle():
 				continue
@@ -1122,9 +1154,11 @@ func on_delivery_task_completed(task: GameTask) -> void:
 
 
 func on_delivery_task_released(task: GameTask) -> void:
-	remove_construction_worker(task.assigned_worker)
-	delivery_workers.erase(task.assigned_worker)
-	if next_delivery_worker == task.assigned_worker:
+	var worker: Variant = task.assigned_worker
+	if is_instance_valid(worker):
+		remove_construction_worker(worker)
+	delivery_workers.erase(worker)
+	if next_delivery_worker == worker:
 		next_delivery_worker = null
 
 	var resource_id: StringName = ResourceStorage.resource_id_from_key(
@@ -1136,9 +1170,11 @@ func on_delivery_task_released(task: GameTask) -> void:
 
 
 func on_delivery_task_failed(task: GameTask) -> void:
-	remove_construction_worker(task.assigned_worker)
-	delivery_workers.erase(task.assigned_worker)
-	if next_delivery_worker == task.assigned_worker:
+	var worker: Variant = task.assigned_worker
+	if is_instance_valid(worker):
+		remove_construction_worker(worker)
+	delivery_workers.erase(worker)
+	if next_delivery_worker == worker:
 		next_delivery_worker = null
 
 	var resource_id: StringName = ResourceStorage.resource_id_from_key(
@@ -1229,14 +1265,18 @@ func remove_builder(worker: Node) -> void:
 
 
 func on_build_task_released(task: GameTask) -> void:
-	remove_builder(task.assigned_worker)
-	remove_construction_worker(task.assigned_worker)
+	var worker: Variant = task.assigned_worker
+	if is_instance_valid(worker):
+		remove_builder(worker)
+		remove_construction_worker(worker)
 	call_deferred("_request_build_tasks")
 
 
 func on_build_task_completed(task: GameTask) -> void:
-	remove_builder(task.assigned_worker)
-	remove_construction_worker(task.assigned_worker)
+	var worker: Variant = task.assigned_worker
+	if is_instance_valid(worker):
+		remove_builder(worker)
+		remove_construction_worker(worker)
 
 
 func debug_deliver_resource(

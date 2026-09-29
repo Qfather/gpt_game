@@ -5,6 +5,7 @@ extends Resource
 @export_group("地图与资源")
 @export var map_config: WFCLevelConfig
 @export var layout_seed: int = -1
+@export var fog_of_war_enabled: bool = true
 @export_range(0, 200, 1) var rift_min_base_distance: float = 30.0
 @export var map_resources: Array[MapResourceEntry] = []
 @export_group("出怪")

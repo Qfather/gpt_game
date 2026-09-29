@@ -1,0 +1,296 @@
+@tool
+
+## This the resource to store a full flow graph. It has no runtime state.
+extends Resource
+class_name FlowGraphResource
+
+@export_category("流程图资源")
+
+# Where we store the graph_nodes + custom settings as a dict
+@export var data: Dictionary = {}
+@export var graph_name : String:
+	set(value):
+		graph_name = value
+		emit_changed()
+	get:
+		if graph_name:
+			return graph_name
+		if resource_name != "":
+			return resource_name
+		if resource_path != "":
+			return resource_path.get_file().get_basename()
+		return "流程图"
+
+# Visualization params
+@export var view_zoom : float = 1.0
+@export var view_offset : Vector2 = Vector2(0,0)
+
+# To always generate unique name ids for each node
+@export var new_name_counter : int = 0
+
+@export var in_params : Array[GraphInputParameter] = []:
+	set(value):
+		in_params = value
+		validateAndWatchNewInputs()
+	get:
+		return in_params
+
+@export_storage var redirectors: Array[FlowGraphRedirect] = []
+
+var loading : bool = false:
+	set(value):
+		loading = value
+		print( "Res %s.loading = %s  InSize:%d" % [ graph_name, value, in_params.size() ])
+	get:
+		return loading
+var compiled : bool = false
+
+# The compiled version of the resource, which is shared between all the instances using this resource
+var nodes_by_name : Dictionary
+var all_connections : Array[ Dictionary ]
+var all_frames : Array[ Dictionary ]
+var all_nodes : Array[ FlowNodeBase ]
+var input_nodes : Array[ FlowNodeBase ]
+
+var editor : FlowGraphEditor
+
+signal in_params_changed
+signal input_params_removed(param_ids: Array[StringName])
+signal regeneration_requested(source_owner)
+
+var _known_input_ids: Array[StringName] = []
+
+func validateAndWatchNewInputs():
+	var previous_ids := _known_input_ids.duplicate()
+	for idx in range(in_params.size()):
+		if in_params[idx] == null:
+			var param := GraphInputParameter.new()
+			param.name = "input_%d" % idx
+			in_params[idx] = param
+		in_params[idx].ensureId()
+	var current_ids: Array[StringName] = []
+	for param in in_params:
+		if param:
+			current_ids.append(param.ensureId())
+	var removed_ids: Array[StringName] = []
+	for previous_id in previous_ids:
+		if not current_ids.has(previous_id):
+			removed_ids.append(previous_id)
+	_known_input_ids = current_ids
+	_watch_input_changes()
+	_refreshInputNodes()
+	if not removed_ids.is_empty():
+		input_params_removed.emit(removed_ids)
+	in_params_changed.emit()	
+
+func _watch_input_changes():
+	print("Flow Graph._watch_input_changes")
+	# Disconnect existing connections
+	for param in in_params:
+		if param is Resource and param.changed.is_connected(_on_input_changed):
+			param.changed.disconnect(_on_input_changed)
+
+	# Connect to current items
+	for param in in_params:
+		if param is Resource:
+			param.changed.connect(_on_input_changed, CONNECT_DEFERRED)
+
+func _on_input_changed():
+	print("Flow Graph.One of the in_params was modified.")
+	_refreshInputNodes()
+	in_params_changed.emit()
+
+func _refreshInputNodes() -> void:
+	for input_node in input_nodes:
+		if input_node is FlowNodeInput:
+			input_node.refreshInputDefinition()
+
+func findInParamByName( requested_name : String ) -> GraphInputParameter:
+	for candidate in in_params:
+		if candidate and candidate.name == requested_name:
+			return candidate
+	return null
+
+func findInParamById(requested_id: StringName) -> GraphInputParameter:
+	if requested_id.is_empty():
+		return null
+	for candidate in in_params:
+		if candidate and candidate.ensureId() == requested_id:
+			return candidate
+	return null
+	
+# Compile callbacks
+func addNodeFromTemplate( node_template : String, node_name : String, node_settings = null ):
+	
+	print( "addNodeFromTemplate %s %s. NodesByName:%d" % [ node_template, node_name, nodes_by_name.size() ])
+	var factory := FlowPlugin.get_instance().nodes_factory
+	while node_name and nodes_by_name.has(node_name):
+		node_name = factory.getNewName(node_template)
+		print( "will use new name %s" % [ node_name ])
+	
+	var node = factory.createNewNode( node_template, node_name, node_settings )
+	if node:
+		nodes_by_name[ node.name ] = node
+		all_nodes.append( node )
+		node.invalidate()
+		node.flow_graph = self
+		if node is FlowNodeInput:
+			node.bindInputParameter(self)
+		elif node is FlowNodeRedirectEndpoint:
+			node.bindRedirectDefinition(self)
+		if not node.title:
+			node.title = node.getTitle()
+		
+		if node is FlowNodeInput:
+			input_nodes.append( node )
+
+		if node is FlowNodeRedirectEndpoint and not loading:
+			FlowGraphRedirectors.rebuildSyntheticConnections(self)
+		
+		return node
+	
+func disconnect_nodes( from_node: StringName, from_port: int, to_node: StringName, to_port: int) -> void:
+	var idx = all_connections.find_custom( func( c : Dictionary ) -> bool:
+		return c.from_node == from_node and c.from_port == from_port and c.to_node == to_node and c.to_port == to_port
+	)
+	if idx >= 0:
+		
+		# Remove the cached connections
+		var from_node_ptr = nodes_by_name.get( from_node )
+		if from_node_ptr:
+			_delete_cached_connection(from_node_ptr.dependants, from_node, from_port, to_node, to_port)
+		var to_node_ptr = nodes_by_name.get( to_node )
+		if to_node_ptr:
+			_delete_cached_connection(to_node_ptr.deps, from_node, from_port, to_node, to_port)
+			to_node_ptr.refreshOperationalState()
+			
+		all_connections.remove_at( idx )
+	
+func connect_nodes( from_node: StringName, from_port: int, to_node: StringName, to_port: int) -> Dictionary:
+	var conn = { "from_node": from_node, "from_port" : from_port, "to_node" : to_node, "to_port" : to_port }
+	all_connections.append( conn )
+	var src_node : FlowNodeBase = nodes_by_name.get(from_node)
+	var dst_node : FlowNodeBase = nodes_by_name.get(to_node)
+	if src_node and dst_node:
+		src_node.dependants.append(conn)
+		dst_node.deps.append(conn)
+		dst_node.refreshOperationalState()
+	else:
+		print( "graph.conn FAILED From:%s:%d To:%s:%d" % [ from_node, from_port, to_node, to_port ])
+		print( "nodes_by_name: %s" % [ nodes_by_name ])
+		if not src_node:
+			print( "  from_node is %s" % [ from_node ])
+		if not dst_node:
+			print( "  to_node is %s" % [ to_node ])
+	return conn
+		
+func _delete_connections_involving_node( conns : Array[ Dictionary ], node_name : StringName ):
+	for i in range(conns.size() - 1, -1, -1):
+		var conn := conns[i]
+		if conn.from_node == node_name or conn.to_node == node_name:
+			conns.remove_at(i)
+
+func _delete_cached_connection(
+	conns: Array[Dictionary],
+	from_node: StringName,
+	from_port: int,
+	to_node: StringName,
+	to_port: int
+) -> void:
+	var idx := conns.find_custom(func(conn: Dictionary) -> bool:
+		return (
+			conn.from_node == from_node
+			and conn.from_port == from_port
+			and conn.to_node == to_node
+			and conn.to_port == to_port
+		)
+	)
+	if idx >= 0:
+		conns.remove_at(idx)
+		
+func delete_node( node : FlowNodeBase ):
+	var node_name : StringName = node.name
+	# remove connections to that node
+	_delete_connections_involving_node( all_connections, node_name )
+	
+	for conn_dep in node.deps:
+		var other_node = nodes_by_name.get( conn_dep.from_node )
+		if other_node:
+			_delete_connections_involving_node( other_node.dependants, node_name )
+			
+	for conn_dependant in node.dependants:
+		var other_node = nodes_by_name.get( conn_dependant.to_node )
+		if other_node:
+			_delete_connections_involving_node( other_node.deps, node_name )
+			other_node.refreshOperationalState()
+			# The dependant must run again (or at least execute preExecute) so
+			# generated scene output from the affected branch is refreshed.
+			other_node.invalidate()
+			
+	nodes_by_name.erase( node_name )
+	all_nodes.erase( node )
+	input_nodes.erase( node )
+	if node is FlowNodeRedirectEndpoint:
+		FlowGraphRedirectors.removeUnusedDefinitions(self)
+		FlowGraphRedirectors.rebuildSyntheticConnections(self)
+	#node.queue_free()
+
+func delete_frame( frame_name ):
+	var idx = all_frames.find_custom( func( c ) : return c.name == frame_name )
+	print( "Deleteing frame %s returned idx %d" % [ frame_name, idx ])
+	if idx >= 0:
+		all_frames.remove_at( idx )
+		
+func addFrame( frame_data : Dictionary ):
+	all_frames.append( frame_data )
+		
+func markAllNodesDirty():
+	for node in all_nodes:
+		node.invalidate()
+
+func requestRegeneration(source_owner = null) -> void:
+	regeneration_requested.emit(source_owner)
+	
+func dump():
+	print( ">>>> FlowGraph %s.. %s Compiled:%s" % [resource_name, graph_name, compiled] )
+	print( "  %d Nodes" % all_nodes.size() )
+	for node in all_nodes:
+		print( "    %s" % node.name )
+		for dep in node.deps:
+			if dep.to_node != node.name:
+				push_error( "In node %s. Inconsistency in dep %s" % [node.name, dep])
+			print( "      DependsOn %s:%d to me:%d" % [dep.from_node, dep.from_port, dep.to_port])
+		for dependant in node.dependants:
+			if dependant.from_node != node.name:
+				push_error( "In node %s. Inconsistency in dependant %s" % [node.name, dependant])
+			print( "      Dependant me:%d to %s:%d" % [dependant.from_port, dependant.to_node, dependant.to_port])
+	print( "  %d Input Nodes" % input_nodes.size() )
+	for node in input_nodes:
+		print( "    %s %s" % [ node.name, node.template_name ])
+	print( "  %d Connections" % all_connections.size() )
+	for conn in all_connections:
+		print( "    %s:%d <-> %s:%d" % [ conn.from_node, conn.from_port, conn.to_node, conn.to_port ])
+	print( "  %d Frames" % all_frames.size() )
+	for frame in all_frames:
+		print( "    %s" % [ frame ])
+
+func compile():
+	if compiled:
+		return
+	# This is only executed once when we load the resource the first time in memory
+	# The other changes provided by the action while running the editor
+	print( "FlowGraph.Compilation.Starts (%s )" % [ resource_path ])
+	all_connections.clear()
+	all_frames.clear()
+	all_nodes.clear()
+	nodes_by_name.clear()
+	input_nodes.clear()
+	var time_node_start := Time.get_ticks_usec()
+	if data and not data.is_empty():
+		FlowNodeIO.create_nodes_from_dict( data, self, Vector2(0,0) )
+	FlowGraphRedirectors.removeUnusedDefinitions(self)
+	FlowGraphRedirectors.rebuildSyntheticConnections(self)
+	var time_node_end := Time.get_ticks_usec()
+	print( "FlowGraph.Compilation.Ends in %s (%s)" % [ time_node_end - time_node_start, resource_path ])
+	compiled = true
+	dump()

@@ -1,0 +1,57 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://bjkelbrtb3k1j"]
+
+[ext_resource type="Shader" uid="uid://34ki8lqn3tl" path="res://assets/materials/water/water.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://1ntlosjuk8sm" path="res://assets/materials/water/WaterNormals_01.png" id="2_normal"]
+[ext_resource type="Texture2D" uid="uid://231rabw2u016" path="res://assets/materials/water/Noise_Small.png" id="3_noise"]
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_surface"]
+frequency = 0.018
+fractal_octaves = 3
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_surface"]
+width = 256
+height = 256
+noise = SubResource("FastNoiseLite_surface")
+seamless = true
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/water_normal = ExtResource("2_normal")
+shader_parameter/foam_noise = ExtResource("3_noise")
+shader_parameter/surface_noise = SubResource("NoiseTexture2D_surface")
+shader_parameter/shallow_color = Color(0.19995117, 0.49536514, 0.7109375, 1)
+shader_parameter/deep_color = Color(0.07, 0.33, 0.68, 1)
+shader_parameter/very_deep_color = Color(0.025, 0.12, 0.34, 1)
+shader_parameter/shore_foam_color = Color(0.73, 0.89, 0.98, 1)
+shader_parameter/shore_wave_color = Color(0.55, 0.76, 0.9, 1)
+shader_parameter/surface_foam_color = Color(1, 1, 1, 1)
+shader_parameter/normal_tiling = 350.0
+shader_parameter/normal_strength = 0.21000004
+shader_parameter/normal_speed = 0.035
+shader_parameter/normal_pan_speed = 1.0
+shader_parameter/normal_noise_intensity = 0.23
+shader_parameter/normal_noise_tiling = 0.2
+shader_parameter/deep_height = 1.3
+shader_parameter/very_deep_height = 5.85
+shader_parameter/base_opacity = 0.941
+shader_parameter/shallows_opacity = 0.819
+shader_parameter/shore_edge_opacity = 0.429
+shader_parameter/shore_edge_thickness = 0.44200003
+shader_parameter/shore_edge_noise_scale = 0.86
+shader_parameter/shore_small_foam_opacity = 0.751
+shader_parameter/shore_small_foam_tiling = 200.0
+shader_parameter/shore_foam_intensity = 0.504
+shader_parameter/shore_foam_noise_scale = 0.3
+shader_parameter/shore_wave_speed = 0.147
+shader_parameter/shore_wave_return_amount = 0.519
+shader_parameter/shore_wave_fade_out_speed = 1.0
+shader_parameter/shore_wave_fade_in_speed = 3.0
+shader_parameter/shore_wave_oscillation = 1.0
+shader_parameter/shore_wave_thickness = 2.0
+shader_parameter/shore_wave_intensity = 0.226
+shader_parameter/enable_calm_surface_foam = false
+shader_parameter/surface_foam_strength = 0.36
+shader_parameter/surface_foam_tiling = 0.9
+shader_parameter/surface_foam_speed = 0.012
+shader_parameter/roughness = 0.5
