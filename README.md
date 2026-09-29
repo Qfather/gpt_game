@@ -1,5 +1,12 @@
 # 时间裂缝
 
+## 2026-09-29 水面、地面置换与工具更新
+
+- 主场景海洋面片使用 `assets/materials/water/water.tres` 蓝色水材质；水材质参数检查器已汉化，并提供平静水面低频泡沫开关。材质预览场景用于单独观察水面和石头效果。
+- 新增 `assets/materials/flood_displacement_visual_shader.tres` 与 `assets/materials/flood_displacement.tres`，用于给洪泛地面网格做噪声顶点置换。置换强度、噪声及网格细分分别影响位移幅度、形状和可见细节；场景地面网格当前细分为 300×300。VisualShader 顶点计算连接到 Vertex 输出端，材质颜色需在 Fragment 阶段接入 Albedo。
+- 修复暂停前已取消建筑蓝图、恢复游戏后预览又重新出现的问题；恢复时按暂停前及暂停期间的放置状态决定是否保留预览。
+- `addons/MapGenerate` 模型库支持勾选多个模型并按 Shift 连续选择，再一次为匹配网格与材质槽批量指定共享材质；操作说明见子模块 README。
+
 ## 2026-09-28 添加 Flow Graph 编辑器插件
 
 - 加入 `godot_flow` 的 Flow Nodes Editor（Apache-2.0）及 Windows 编辑器/调试版扩展；节点标题、分类、端口、枚举选项、动态标题、常用参数标签、面板操作及提示已汉化，右侧为“数据流”，底部为“数据检查器”。支持点集生成、变换及网格/场景实例化。
