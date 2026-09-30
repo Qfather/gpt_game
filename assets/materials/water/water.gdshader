@@ -42,6 +42,12 @@ uniform float surface_foam_tiling = 4.0;
 uniform float surface_foam_speed = 0.012;
 uniform float roughness = 0.397;
 
+varying vec3 water_world_position;
+
+void vertex() {
+	water_world_position = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+
 void fragment() {
 	vec2 normal_uv = UV * normal_tiling;
 	vec2 normal_noise_uv = UV * normal_noise_tiling + TIME * vec2(0.011, -0.008) * normal_pan_speed;
@@ -92,5 +98,6 @@ void fragment() {
 	METALLIC = 0.0;
 	SPECULAR = 0.5;
 	float alpha = mix(base_opacity, shallows_opacity, shallow_factor);
-	ALPHA = clamp(mix(alpha, 1.0, foam * 0.5), 0.0, 1.0);
+	float far_visibility = 1.0 - smoothstep(90.0, 180.0, distance(water_world_position, CAMERA_POSITION_WORLD));
+	ALPHA = clamp(mix(alpha, 1.0, foam * 0.5), 0.0, 1.0) * far_visibility;
 }

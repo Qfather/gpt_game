@@ -2,13 +2,17 @@
 
 [ext_resource type="Material" uid="uid://3k63kx5ola1q" path="res://assets/materials/VikingRealm.tres" id="1_b0s5l"]
 [ext_resource type="Script" uid="uid://d4fep3hm7j3qs" path="res://addons/MapGenerate/core/model_library.gd" id="1_ecc6s"]
+[ext_resource type="Material" uid="uid://udsgrhrufmou" path="res://assets/materials/ladder.tres" id="2_cpudd"]
 [ext_resource type="PackedScene" uid="uid://cmyrtxka1pid" path="res://Scene/env/island/悬崖拐角2.tscn" id="2_oknsl"]
+[ext_resource type="Material" uid="uid://oqrcepwfwjvb" path="res://assets/materials/grass.tres" id="3_awy61"]
 [ext_resource type="PackedScene" uid="uid://dj3vowhv3m75c" path="res://Scene/env/island/悬崖拐角3.tscn" id="3_lmawc"]
-[ext_resource type="PackedScene" uid="uid://bxyev1b25rvi8" path="res://Scene/env/island/平面.tscn" id="4_lmawc"]
 [ext_resource type="PackedScene" uid="uid://b58spwt3fnjpd" path="res://Scene/env/island/悬崖双面.tscn" id="4_se0iu"]
-[ext_resource type="PackedScene" uid="uid://bexia72b1lhg1" path="res://Scene/env/island/悬崖侧面.tscn" id="6_lkdq4"]
+[ext_resource type="PackedScene" uid="uid://cbai41117cvmg" path="res://assets/modles/env/悬崖.glb" id="6_lkdq4"]
 [ext_resource type="PackedScene" uid="uid://d3dqebdosdsw8" path="res://Scene/env/island/悬崖.tscn" id="8_4hlvb"]
-[ext_resource type="PackedScene" uid="uid://frsumpobsped" path="res://Scene/env/island/阶梯.tscn" id="9_lkdq4"]
+[ext_resource type="PackedScene" uid="uid://bj0u471k4on8a" path="res://assets/modles/env/平面.glb" id="8_awy61"]
+[ext_resource type="PackedScene" uid="uid://bn7cvmxm3a864" path="res://assets/modles/env/阶梯.glb" id="8_cpudd"]
+[ext_resource type="PackedScene" uid="uid://5rwrrg4riv0q" path="res://assets/modles/env/阶梯侧面.glb" id="10_4hlvb"]
+[ext_resource type="PackedScene" uid="uid://c6jowuvh5mbpg" path="res://assets/modles/env/悬崖补阶梯.glb" id="11_cpudd"]
 
 [resource]
 script = ExtResource("1_ecc6s")
@@ -17,12 +21,34 @@ shape_scenes = {
 "cliff_corner_3": [ExtResource("3_lmawc")],
 "cliff_opposite": [ExtResource("4_se0iu")],
 "cliff_side": [ExtResource("6_lkdq4")],
+"cliff_stair_fill": [ExtResource("11_cpudd")],
 "cliff_straight": [ExtResource("8_4hlvb")],
-"flat": [ExtResource("4_lmawc")],
-"stair": [ExtResource("9_lkdq4")],
-"stair_side": []
+"flat": [ExtResource("8_awy61")],
+"stair": [ExtResource("8_cpudd")],
+"stair_side": [ExtResource("10_4hlvb")]
 }
 material_overrides = {
+"res://assets/modles/env/平面.glb": {
+"平面_002": {
+"0": ExtResource("3_awy61")
+}
+},
+"res://assets/modles/env/悬崖.glb": {
+"平面_001": {
+"0": ExtResource("1_b0s5l")
+},
+"平面_002": {
+"0": ExtResource("1_b0s5l")
+},
+"悬崖": {
+"0": ExtResource("1_b0s5l")
+}
+},
+"res://assets/modles/env/悬崖补阶梯.glb": {
+"悬崖补阶梯": {
+"0": ExtResource("1_b0s5l")
+}
+},
 "res://assets/modles/env/悬崖资产_001.glb": {
 "Cliff_rock_05_002_Plane_004": {
 "0": ExtResource("1_b0s5l")
@@ -30,6 +56,22 @@ material_overrides = {
 },
 "res://assets/modles/env/悬崖资产_002.glb": {
 "Cliff_rock_05_002_Plane_002": {
+"0": ExtResource("1_b0s5l")
+}
+},
+"res://assets/modles/env/阶梯.glb": {
+"SM_Env_Stone_Stairs_03": {
+"0": ExtResource("2_cpudd")
+},
+"SM_Env_Stone_Stairs_03_002": {
+"0": ExtResource("1_b0s5l")
+},
+"阶梯": {
+"0": ExtResource("1_b0s5l")
+}
+},
+"res://assets/modles/env/阶梯侧面.glb": {
+"阶梯侧面": {
 "0": ExtResource("1_b0s5l")
 }
 },

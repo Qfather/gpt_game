@@ -2,7 +2,6 @@
 
 [ext_resource type="Script" uid="uid://b3qeu3h4gs68g" path="res://addons/stylized_day_night/stylized_day_night.gd" id="1_sky"]
 [ext_resource type="Script" uid="uid://mmw66o28otqv" path="res://addons/stylized_day_night/demo/demo.gd" id="2_demo"]
-[ext_resource type="PackedScene" uid="uid://lxbgsabrubts" path="res://addons/曲爸爸工具/桥接/几何节点桥接godot测试.glb" id="3_gl2up"]
 
 [sub_resource type="StandardMaterial3D" id="GroundMaterial"]
 albedo_color = Color(0.22, 0.36, 0.25, 1)
@@ -60,6 +59,3 @@ offset_top = 24.0
 offset_right = 540.0
 offset_bottom = 64.0
 theme_override_font_sizes/font_size = 22
-
-[node name="几何节点桥接godot测试" parent="." unique_id=1359203000 instance=ExtResource("3_gl2up")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -89.80874, 54.788406, 38.476147)

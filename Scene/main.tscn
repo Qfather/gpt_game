@@ -23,21 +23,10 @@
 [ext_resource type="Script" uid="uid://bsxcikxlrieku" path="res://Script/ui/floating_text_manager.gd" id="26_floating_text"]
 [ext_resource type="Script" uid="uid://decp3qbjpundk" path="res://Script/world/map_generate_runtime.gd" id="27_map_generator"]
 [ext_resource type="Material" uid="uid://bjkelbrtb3k1j" path="res://assets/materials/water/water.tres" id="28_ocean_water"]
+[ext_resource type="Script" uid="uid://b3qeu3h4gs68g" path="res://addons/stylized_day_night/stylized_day_night.gd" id="29_stylized_sky"]
 
 [sub_resource type="PlaneMesh" id="Mesh_ocean"]
 size = Vector2(500, 500)
-
-[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sblpm"]
-sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
-ground_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
-
-[sub_resource type="Sky" id="Sky_r34rm"]
-sky_material = SubResource("ProceduralSkyMaterial_sblpm")
-
-[sub_resource type="Environment" id="Environment_2wwxx"]
-background_mode = 2
-sky = SubResource("Sky_r34rm")
-glow_enabled = true
 
 [sub_resource type="NavigationMesh" id="NavigationMesh_t2dwb"]
 vertices = PackedVector3Array(-2.25, 0.3, -12.25, -0.5, 0.3, -12.5, -0.5, 0.3, -14.5, -13, 0.3, -14.5, -13.25, 0.3, -13.25, -14.5, 0.3, -1.5, -10.25, 0.3, -1.25, -7.75, 0.3, -1.25, -7.5, 0.3, -0.75, -1.75, 0.3, -9.25, -2.25, 0.3, -9.5, -14.5, 0.3, -13.25, -4.5, 0.3, 4.75, -4.25, 0.3, 5.25, -3.75, 0.3, 5, -3.5, 0.3, 3.5, 7.25, 0.3, 3.5, 7.75, 0.3, 4, 14.5, 0.3, 8.25, 14.5, 0.3, -14.5, 1, 0.3, -12.25, 1, 0.3, -9.5, -9, 0.3, 5, -9, 0.3, 6.25, -7.5, 0.3, 6.25, -7.25, 0.3, 4.75, 9.25, 0.3, 7.25, 9.75, 0.3, 8.25, -1.5, 0.3, 5, 0.5, 0.3, 6.25, 0.75, 0.3, 5.25, 7.5, 0.3, 5.5, 8, 0.3, 7.25, -9.75, 0.3, 4.75, -7.5, 0.3, 1.75, -9.5, 0.3, 2, -2, 0.3, 3.5, 2.5, 0.3, 5.25, 6, 0.3, 3.5, 5.5, 0.3, 5, -1.25, 1.3, -11.5, -1.25, 1.3, -10.25, 0, 1.3, -10.25, 0, 1.3, -11.5, -14.5, 0.3, 6.5, -12.25, 0.3, 6.5, -12, 0.3, 4.75, -10.75, 0.3, 1.75, -10.75, 0.3, -1, -9.75, 1.3, -0.25, -9.75, 1.3, 1, -8.5, 1.3, 1, -8.5, 1.3, -0.25, -1.5, 0.3, 10, -1, 0.3, 9.5, -1.5, 0.3, 9, -3.25, 0.3, 9.75, 1, 0.3, 14.5, 1, 0.3, 14.25, 0, 0.3, 14, -14.5, 0.3, 14.5, -3.25, 0.3, 5.75, -4.5, 0.3, 8, 0.5, 0.3, 7.5, 0.75, 0.3, 7.25, -2, 0.3, 5.75, -1.25, 0.3, 7.5, 0, 0.3, 12.5, -1.75, 0.3, 12, -3, 0.3, 12, 0.75, 0.3, 12, -1.25, 0.3, 11, -3.5, 0.3, 11.5, -7.25, 0.3, 8, -12, 0.3, 8, -9.25, 0.3, 8, 2.25, 0.3, 13.75, 6.25, 0.3, 14.5, 6.25, 0.3, 14.25, 5, 0.3, 13.5, 2, 0.3, 7.5, 0.75, 0.3, 9.25, 2.25, 0.3, 12.5, 5, 0.3, 12.5, 7.5, 0.3, 7.5, 6, 0.3, 5.75, 2.75, 0.3, 7, 7.5, 0.3, 9.25, 5.5, 0.3, 12, 6.75, 0.3, 12, 8, 0.3, 9.5, -11.25, 1.3, 5.75, -11.25, 1.3, 7, -10, 1.3, 7, -10, 1.3, 5.75, -6.5, 1.3, 5.75, -6.5, 1.3, 7, -5.25, 1.3, 7, -5.25, 1.3, 5.75, 7.25, 0.3, 13.75, 14.5, 0.3, 14.5, 7.25, 0.3, 12.25, 9.25, 0.3, 9.5)
@@ -53,7 +42,7 @@ subdivide_depth = 300
 script = ExtResource("1_ow1sv")
 
 [node name="Ocean" type="MeshInstance3D" parent="." unique_id=450384318]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.61, 1.8, -0.571)
 material_override = ExtResource("28_ocean_water")
 cast_shadow = 0
 mesh = SubResource("Mesh_ocean")
@@ -138,12 +127,34 @@ script = ExtResource("23_rift_manager")
 process_mode = 3
 script = ExtResource("24_encounter_director")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="Systems" unique_id=1486133278]
-environment = SubResource("Environment_2wwxx")
-
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="Systems" unique_id=159197342]
-transform = Transform3D(-0.8660254, -0.43301278, 0.25, 0, 0.49999997, 0.86602545, -0.50000006, 0.75, -0.43301266, 0, 0, 0)
-shadow_enabled = true
+[node name="StylizedDayNight" type="Node3D" parent="Systems" unique_id=796768329]
+script = ExtResource("29_stylized_sky")
+cloud_style = 1
+distant_fog_enabled = true
+distant_fog_begin = 59.0
+distant_fog_end = 211.0
+distant_fog_custom_color = Color(0.8307326, 0.085023634, 0.44128248, 1)
+"昼夜周期（秒）" = 600.0
+"开始时刻（小时）" = 9.0
+"夜间视野倍率" = 0.8
+"暂停昼夜循环" = false
+"启用云层" = true
+"云层样式" = 1
+"云层密度" = 0.5
+"云层大小" = 5.0
+"云层速度" = 0.015
+"云层不透明度" = 0.65
+"模型云高度" = 0.0
+"云团环配置" = Array[Dictionary]([{
+"height": 0.0,
+"radius": 25.0,
+"rotation": 0.0
+}])
+"启用远景雾" = true
+"雾开始距离" = 59.0
+"雾结束距离" = 211.0
+"自定义雾颜色" = false
+"雾颜色" = Color(0.8307326, 0.085023634, 0.44128248, 1)
 
 [node name="NavigationRegion3D" type="NavigationRegion3D" parent="Systems" unique_id=1436073479]
 navigation_mesh = SubResource("NavigationMesh_t2dwb")
@@ -160,6 +171,6 @@ script = ExtResource("27_map_generator")
 script = ExtResource("12_mxd2g")
 
 [node name="flood" type="MeshInstance3D" parent="." unique_id=643583843]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8563843, 0.50001526, -1.1018372)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8563843, -1.5, -1.1018372)
 mesh = SubResource("PlaneMesh_ogq8d")
 surface_material_override/0 = ExtResource("23_sor6r")

@@ -18,6 +18,11 @@ signal night_visibility_changed(multiplier: float)
 	{"radius": 25.0, "height": 0.0, "rotation": 0.0},
 ]
 @export var cycle_paused: bool = false
+@export var distant_fog_enabled: bool = false
+@export_range(0.0, 500.0, 1.0) var distant_fog_begin: float = 55.0
+@export_range(1.0, 500.0, 1.0) var distant_fog_end: float = 180.0
+@export var distant_fog_custom_color_enabled: bool = false
+@export_color_no_alpha var distant_fog_custom_color: Color = Color("#C7DCEA")
 
 var game_hour: float = 9.0
 var current_visibility_multiplier: float = 1.0
@@ -26,6 +31,7 @@ var _cloud_time: float = 0.0
 var _last_emitted_visibility: float = -1.0
 var _world_environment: WorldEnvironment
 var _sun: DirectionalLight3D
+var _moon: DirectionalLight3D
 var _sky_material: ShaderMaterial
 var _cloud_layer: Node3D
 var _cloud_material: StandardMaterial3D
@@ -45,10 +51,91 @@ const CLOUD_RING_SCENES: Array[PackedScene] = [
 
 const DAY_TOP := Color("#6FA6D8")
 const DAY_HORIZON := Color("#C7DCEA")
-const DAY_GROUND := Color("#75858A")
+const DAY_GROUND := Color("#679BBF")
 const NIGHT_TOP := Color("#101B3A")
 const NIGHT_HORIZON := Color("#46516F")
 const NIGHT_GROUND := Color("#202633")
+
+
+func _validate_property(property: Dictionary) -> void:
+	if property.name in [
+		&"cycle_length_seconds", &"start_hour", &"night_visibility_multiplier",
+		&"clouds_enabled", &"cloud_style", &"cloud_density", &"cloud_scale",
+		&"cloud_speed", &"cloud_opacity", &"mesh_cloud_altitude", &"cloud_rings",
+		&"cycle_paused", &"distant_fog_enabled", &"distant_fog_begin", &"distant_fog_end",
+		&"distant_fog_custom_color_enabled", &"distant_fog_custom_color",
+	]:
+		property.usage &= ~PROPERTY_USAGE_EDITOR
+
+
+func _get_property_list() -> Array[Dictionary]:
+	return [
+		{"name": "昼夜设置", "type": TYPE_NIL, "usage": PROPERTY_USAGE_GROUP},
+		{"name": "昼夜周期（秒）", "type": TYPE_FLOAT, "hint": PROPERTY_HINT_RANGE, "hint_string": "60,3600,1", "usage": PROPERTY_USAGE_DEFAULT},
+		{"name": "开始时刻（小时）", "type": TYPE_FLOAT, "hint": PROPERTY_HINT_RANGE, "hint_string": "0,24,0.1", "usage": PROPERTY_USAGE_DEFAULT},
+		{"name": "夜间视野倍率", "type": TYPE_FLOAT, "hint": PROPERTY_HINT_RANGE, "hint_string": "0,1,0.01", "usage": PROPERTY_USAGE_DEFAULT},
+		{"name": "暂停昼夜循环", "type": TYPE_BOOL, "usage": PROPERTY_USAGE_DEFAULT},
+		{"name": "云层设置", "type": TYPE_NIL, "usage": PROPERTY_USAGE_GROUP},
+		{"name": "启用云层", "type": TYPE_BOOL, "usage": PROPERTY_USAGE_DEFAULT},
+		{"name": "云层样式", "type": TYPE_INT, "hint": PROPERTY_HINT_ENUM, "hint_string": "程序化云,环形云 01,环形云 02,小云团环", "usage": PROPERTY_USAGE_DEFAULT},
+		{"name": "云层密度", "type": TYPE_FLOAT, "hint": PROPERTY_HINT_RANGE, "hint_string": "0.25,0.75,0.01", "usage": PROPERTY_USAGE_DEFAULT},
+		{"name": "云层大小", "type": TYPE_FLOAT, "hint": PROPERTY_HINT_RANGE, "hint_string": "2,12,0.1", "usage": PROPERTY_USAGE_DEFAULT},
+		{"name": "云层速度", "type": TYPE_FLOAT, "hint": PROPERTY_HINT_RANGE, "hint_string": "0,0.08,0.001", "usage": PROPERTY_USAGE_DEFAULT},
+		{"name": "云层不透明度", "type": TYPE_FLOAT, "hint": PROPERTY_HINT_RANGE, "hint_string": "0,1,0.01", "usage": PROPERTY_USAGE_DEFAULT},
+		{"name": "模型云高度", "type": TYPE_FLOAT, "hint": PROPERTY_HINT_RANGE, "hint_string": "-10,10,0.1", "usage": PROPERTY_USAGE_DEFAULT},
+		{"name": "云团环配置", "type": TYPE_ARRAY, "usage": PROPERTY_USAGE_DEFAULT},
+		{"name": "远景雾", "type": TYPE_NIL, "usage": PROPERTY_USAGE_GROUP},
+		{"name": "启用远景雾", "type": TYPE_BOOL, "usage": PROPERTY_USAGE_DEFAULT},
+		{"name": "雾开始距离", "type": TYPE_FLOAT, "hint": PROPERTY_HINT_RANGE, "hint_string": "0,500,1", "usage": PROPERTY_USAGE_DEFAULT},
+		{"name": "雾结束距离", "type": TYPE_FLOAT, "hint": PROPERTY_HINT_RANGE, "hint_string": "1,500,1", "usage": PROPERTY_USAGE_DEFAULT},
+		{"name": "自定义雾颜色", "type": TYPE_BOOL, "usage": PROPERTY_USAGE_DEFAULT},
+		{"name": "雾颜色", "type": TYPE_COLOR, "hint": PROPERTY_HINT_COLOR_NO_ALPHA, "usage": PROPERTY_USAGE_DEFAULT},
+	]
+
+
+func _get(property: StringName) -> Variant:
+	match property:
+		&"昼夜周期（秒）": return cycle_length_seconds
+		&"开始时刻（小时）": return start_hour
+		&"夜间视野倍率": return night_visibility_multiplier
+		&"暂停昼夜循环": return cycle_paused
+		&"启用云层": return clouds_enabled
+		&"云层样式": return cloud_style
+		&"云层密度": return cloud_density
+		&"云层大小": return cloud_scale
+		&"云层速度": return cloud_speed
+		&"云层不透明度": return cloud_opacity
+		&"模型云高度": return mesh_cloud_altitude
+		&"云团环配置": return cloud_rings
+		&"启用远景雾": return distant_fog_enabled
+		&"雾开始距离": return distant_fog_begin
+		&"雾结束距离": return distant_fog_end
+		&"自定义雾颜色": return distant_fog_custom_color_enabled
+		&"雾颜色": return distant_fog_custom_color
+	return null
+
+
+func _set(property: StringName, value: Variant) -> bool:
+	match property:
+		&"昼夜周期（秒）": cycle_length_seconds = value
+		&"开始时刻（小时）": start_hour = value
+		&"夜间视野倍率": night_visibility_multiplier = value
+		&"暂停昼夜循环": cycle_paused = value
+		&"启用云层": clouds_enabled = value
+		&"云层样式": cloud_style = value
+		&"云层密度": cloud_density = value
+		&"云层大小": cloud_scale = value
+		&"云层速度": cloud_speed = value
+		&"云层不透明度": cloud_opacity = value
+		&"模型云高度": mesh_cloud_altitude = value
+		&"云团环配置": cloud_rings = value
+		&"启用远景雾": distant_fog_enabled = value
+		&"雾开始距离": distant_fog_begin = value
+		&"雾结束距离": distant_fog_end = value
+		&"自定义雾颜色": distant_fog_custom_color_enabled = value
+		&"雾颜色": distant_fog_custom_color = value
+		_: return false
+	return true
 
 
 func _ready() -> void:
@@ -88,6 +175,10 @@ func _create_environment() -> void:
 	environment.background_mode = Environment.BG_SKY
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	environment.ambient_light_energy = 0.45
+	environment.glow_enabled = true
+	environment.fog_mode = Environment.FOG_MODE_DEPTH
+	environment.fog_density = 1.0
+	environment.fog_sky_affect = 0.0
 	var sky := Sky.new()
 	_sky_material = ShaderMaterial.new()
 	_sky_material.shader = preload("res://addons/stylized_day_night/stylized_sky.gdshader")
@@ -101,11 +192,16 @@ func _create_environment() -> void:
 	_sun.shadow_enabled = true
 	_sun.light_color = Color("#FFF1D6")
 	add_child(_sun)
+	_moon = DirectionalLight3D.new()
+	_moon.name = "MoonLight"
+	_moon.shadow_enabled = false
+	_moon.light_color = Color("#A8C4F0")
+	add_child(_moon)
 	_create_mesh_clouds()
 
 
 func _update_sky_and_sun() -> void:
-	if not is_instance_valid(_sky_material) or not is_instance_valid(_sun):
+	if not is_instance_valid(_sky_material) or not is_instance_valid(_sun) or not is_instance_valid(_moon):
 		return
 	var daylight := maxf(0.0, sin((game_hour - 6.0) / 12.0 * PI))
 	var blend := clampf(daylight / 0.22, 0.0, 1.0)
@@ -134,11 +230,19 @@ func _update_sky_and_sun() -> void:
 	_update_mesh_cloud_scales()
 	for index in range(_cloud_variants.size()):
 		_cloud_variants[index].visible = clouds_enabled and cloud_style == index + 1
-	_world_environment.environment.ambient_light_energy = lerpf(0.12, 0.45, daylight)
+	_world_environment.environment.ambient_light_color = Color("#809CC4")
+	_world_environment.environment.ambient_light_sky_contribution = lerpf(0.15, 1.0, daylight)
+	_world_environment.environment.ambient_light_energy = lerpf(0.6, 0.45, daylight)
+	_world_environment.environment.fog_enabled = distant_fog_enabled
+	_world_environment.environment.fog_depth_begin = distant_fog_begin
+	_world_environment.environment.fog_depth_end = maxf(distant_fog_begin + 1.0, distant_fog_end)
+	_world_environment.environment.fog_light_color = distant_fog_custom_color if distant_fog_custom_color_enabled else NIGHT_HORIZON.lerp(DAY_HORIZON, daylight)
 	_sun.light_energy = daylight
 	_sun.light_color = Color("#B8C9FF").lerp(Color("#FFF1D6"), daylight)
 	var light_up := Vector3.FORWARD if absf(sun_direction.y) > 0.98 else Vector3.UP
 	_sun.look_at(_sun.global_position - sun_direction, light_up)
+	_moon.light_energy = (1.0 - daylight) * 0.45
+	_moon.look_at(_moon.global_position + sun_direction, light_up)
 	var visibility := lerpf(night_visibility_multiplier, 1.0, daylight)
 	current_visibility_multiplier = visibility
 	if not is_equal_approx(visibility, _last_emitted_visibility):

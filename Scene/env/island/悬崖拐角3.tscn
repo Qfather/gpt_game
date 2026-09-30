@@ -21,19 +21,19 @@ surface_material_override/0 = SubResource("ShaderMaterial_l3huo")
 
 [node name="悬崖侧面" parent="." unique_id=695427990 instance=ExtResource("3_3o88p")]
 
-[node name="SM_Env_Rock_Cliff_03" parent="悬崖侧面" index="0" unique_id=867430712]
+[node name="SM_Env_Rock_Cliff_03" parent="悬崖侧面" index="0" unique_id=332526456]
 surface_material_override/0 = SubResource("ShaderMaterial_vv7dk")
 
 [node name="悬崖侧面2" parent="." unique_id=1299051936 instance=ExtResource("3_3o88p")]
 transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 0, 0, 0)
 
-[node name="SM_Env_Rock_Cliff_03" parent="悬崖侧面2" index="0" unique_id=867430712]
+[node name="SM_Env_Rock_Cliff_03" parent="悬崖侧面2" index="0" unique_id=332526456]
 surface_material_override/0 = SubResource("ShaderMaterial_vv7dk")
 
 [node name="悬崖侧面3" parent="." unique_id=1397204280 instance=ExtResource("3_3o88p")]
 transform = Transform3D(-1, 0, 8.742278e-08, 0, 1, 0, -8.742278e-08, 0, -1, 0, 0, 0)
 
-[node name="SM_Env_Rock_Cliff_03" parent="悬崖侧面3" index="0" unique_id=867430712]
+[node name="SM_Env_Rock_Cliff_03" parent="悬崖侧面3" index="0" unique_id=332526456]
 surface_material_override/0 = SubResource("ShaderMaterial_vv7dk")
 
 [editable path="平面"]

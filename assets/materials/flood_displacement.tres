@@ -5,5 +5,5 @@
 [resource]
 render_priority = 0
 shader = ExtResource("1_visual_shader")
-shader_parameter/FloatParameter = 2.50000011875
-shader_parameter/ColorParameter = Color(0.49, 0.33369002, 0.20580001, 1)
+shader_parameter/FloatParameter = 8.1950003892625
+shader_parameter/ColorParameter = Color(0.7219255, 0.5144101, 0.34588304, 1)

@@ -2,13 +2,14 @@
 
 [ext_resource type="PackedScene" uid="uid://bj0u471k4on8a" path="res://assets/modles/env/平面.glb" id="1_tceem"]
 [ext_resource type="Shader" uid="uid://bh1ppvgwx3np1" path="res://assets/materials/grass_cliff.tres" id="2_at4gu"]
-[ext_resource type="PackedScene" uid="uid://3d1hamwo2pk0" path="res://assets/modles/env/悬崖侧面.glb" id="3_8kggk"]
+[ext_resource type="PackedScene" uid="uid://cbai41117cvmg" path="res://assets/modles/env/悬崖.glb" id="3_at4gu"]
+[ext_resource type="Material" uid="uid://3k63kx5ola1q" path="res://assets/materials/VikingRealm.tres" id="4_8kggk"]
+[ext_resource type="PackedScene" uid="uid://df42rqr31qfvj" path="res://assets/modles/env/悬崖接壤1.glb" id="5_2ekdg"]
+[ext_resource type="Script" uid="uid://doby6obt13jti" path="res://Script/world/悬崖接壤.gd" id="5_7y6bt"]
+[ext_resource type="PackedScene" uid="uid://brk4w7e1v7xlt" path="res://assets/modles/env/悬崖接壤2.glb" id="6_7y6bt"]
+[ext_resource type="PackedScene" uid="uid://b6vr11amtsbf8" path="res://assets/modles/env/悬崖接壤3.glb" id="7_as78a"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_l3huo"]
-render_priority = 0
-shader = ExtResource("2_at4gu")
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_vv7dk"]
 render_priority = 0
 shader = ExtResource("2_at4gu")
 
@@ -19,17 +20,62 @@ shader = ExtResource("2_at4gu")
 [node name="平面_002" parent="平面" index="0" unique_id=1330113677]
 surface_material_override/0 = SubResource("ShaderMaterial_l3huo")
 
-[node name="悬崖侧面" parent="." unique_id=695427990 instance=ExtResource("3_8kggk")]
+[node name="悬崖" parent="." unique_id=1829376642 instance=ExtResource("3_at4gu")]
 
-[node name="SM_Env_Rock_Cliff_03" parent="悬崖侧面" index="0" unique_id=867430712]
-surface_material_override/0 = SubResource("ShaderMaterial_vv7dk")
+[node name="悬崖" parent="悬崖" index="0" unique_id=1576042221]
+surface_material_override/0 = ExtResource("4_8kggk")
 
-[node name="悬崖侧面3" parent="." unique_id=1397204280 instance=ExtResource("3_8kggk")]
-transform = Transform3D(-1, 0, 8.742278e-08, 0, 1, 0, -8.742278e-08, 0, -1, 0, 0, 0)
+[node name="_Node3D_63654" parent="悬崖" unique_id=161086698 instance=ExtResource("3_at4gu")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 0, 0)
 
-[node name="SM_Env_Rock_Cliff_03" parent="悬崖侧面3" index="0" unique_id=867430712]
-surface_material_override/0 = SubResource("ShaderMaterial_vv7dk")
+[node name="悬崖" parent="悬崖/_Node3D_63654" index="0" unique_id=1576042221]
+surface_material_override/0 = ExtResource("4_8kggk")
+
+[node name="悬崖接壤" type="Node3D" parent="." unique_id=545356403]
+script = ExtResource("5_7y6bt")
+
+[node name="悬崖接壤4" parent="悬崖接壤" unique_id=1508875518 instance=ExtResource("5_2ekdg")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 0, 0)
+
+[node name="阶梯_002" parent="悬崖接壤/悬崖接壤4" index="0" unique_id=1435185530]
+material_override = ExtResource("4_8kggk")
+
+[node name="悬崖接壤5" parent="悬崖接壤" unique_id=826882023 instance=ExtResource("6_7y6bt")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 0, 0)
+
+[node name="阶梯_003" parent="悬崖接壤/悬崖接壤5" index="0" unique_id=1327828571]
+material_override = ExtResource("4_8kggk")
+
+[node name="悬崖接壤6" parent="悬崖接壤" unique_id=1561499333 instance=ExtResource("7_as78a")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 0, 0)
+
+[node name="阶梯_004" parent="悬崖接壤/悬崖接壤6" index="0" unique_id=404458109]
+material_override = ExtResource("4_8kggk")
+
+[node name="Node3D" type="Node3D" parent="." unique_id=2032540774]
+script = ExtResource("5_7y6bt")
+
+[node name="悬崖接壤1" parent="Node3D" unique_id=2119149976 instance=ExtResource("5_2ekdg")]
+
+[node name="阶梯_002" parent="Node3D/悬崖接壤1" index="0" unique_id=1435185530]
+material_override = ExtResource("4_8kggk")
+
+[node name="悬崖接壤2" parent="Node3D" unique_id=147596547 instance=ExtResource("6_7y6bt")]
+
+[node name="阶梯_003" parent="Node3D/悬崖接壤2" index="0" unique_id=1327828571]
+material_override = ExtResource("4_8kggk")
+
+[node name="悬崖接壤3" parent="Node3D" unique_id=727096577 instance=ExtResource("7_as78a")]
+
+[node name="阶梯_004" parent="Node3D/悬崖接壤3" index="0" unique_id=404458109]
+material_override = ExtResource("4_8kggk")
 
 [editable path="平面"]
-[editable path="悬崖侧面"]
-[editable path="悬崖侧面3"]
+[editable path="悬崖"]
+[editable path="悬崖/_Node3D_63654"]
+[editable path="悬崖接壤/悬崖接壤4"]
+[editable path="悬崖接壤/悬崖接壤5"]
+[editable path="悬崖接壤/悬崖接壤6"]
+[editable path="Node3D/悬崖接壤1"]
+[editable path="Node3D/悬崖接壤2"]
+[editable path="Node3D/悬崖接壤3"]

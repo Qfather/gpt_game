@@ -67,7 +67,7 @@ void sky() {
 	if (EYEDIR.y < 0.0) {
 		float ground_gradient = smoothstep(-0.72, 0.0, EYEDIR.y);
 		vec3 ground_color = mix(night_ground_color.rgb, day_ground_color.rgb, daylight);
-		color = mix(ground_color * 0.45, ground_color, ground_gradient);
+		color = mix(ground_color * 0.8, horizon_color, ground_gradient);
 	}
 
 	float sun_dot = dot(normalize(EYEDIR), normalize(sun_direction));
