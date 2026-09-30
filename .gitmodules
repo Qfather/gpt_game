@@ -1,0 +1,3 @@
+[submodule "addons/MapGenerate"]
+	path = addons/MapGenerate
+	url = https://github.com/Qfather/GodotScript_MapGenerate.git

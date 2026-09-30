@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="WFCVegetationConfig" format=3 uid="uid://baf1brdbvmyi6"]
+
+[ext_resource type="Script" uid="uid://deeo1h5s5nd0i" path="res://addons/MapGenerate/core/vegetation_config.gd" id="1_j88lm"]
+[ext_resource type="PackedScene" path="res://addons/MapGenerate/models/vegetation/示例小草.tscn" id="2_5ykq5"]
+[ext_resource type="PackedScene" path="res://addons/MapGenerate/models/vegetation/示例小花.tscn" id="3_2pljm"]
+
+[resource]
+script = ExtResource("1_j88lm")
+count = 1000
+scale_min = 0.51
+scale_max = 0.81
+cliff_top_bonus = 20.0
+cliff_foot_bonus = 10.0
+species = Array[Dictionary]([{
+"enabled": true,
+"name": "示例小草",
+"scene": ExtResource("2_5ykq5"),
+"weight": 8.0
+}, {
+"enabled": true,
+"name": "示例小花",
+"scene": ExtResource("3_2pljm"),
+"weight": 2.0
+}])
