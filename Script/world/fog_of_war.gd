@@ -13,12 +13,18 @@ var overlay: MeshInstance3D
 var timer: float = 0.0
 var initialized: bool = false
 var refresh_queued: bool = false
+var visibility_multiplier: float = 1.0
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	process_priority = 110
 	add_to_group("fog_of_war")
+	var day_night: Node = get_node_or_null("../Systems/StylizedDayNight")
+	if day_night != null:
+		visibility_multiplier = float(day_night.get("current_visibility_multiplier"))
+		if day_night.has_signal("night_visibility_changed"):
+			day_night.connect("night_visibility_changed", _on_night_visibility_changed)
 	var runtime: MapGenerateRuntime = get_tree().get_first_node_in_group("map_generate_runtime") as MapGenerateRuntime
 	if runtime == null or runtime.map_data == null:
 		return
@@ -67,11 +73,37 @@ func _pixel(point: Vector3) -> Vector2i:
 	return Vector2i((Vector2(point.x, point.z) / extent + Vector2.ONE * 0.5) * RESOLUTION)
 
 
+func _on_night_visibility_changed(multiplier: float) -> void:
+	visibility_multiplier = multiplier
+
+
 func is_visible_at(point: Vector3) -> bool:
 	if not initialized:
 		return false
 	var pixel: Vector2i = _pixel(point)
 	return Rect2i(0, 0, RESOLUTION, RESOLUTION).has_point(pixel) and visibility_map.get_pixelv(pixel).r > 0.9
+
+
+func _belongs_to_camp_guard(node: Node, camp: Node) -> bool:
+	var ancestor: Node = node.get_parent()
+	while ancestor != null and ancestor != camp:
+		if ancestor is EnemyBase:
+			return true
+		ancestor = ancestor.get_parent()
+	return false
+
+
+func is_area_visible(center: Vector3, radius: float) -> bool:
+	if not initialized:
+		return false
+	var pixel: Vector2i = _pixel(center)
+	var reach := Vector2i(ceili(radius / extent.x * RESOLUTION), ceili(radius / extent.y * RESOLUTION))
+	for y: int in range(maxi(0, pixel.y - reach.y), mini(RESOLUTION, pixel.y + reach.y + 1)):
+		for x: int in range(maxi(0, pixel.x - reach.x), mini(RESOLUTION, pixel.x + reach.x + 1)):
+			var world_point: Vector2 = (Vector2(x + 0.5, y + 0.5) / RESOLUTION - Vector2.ONE * 0.5) * extent
+			if world_point.distance_to(Vector2(center.x, center.z)) <= radius and visibility_map.get_pixel(x, y).r > 0.9:
+				return true
+	return false
 
 
 func refresh_visibility() -> void:
@@ -93,7 +125,7 @@ func refresh_visibility() -> void:
 		_reveal_at(building.global_position, radius)
 	_reveal_visible_tree_canopies()
 	mask_texture.update(visual_map)
-	for group: String in ["enemies", "migrants", "resources", "buildings", "villagers"]:
+	for group: String in ["enemies", "migrants", "resources", "buildings", "villagers", "vegetation", "treasure_camps"]:
 		for object: Node in get_tree().get_nodes_in_group(group):
 			if not object is Node3D or object.is_queued_for_deletion():
 				continue
@@ -106,12 +138,17 @@ func refresh_visibility() -> void:
 			# 树木和地形保留在黑色遮罩下；其余对象隐藏网格但保持根节点与 AI 运作。
 			if not (group == "resources" and object.get_script() == TREE_SCRIPT):
 				for mesh: Node in object.find_children("*", "GeometryInstance3D", true, false):
-					if not mesh.has_meta("fog_layers"):
-						mesh.set_meta("fog_layers", mesh.layers)
-						mesh.set_meta("fog_shadow", mesh.cast_shadow)
-					mesh.layers = int(mesh.get_meta("fog_layers")) if visible_now else 0
-					mesh.cast_shadow = int(mesh.get_meta("fog_shadow")) if visible_now else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+					if group == "treasure_camps" and _belongs_to_camp_guard(mesh, object):
+						continue
+					if mesh is AggroRange3D:
+						mesh._refresh_visibility()
+						continue
+					if not mesh.has_meta("fog_visible"):
+						mesh.set_meta("fog_visible", mesh.visible)
+					mesh.visible = visible_now and bool(mesh.get_meta("fog_visible"))
 			for collider: Node in object.find_children("*", "CollisionObject3D", true, false):
+				if group == "treasure_camps" and _belongs_to_camp_guard(collider, object):
+					continue
 				if not collider.has_meta("fog_pickable"):
 					collider.set_meta("fog_pickable", collider.input_ray_pickable)
 				collider.input_ray_pickable = visible_now and bool(collider.get_meta("fog_pickable"))
@@ -127,6 +164,7 @@ func refresh_visibility() -> void:
 
 
 func _reveal_at(point: Vector3, sight_radius: float = SIGHT_RADIUS) -> void:
+	sight_radius *= visibility_multiplier
 	var center: Vector2i = _pixel(point)
 	var radius := Vector2i(Vector2.ONE * sight_radius / extent * RESOLUTION) + Vector2i.ONE
 	var origin := Vector2(point.x, point.z)

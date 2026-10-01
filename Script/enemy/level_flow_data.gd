@@ -8,6 +8,8 @@ extends Resource
 @export var fog_of_war_enabled: bool = true
 @export_range(0, 200, 1) var rift_min_base_distance: float = 30.0
 @export var map_resources: Array[MapResourceEntry] = []
+@export_group("营地")
+@export var camp_config: CampSpawnConfig
 @export_group("出怪")
 @export var monster_database: RaidGroupDatabase
 @export var events: Array[LevelEventEntry] = []

@@ -45,6 +45,7 @@ var selection_outline_material: ShaderMaterial
 var paused_game_commands: Array[Callable] = []
 var enemy_placement_active: bool = false
 var enemy_preview: Node3D = null
+var camp_panel: PanelContainer
 var enemy_placement_data: EnemyData = SLIME_DATA
 
 
@@ -70,6 +71,14 @@ func flush_paused_game_commands() -> void:
 
 func _ready():
 	_create_selection_outline_material()
+	camp_panel = preload("res://UI/camp_panel.gd").new()
+	$UI.add_child(camp_panel)
+	camp_panel.closed.connect(clear_selection)
+	if level_preset != null and level_preset.camp_config != null:
+		var camp_manager := CampSpawnManager.new()
+		camp_manager.name = "CampSpawnManager"
+		camp_manager.config = level_preset.camp_config
+		$Systems.add_child(camp_manager)
 	resource_building_panel.close_button.pressed.connect(_clear_selection_highlight)
 	villager_panel.close_button.pressed.connect(_clear_selection_highlight)
 	resource_node_panel.close_button.pressed.connect(_clear_selection_highlight)
@@ -427,6 +436,21 @@ func _on_enemy_clicked(enemy: EnemyBase) -> void:
 	call_deferred("_open_enemy_panel", enemy)
 
 
+func register_treasure_camp(camp: TreasureCamp) -> void:
+	camp.camp_clicked.connect(_on_treasure_camp_clicked)
+
+
+func _on_treasure_camp_clicked(camp: TreasureCamp) -> void:
+	if bool(camp.get_meta("fog_hidden", false)):
+		return
+	world_object_clicked = true
+	hud.set_debug_villager(null)
+	_clear_selection_highlight()
+	_close_selection_panels_immediately()
+	_select_world_object(camp)
+	camp_panel.open_camp(camp)
+
+
 func _open_resource_building_panel(building: Node) -> void:
 	if is_instance_valid(building):
 		resource_building_panel.open_building(building)
@@ -448,6 +472,7 @@ func _open_enemy_panel(enemy: EnemyBase) -> void:
 
 
 func _close_selection_panels_immediately() -> void:
+	camp_panel.hide()
 	resource_building_panel.close_panel_immediately()
 	villager_panel.close_panel_immediately()
 	resource_node_panel.close_panel_immediately()
@@ -455,6 +480,7 @@ func _close_selection_panels_immediately() -> void:
 
 
 func clear_selection() -> void:
+	camp_panel.hide()
 	_clear_selection_highlight()
 	hud.set_debug_villager(null)
 	resource_building_panel.close_panel()
@@ -499,6 +525,8 @@ func _select_world_object(target: Node3D) -> void:
 	for mesh_node: Node in mesh_nodes:
 		var mesh_instance: MeshInstance3D = mesh_node as MeshInstance3D
 		if mesh_instance == null:
+			continue
+		if target is TreasureCamp and mesh_instance.name == "AggroRange":
 			continue
 		selected_mesh_overlays[mesh_instance] = mesh_instance.material_overlay
 		mesh_instance.material_overlay = selection_outline_material

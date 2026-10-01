@@ -78,7 +78,17 @@ func get_health() -> float:
 
 
 func take_damage(amount: float, source: Node = null) -> float:
-	return durability.take_damage(amount, source) if durability != null else 0.0
+	var actual_damage: float = durability.take_damage(amount, source) if durability != null else 0.0
+	if (
+		actual_damage > 0.0
+		and is_instance_valid(source) and source is Node3D
+		and source.has_method("get_faction")
+		and source.get_faction() != EnemyData.Faction.SETTLEMENT
+	):
+		for building: Node in get_tree().get_nodes_in_group("buildings"):
+			if building is Barracks:
+				building.dispatch_base_defenders(source)
+	return actual_damage
 
 
 func repair(amount: float) -> float:

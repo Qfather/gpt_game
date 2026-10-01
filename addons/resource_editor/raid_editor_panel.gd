@@ -36,6 +36,7 @@ var pending_delete_group: RaidGroupData
 var preset_path: String = LEVEL_FLOW_PATH
 var preset_path_label: Label
 var environment_panel: Control
+var camp_editor_panel: Control
 var preset_dialog: EditorFileDialog
 
 
@@ -68,6 +69,9 @@ func _build_preset_tabs() -> void:
 	environment_panel = preload("res://addons/resource_editor/level_environment_panel.gd").new()
 	environment_panel.name = "地图与资源"
 	tabs.add_child(environment_panel)
+	camp_editor_panel = preload("res://addons/resource_editor/camp_editor_panel.gd").new()
+	camp_editor_panel.name = "营地"
+	tabs.add_child(camp_editor_panel)
 	preset_dialog = EditorFileDialog.new()
 	preset_dialog.access = EditorFileDialog.ACCESS_RESOURCES
 	preset_dialog.add_filter("*.tres", "关卡预设")
@@ -304,6 +308,7 @@ func _load_resources() -> void:
 		return
 	level_flow.monster_database = database
 	environment_panel.edit_preset(level_flow)
+	camp_editor_panel.edit_preset(level_flow)
 	preset_path_label.text = preset_path
 	_ensure_group_ids()
 	for event: LevelEventEntry in level_flow.events:
@@ -748,6 +753,24 @@ func _save_all() -> bool:
 		if entry != null and entry.enabled and not entry.validation_error().is_empty():
 			push_error("无法保存关卡：" + entry.display_name + "：" + entry.validation_error())
 			return false
+	if level_flow.camp_config != null:
+		var camp_error: String = level_flow.camp_config.validation_error()
+		if level_flow.camp_config.enabled and not level_flow.fog_of_war_enabled:
+			camp_error = "营地只在无视野区域刷新，请启用战争迷雾"
+		if not camp_error.is_empty():
+			push_error("无法保存关卡：" + camp_error)
+			return false
+		for entry: CampPoolEntry in level_flow.camp_config.camp_pool:
+			for resource: Resource in [entry, entry.camp]:
+				if not resource.resource_path.is_empty() and not resource.resource_path.contains("::"):
+					if ResourceSaver.save(resource, resource.resource_path) != OK:
+						push_error("营地方案保存失败：" + resource.resource_path)
+						return false
+		var config: CampSpawnConfig = level_flow.camp_config
+		if not config.resource_path.is_empty() and not config.resource_path.contains("::"):
+			if ResourceSaver.save(config, config.resource_path) != OK:
+				push_error("营地配置保存失败：" + config.resource_path)
+				return false
 	_write_group_editor()
 	_write_event_editor()
 	level_flow.monster_database = database
@@ -766,7 +789,7 @@ func _save_all() -> bool:
 	_refresh_timeline()
 	get_tree().call_group("raid_editor_refresh", "refresh")
 	preset_path_label.text = preset_path
-	print("关卡预设已保存（地图、资源分布、出怪事件）：", preset_path)
+	print("关卡预设已保存（地图、资源分布、营地、出怪事件）：", preset_path)
 	return true
 
 

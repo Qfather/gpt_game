@@ -7,6 +7,7 @@ signal night_visibility_changed(multiplier: float)
 @export_range(60.0, 3600.0, 1.0) var cycle_length_seconds: float = 600.0
 @export_range(0.0, 24.0, 0.1) var start_hour: float = 9.0
 @export_range(0.0, 1.0, 0.01) var night_visibility_multiplier: float = 0.8
+@export var light_shafts_enabled: bool = true
 @export var clouds_enabled: bool = true
 @export_enum("程序化云", "环形云 01", "环形云 02", "小云团环") var cloud_style: int = 0
 @export_range(0.25, 0.75, 0.01) var cloud_density: float = 0.50
@@ -43,6 +44,7 @@ var _generated_cloud_rings: Array[Node3D] = []
 var _generated_ring_signature: String = ""
 var _cloud_puff_material: StandardMaterial3D
 var _cloud_puff_mesh: SphereMesh
+var _cloud_shadow_material := StandardMaterial3D.new()
 
 const CLOUD_RING_SCENES: Array[PackedScene] = [
 	preload("res://addons/stylized_day_night/modle/cloud_ring_01.glb"),
@@ -59,7 +61,7 @@ const NIGHT_GROUND := Color("#202633")
 
 func _validate_property(property: Dictionary) -> void:
 	if property.name in [
-		&"cycle_length_seconds", &"start_hour", &"night_visibility_multiplier",
+		&"cycle_length_seconds", &"start_hour", &"night_visibility_multiplier", &"light_shafts_enabled",
 		&"clouds_enabled", &"cloud_style", &"cloud_density", &"cloud_scale",
 		&"cloud_speed", &"cloud_opacity", &"mesh_cloud_altitude", &"cloud_rings",
 		&"cycle_paused", &"distant_fog_enabled", &"distant_fog_begin", &"distant_fog_end",
@@ -75,6 +77,7 @@ func _get_property_list() -> Array[Dictionary]:
 		{"name": "开始时刻（小时）", "type": TYPE_FLOAT, "hint": PROPERTY_HINT_RANGE, "hint_string": "0,24,0.1", "usage": PROPERTY_USAGE_DEFAULT},
 		{"name": "夜间视野倍率", "type": TYPE_FLOAT, "hint": PROPERTY_HINT_RANGE, "hint_string": "0,1,0.01", "usage": PROPERTY_USAGE_DEFAULT},
 		{"name": "暂停昼夜循环", "type": TYPE_BOOL, "usage": PROPERTY_USAGE_DEFAULT},
+		{"name": "启用光束效果", "type": TYPE_BOOL, "usage": PROPERTY_USAGE_DEFAULT},
 		{"name": "云层设置", "type": TYPE_NIL, "usage": PROPERTY_USAGE_GROUP},
 		{"name": "启用云层", "type": TYPE_BOOL, "usage": PROPERTY_USAGE_DEFAULT},
 		{"name": "云层样式", "type": TYPE_INT, "hint": PROPERTY_HINT_ENUM, "hint_string": "程序化云,环形云 01,环形云 02,小云团环", "usage": PROPERTY_USAGE_DEFAULT},
@@ -99,6 +102,7 @@ func _get(property: StringName) -> Variant:
 		&"开始时刻（小时）": return start_hour
 		&"夜间视野倍率": return night_visibility_multiplier
 		&"暂停昼夜循环": return cycle_paused
+		&"启用光束效果": return light_shafts_enabled
 		&"启用云层": return clouds_enabled
 		&"云层样式": return cloud_style
 		&"云层密度": return cloud_density
@@ -121,6 +125,7 @@ func _set(property: StringName, value: Variant) -> bool:
 		&"开始时刻（小时）": start_hour = value
 		&"夜间视野倍率": night_visibility_multiplier = value
 		&"暂停昼夜循环": cycle_paused = value
+		&"启用光束效果": light_shafts_enabled = value
 		&"启用云层": clouds_enabled = value
 		&"云层样式": cloud_style = value
 		&"云层密度": cloud_density = value
@@ -154,6 +159,7 @@ func _process(delta: float) -> void:
 		game_hour = fposmod(start_hour + _elapsed_cycle_seconds / maxf(cycle_length_seconds, 1.0) * 24.0, 24.0)
 		_update_sky_and_sun()
 	_update_cloud_layer_position()
+	_update_light_shafts()
 
 
 func set_game_hour(hour: float) -> void:
@@ -198,6 +204,30 @@ func _create_environment() -> void:
 	_moon.light_color = Color("#A8C4F0")
 	add_child(_moon)
 	_create_mesh_clouds()
+	_create_light_shafts()
+
+
+func _create_light_shafts() -> void:
+	var environment := _world_environment.environment
+	environment.volumetric_fog_density = 0.0001
+	environment.volumetric_fog_albedo = Color.WHITE
+	environment.volumetric_fog_length = 32.0
+	environment.volumetric_fog_anisotropy = 0.0
+	environment.volumetric_fog_ambient_inject = 0.0
+	environment.volumetric_fog_sky_affect = 1.0
+	_sun.light_volumetric_fog_energy = 500.0
+	_moon.light_volumetric_fog_energy = 1000.0
+	_update_light_shafts()
+
+
+func _update_light_shafts() -> void:
+	if not is_instance_valid(_world_environment):
+		return
+	if _world_environment.environment.volumetric_fog_enabled != light_shafts_enabled:
+		for shadow in _cloud_layer.find_children("LightShaftShadow", "MeshInstance3D", true, false):
+			shadow.visible = light_shafts_enabled
+	_world_environment.environment.volumetric_fog_enabled = light_shafts_enabled
+	_moon.shadow_enabled = light_shafts_enabled
 
 
 func _update_sky_and_sun() -> void:
@@ -333,6 +363,18 @@ func _apply_cloud_material(node: Node) -> void:
 		mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	for child in node.get_children():
 		_apply_cloud_material(child)
+	if node is MeshInstance3D:
+		_add_cloud_shadow(node)
+
+
+func _add_cloud_shadow(mesh_instance: MeshInstance3D) -> void:
+	var shadow := MeshInstance3D.new()
+	shadow.name = "LightShaftShadow"
+	shadow.mesh = mesh_instance.mesh
+	shadow.material_override = _cloud_shadow_material
+	shadow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+	shadow.visible = light_shafts_enabled
+	mesh_instance.add_child(shadow)
 
 
 func _rebuild_generated_cloud_rings() -> void:
@@ -394,6 +436,7 @@ func _create_cloud_puff(variant: int) -> Node3D:
 		puff_piece.position = parts[part_index]
 		var vertical_scale := 0.52 if part_index == 0 else 0.68
 		puff_piece.scale = Vector3(0.72, vertical_scale, 0.72) if part_index == 0 else Vector3.ONE * 0.55
+		_add_cloud_shadow(puff_piece)
 		puff.add_child(puff_piece)
 	return puff
 

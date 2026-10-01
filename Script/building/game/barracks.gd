@@ -106,7 +106,10 @@ func get_garrison_occupancy_count() -> int:
 			not is_instance_valid(unit)
 			or not unit.has_method("get")
 			or unit.get("garrison_target") != self
-			or unit.get("state") != unit.State.MOVE_TO_BARRACKS
+			or (
+				unit.get("state") != unit.State.MOVE_TO_BARRACKS
+				and unit.get("combat_resume_state") != unit.State.MOVE_TO_BARRACKS
+			)
 		):
 			garrison_reservations.erase(unit)
 	return get_garrison_count() + garrison_reservations.size()
@@ -193,6 +196,18 @@ func register_garrison(unit: Node) -> bool:
 func unregister_garrison(unit: Node) -> void:
 	garrisoned_units.erase(unit)
 	garrison_reservations.erase(unit)
+
+
+func dispatch_base_defenders(attacker: Node3D) -> void:
+	if is_demolition_in_progress():
+		return
+	get_garrison_count()
+	for unit: Node in garrisoned_units.duplicate():
+		if unit.has_method("leave_garrison_for_defense") and unit.leave_garrison_for_defense(self, attacker):
+			unregister_garrison(unit)
+			garrison_reservations.append(unit)
+			pending_patrol_units.erase(unit)
+			patrol_assemble_slots.erase(unit)
 
 
 func remove_unit_from_rosters(unit: Node) -> void:

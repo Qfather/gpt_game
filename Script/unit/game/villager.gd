@@ -99,6 +99,8 @@ var state: State = State.IDLE:
 				navigation_agent.target_desired_distance = 0.2
 				navigation_agent.path_desired_distance = 0.2
 		state = value
+var treasure_camp: Node3D
+var treasure_resume: Dictionary = {}
 var patrol_barracks: Node = null
 var patrol_resume_state: int = -1
 var patrol_resume_target_position: Vector3 = Vector3.ZERO
@@ -168,6 +170,10 @@ func has_combat_role() -> bool:
 
 
 func _update_combat_visual() -> void:
+	if has_combat_role():
+		add_to_group("combat_units")
+	elif is_in_group("combat_units"):
+		remove_from_group("combat_units")
 	if body_mesh == null:
 		return
 	if combat_role == CombatRole.Type.SWORDSMAN:
@@ -638,6 +644,7 @@ func _create_unreachable_marker() -> void:
 func _on_unit_died(_source: Node) -> void:
 	_set_unreachable_warning(false)
 	remove_from_group("villagers")
+	remove_from_group("combat_units")
 	var population_manager: Node = get_tree().get_first_node_in_group(
 		"population_manager"
 	)
@@ -695,6 +702,10 @@ func _physics_process(delta):
 		external_force = external_force.move_toward(Vector3.ZERO, 20.0 * delta)
 		return
 	if _process_combat(delta):
+		return
+	if is_instance_valid(treasure_camp):
+		update_needs(delta)
+		_process_treasure_hunt()
 		return
 	update_needs(delta)
 	evaluate_needs()
@@ -900,7 +911,7 @@ func has_unreachable_warning() -> bool:
 
 
 func _process_combat(delta: float) -> bool:
-	if combat_role != CombatRole.Type.SWORDSMAN:
+	if not has_combat_role():
 		return false
 	if is_dead():
 		return false
@@ -1006,6 +1017,15 @@ func _finish_combat() -> void:
 	combat_resume_navigation_target = Vector3.ZERO
 	combat_attack_cooldown = 0.0
 	velocity = Vector3.ZERO
+	if resume_state == State.MOVE_TO_BARRACKS:
+		if is_instance_valid(garrison_target) and not garrison_target.is_demolition_in_progress():
+			navigation_agent.target_position = resume_navigation_target
+			collision_mask = 3
+			state = State.MOVE_TO_BARRACKS
+			return
+		if is_instance_valid(garrison_target):
+			garrison_target.unregister_garrison(self)
+		garrison_target = null
 	if resume_state == State.PATROLLING or resume_state == State.MOVE_TO_PATROL_POINT:
 		patrol_target_position = resume_target
 		navigation_agent.target_position = resume_target
@@ -1023,6 +1043,84 @@ func _finish_combat() -> void:
 		state = State.RETURN_TO_BARRACKS
 		return
 	state = State.IDLE
+
+
+func can_accept_treasure_hunt() -> bool:
+	return (
+		has_combat_role() and not is_dead() and not is_instance_valid(treasure_camp)
+		and current_task == null and carried_amount <= 0.0
+		and not is_quitting_job and not abandoning_work
+		and state in [State.IDLE, State.RETURN_TO_IDLE, State.GARRISONED,
+			State.MOVE_TO_PATROL_POINT, State.PATROLLING, State.RETURN_TO_BARRACKS]
+	)
+
+
+func begin_treasure_hunt(camp: Node3D) -> bool:
+	if not can_accept_treasure_hunt():
+		return false
+	treasure_resume = {
+		"state": state, "navigation": navigation_agent.target_position,
+		"garrison": garrisoned_in, "target_distance": navigation_agent.target_desired_distance,
+		"collision_mask": collision_mask
+	}
+	if is_instance_valid(garrisoned_in):
+		garrisoned_in.unregister_garrison(self)
+		garrisoned_in = null
+		garrison_target = null
+		visible = true
+		collision_layer = 2
+		_refresh_health_bar_display()
+	treasure_camp = camp
+	collision_mask = 1
+	navigation_agent.target_desired_distance = 1.0
+	navigation_agent.target_position = camp.global_position
+	state = State.IDLE
+	return true
+
+
+func _process_treasure_hunt() -> void:
+	if treasure_camp.cleared:
+		treasure_camp.remove_participant(self)
+		return
+	var destination: Vector3 = treasure_camp.global_position
+	var nearest_distance: float = INF
+	for guard: Node3D in treasure_camp.get_living_guards():
+		var distance: float = global_position.distance_squared_to(guard.global_position)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			destination = guard.global_position
+	if navigation_agent.target_position.distance_to(destination) > 0.5:
+		navigation_agent.target_position = destination
+	if not navigation_agent.is_navigation_finished():
+		move_along_navigation()
+	else:
+		velocity = Vector3.ZERO
+
+
+func finish_treasure_hunt(camp: Node3D) -> void:
+	if treasure_camp != camp:
+		return
+	treasure_camp = null
+	combat_target = null
+	combat_resume_state = -1
+	navigation_agent.target_desired_distance = float(treasure_resume["target_distance"])
+	# 驻军原碰撞掩码为0，离营往返途中仍需要与障碍碰撞。
+	collision_mask = 3 if treasure_resume["garrison"] != null else int(treasure_resume["collision_mask"])
+	if is_dead() or not is_inside_tree() or (get_tree().current_scene != null and get_tree().current_scene.is_queued_for_deletion()):
+		treasure_resume.clear()
+		return
+	var previous_garrison: Node = treasure_resume["garrison"] as Node
+	var previous_state: int = int(treasure_resume["state"])
+	var previous_navigation: Vector3 = treasure_resume["navigation"]
+	treasure_resume.clear()
+	state = State.IDLE
+	if is_instance_valid(previous_garrison) and try_assign_to_barracks(previous_garrison):
+		return
+	if is_instance_valid(patrol_barracks):
+		navigation_agent.target_position = previous_navigation
+		state = State.MOVE_TO_PATROL_POINT if previous_state == State.PATROLLING else previous_state as State
+		return
+	return_to_idle()
 
 
 func _start_current_task() -> void:
@@ -1637,6 +1735,24 @@ func finish_barracks_resupply() -> void:
 		enter_garrison(barracks)
 
 
+func leave_garrison_for_defense(barracks: Node, attacker: Node3D) -> bool:
+	if garrisoned_in != barracks or not has_combat_role() or is_dead():
+		return false
+	garrisoned_in = null
+	garrison_target = barracks
+	visible = true
+	_refresh_health_bar_display()
+	collision_layer = 2
+	collision_mask = 1
+	combat_target = attacker
+	combat_resume_state = State.MOVE_TO_BARRACKS
+	combat_resume_navigation_target = barracks.get_garrison_entrance_position(self)
+	navigation_agent.target_position = combat_resume_navigation_target
+	combat_attack_cooldown = 0.0
+	state = State.COMBAT_MOVE
+	return true
+
+
 func leave_garrison_for_patrol(barracks: Node, assemble_position: Vector3) -> bool:
 	if garrisoned_in != barracks:
 		return false
@@ -1667,6 +1783,8 @@ func move_to_patrol_assemble() -> void:
 
 
 func start_patrol_point(target_position: Vector3) -> void:
+	if is_instance_valid(treasure_camp):
+		return
 	if not is_instance_valid(patrol_barracks):
 		return
 	patrol_target_position = target_position

@@ -7,6 +7,25 @@
 [ext_resource type="Script" uid="uid://dimwhbjvo6um7" path="res://Script/world/map_resource_entry.gd" id="5_resource"]
 [ext_resource type="PackedScene" uid="uid://bjhgmbhk67241" path="res://Scene/resource/tree.tscn" id="6_tree"]
 [ext_resource type="PackedScene" uid="uid://b35h0wuf0qn8a" path="res://Scene/resource/stone.tscn" id="7_stone"]
+[ext_resource type="Script" uid="uid://bfclkuso5c6ip" path="res://Script/world/camp_spawn_config.gd" id="8_camps"]
+[ext_resource type="Script" uid="uid://cyjav6b6b6q4g" path="res://Script/world/camp_pool_entry.gd" id="9_camp_entry"]
+[ext_resource type="Resource" uid="uid://c28udpva1umya" path="res://data/camps/slime_camp.tres" id="10_slime_camp"]
+[ext_resource type="Resource" uid="uid://cl1lij88vufrx" path="res://data/camps/wolf_camp.tres" id="11_wolf_camp"]
+
+[sub_resource type="Resource" id="CampEarly"]
+script = ExtResource("9_camp_entry")
+camp = ExtResource("10_slime_camp")
+end_time = 600.0
+
+[sub_resource type="Resource" id="CampLate"]
+script = ExtResource("9_camp_entry")
+camp = ExtResource("11_wolf_camp")
+start_time = 600.0
+
+[sub_resource type="Resource" id="CampConfig"]
+script = ExtResource("8_camps")
+enabled = true
+camp_pool = Array[ExtResource("9_camp_entry")]([SubResource("CampEarly"), SubResource("CampLate")])
 
 [sub_resource type="Resource" id="RaidEvent_02"]
 script = ExtResource("2_event")
@@ -60,5 +79,6 @@ neighbor_distance_max = 0.30000000000000004
 script = ExtResource("1_flow")
 map_config = SubResource("MapConfig")
 map_resources = Array[ExtResource("5_resource")]([SubResource("Trees"), SubResource("Stones")])
+camp_config = SubResource("CampConfig")
 monster_database = ExtResource("3_groups")
 events = Array[ExtResource("2_event")]([SubResource("RaidEvent_02"), SubResource("Resource_dsvsc")])

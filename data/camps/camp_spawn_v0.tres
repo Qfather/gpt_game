@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="CampSpawnConfig" format=3 uid="uid://3ed6ppv70ftq"]
+
+[ext_resource type="Script" uid="uid://cyjav6b6b6q4g" path="res://Script/world/camp_pool_entry.gd" id="1_vq7w5"]
+[ext_resource type="Resource" uid="uid://c28udpva1umya" path="res://data/camps/slime_camp.tres" id="2_tchbl"]
+[ext_resource type="Resource" uid="uid://cl1lij88vufrx" path="res://data/camps/wolf_camp.tres" id="3_rhlme"]
+[ext_resource type="Script" uid="uid://bfclkuso5c6ip" path="res://Script/world/camp_spawn_config.gd" id="4_nvoa1"]
+
+[sub_resource type="Resource" id="Resource_ka663"]
+script = ExtResource("1_vq7w5")
+camp = ExtResource("2_tchbl")
+end_time = 600.0
+
+[sub_resource type="Resource" id="Resource_b1ehm"]
+script = ExtResource("1_vq7w5")
+camp = ExtResource("3_rhlme")
+start_time = 600.0
+
+[resource]
+script = ExtResource("4_nvoa1")
+enabled = true
+camp_pool = Array[ExtResource("1_vq7w5")]([SubResource("Resource_ka663"), SubResource("Resource_b1ehm")])

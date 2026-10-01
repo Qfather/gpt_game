@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="TreasureCampData" format=3 uid="uid://c28udpva1umya"]
+
+[ext_resource type="Script" uid="uid://bgf6yenqu412o" path="res://Script/world/camp_guard_entry.gd" id="1_idwqk"]
+[ext_resource type="Resource" uid="uid://dfvxcsy3qegu1" path="res://data/enemies/raid/SlimeData.tres" id="2_8sdub"]
+[ext_resource type="Script" uid="uid://27wnb3ml07f7" path="res://Script/world/camp_reward_entry.gd" id="3_gjcda"]
+[ext_resource type="Resource" path="res://data/resources/wood.tres" id="4_xhku0"]
+[ext_resource type="Resource" path="res://data/resources/stone.tres" id="5_0t0cq"]
+[ext_resource type="Script" uid="uid://c8bkg48dmhljt" path="res://Script/world/treasure_camp_data.gd" id="6_6xwwf"]
+
+[sub_resource type="Resource" id="Resource_tw8tk"]
+script = ExtResource("1_idwqk")
+enemy = ExtResource("2_8sdub")
+
+[sub_resource type="Resource" id="Resource_ukhk3"]
+script = ExtResource("3_gjcda")
+resource = ExtResource("4_xhku0")
+weight = 2.0
+
+[sub_resource type="Resource" id="Resource_hxlj0"]
+script = ExtResource("3_gjcda")
+resource = ExtResource("5_0t0cq")
+minimum_amount = 3
+maximum_amount = 6
+
+[resource]
+script = ExtResource("6_6xwwf")
+display_name = "史莱姆宝箱营地"
+guard_pool = Array[ExtResource("1_idwqk")]([SubResource("Resource_tw8tk")])
+reward_pool = Array[ExtResource("3_gjcda")]([SubResource("Resource_ukhk3"), SubResource("Resource_hxlj0")])

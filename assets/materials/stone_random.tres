@@ -1,0 +1,12 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://dnlk722xtq0md"]
+
+[ext_resource type="Shader" uid="uid://djalm74c473st" path="res://assets/materials/flower_random_palette.gdshader" id="1_8ebey"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_8ebey")
+shader_parameter/color_a = Color(0.28, 0.28, 0.28, 1)
+shader_parameter/color_b = Color(0.427493, 0.42749307, 0.42749307, 1)
+shader_parameter/color_c = Color(0.28485027, 0.28485027, 0.2848502, 1)
+shader_parameter/color_d = Color(0.5649617, 0.5649617, 0.5649615, 1)
+shader_parameter/palette_seed = 21312.0

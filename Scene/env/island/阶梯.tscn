@@ -7,7 +7,7 @@
 
 [node name="阶梯" parent="." unique_id=1547069028 instance=ExtResource("1_0yflb")]
 
-[node name="SM_Env_Stone_Stairs_03_002" parent="阶梯" index="0" unique_id=1215526820]
+[node name="阶梯" parent="阶梯" index="0" unique_id=208352606]
 surface_material_override/0 = ExtResource("2_0yflb")
 
 [editable path="阶梯"]

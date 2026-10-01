@@ -1,0 +1,75 @@
+[gd_scene load_steps=9 format=3]
+
+[sub_resource type="StandardMaterial3D" id="LogMaterial"]
+albedo_color = Color(0.22, 0.11, 0.045, 1)
+
+[sub_resource type="StandardMaterial3D" id="StoneMaterial"]
+albedo_color = Color(0.3, 0.32, 0.35, 1)
+
+[sub_resource type="StandardMaterial3D" id="FlameMaterial"]
+shading_mode = 0
+albedo_color = Color(1, 0.23, 0.025, 1)
+emission_enabled = true
+emission = Color(1, 0.15, 0.01, 1)
+emission_energy_multiplier = 1.5
+
+[sub_resource type="StandardMaterial3D" id="CoreMaterial"]
+shading_mode = 0
+albedo_color = Color(1, 0.85, 0.12, 1)
+emission_enabled = true
+emission = Color(1, 0.65, 0.06, 1)
+emission_energy_multiplier = 2.0
+
+[sub_resource type="CylinderMesh" id="Log"]
+material = SubResource("LogMaterial")
+top_radius = 0.12
+bottom_radius = 0.12
+height = 1.4
+radial_segments = 8
+
+[sub_resource type="TorusMesh" id="StoneRing"]
+material = SubResource("StoneMaterial")
+inner_radius = 0.56
+outer_radius = 0.82
+rings = 12
+ring_segments = 5
+
+[sub_resource type="CylinderMesh" id="Flame"]
+material = SubResource("FlameMaterial")
+top_radius = 0.0
+bottom_radius = 0.43
+height = 1.1
+radial_segments = 7
+
+[sub_resource type="CylinderMesh" id="Core"]
+material = SubResource("CoreMaterial")
+top_radius = 0.0
+bottom_radius = 0.22
+height = 0.7
+radial_segments = 5
+
+[node name="Campfire" type="Node3D"]
+
+[node name="StoneRing" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.12, 0)
+mesh = SubResource("StoneRing")
+
+[node name="LogA" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.2, 0)
+rotation = Vector3(0, 0.65, 1.5707964)
+mesh = SubResource("Log")
+
+[node name="LogB" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.32, 0)
+rotation = Vector3(0, -0.65, 1.5707964)
+mesh = SubResource("Log")
+
+[node name="Flame" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.8, 0)
+mesh = SubResource("Flame")
+cast_shadow = 0
+
+[node name="Core" type="MeshInstance3D" parent="."]
+position = Vector3(0.13, 0.57, 0.23)
+mesh = SubResource("Core")
+cast_shadow = 0

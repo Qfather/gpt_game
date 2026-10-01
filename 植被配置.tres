@@ -1,24 +1,114 @@
 [gd_resource type="Resource" script_class="WFCVegetationConfig" format=3 uid="uid://baf1brdbvmyi6"]
 
 [ext_resource type="Script" uid="uid://deeo1h5s5nd0i" path="res://addons/MapGenerate/core/vegetation_config.gd" id="1_j88lm"]
-[ext_resource type="PackedScene" path="res://addons/MapGenerate/models/vegetation/示例小草.tscn" id="2_5ykq5"]
-[ext_resource type="PackedScene" path="res://addons/MapGenerate/models/vegetation/示例小花.tscn" id="3_2pljm"]
+[ext_resource type="PackedScene" uid="uid://ddfg7024ci3mu" path="res://assets/modles/env/植被/植被_草_001.glb" id="3_5g0v0"]
+[ext_resource type="PackedScene" uid="uid://cvd7ht0c7mcjb" path="res://assets/modles/env/植被/植被_石头_001.glb" id="3_5ykq5"]
+[ext_resource type="PackedScene" uid="uid://dig7qqwwa3lle" path="res://assets/modles/env/植被/植被_草_002.glb" id="4_lf7er"]
+[ext_resource type="PackedScene" uid="uid://bfhqk3v4nnavy" path="res://assets/modles/env/植被/植被_石头_002.glb" id="4_y6hco"]
+[ext_resource type="PackedScene" uid="uid://mb4tjcrkplt3" path="res://assets/modles/env/植被/植被_石头_003.glb" id="5_78iyu"]
+[ext_resource type="PackedScene" uid="uid://c757dmrxqfd6p" path="res://assets/modles/env/植被/植被_草_003.glb" id="5_myqvs"]
+[ext_resource type="Material" uid="uid://c4mxwxo6slbyd" path="res://assets/materials/flower_petal_random.tres" id="6_vwngo"]
+[ext_resource type="Material" uid="uid://c7mgx5tq66u7a" path="res://assets/materials/flower_pistil_random.tres" id="7_12klx"]
+[ext_resource type="PackedScene" uid="uid://7y1e33xg5kgi" path="res://assets/modles/env/植被/植被_花_001.glb" id="7_lf7er"]
+[ext_resource type="PackedScene" uid="uid://54cmc0ipnloe" path="res://assets/modles/env/植被/植被_花_002.glb" id="8_myqvs"]
+[ext_resource type="PackedScene" uid="uid://c7n3dp57wy70y" path="res://assets/modles/env/植被/植被_花_003.glb" id="9_vwngo"]
+[ext_resource type="Material" uid="uid://dnlk722xtq0md" path="res://assets/materials/stone_random.tres" id="11_r0agc"]
 
 [resource]
 script = ExtResource("1_j88lm")
 count = 1000
 scale_min = 0.51
-scale_max = 0.81
+scale_max = 1.21
 cliff_top_bonus = 20.0
 cliff_foot_bonus = 10.0
 species = Array[Dictionary]([{
 "enabled": true,
+"models": Array[Dictionary]([{
+"material_overrides": {
+"植被_草_001": {
+"0": ExtResource("7_12klx")
+}
+},
+"scene": ExtResource("3_5g0v0"),
+"weight": 1.0
+}, {
+"material_overrides": {
+"植被_草_002": {
+"0": ExtResource("7_12klx")
+}
+},
+"scene": ExtResource("4_lf7er"),
+"weight": 1.0
+}, {
+"material_overrides": {
+"植被_草_003": {
+"0": ExtResource("7_12klx")
+}
+},
+"scene": ExtResource("5_myqvs"),
+"weight": 1.0
+}]),
 "name": "示例小草",
-"scene": ExtResource("2_5ykq5"),
 "weight": 8.0
 }, {
 "enabled": true,
+"models": Array[Dictionary]([{
+"material_overrides": {
+"植被_花_001": {
+"0": ExtResource("7_12klx"),
+"1": ExtResource("6_vwngo")
+}
+},
+"scene": ExtResource("7_lf7er"),
+"weight": 1.0
+}, {
+"material_overrides": {
+"植被_花_002": {
+"0": ExtResource("7_12klx"),
+"1": ExtResource("6_vwngo")
+}
+},
+"scene": ExtResource("8_myqvs"),
+"weight": 1.0
+}, {
+"material_overrides": {
+"植被_花_003": {
+"0": ExtResource("7_12klx"),
+"1": ExtResource("6_vwngo")
+}
+},
+"scene": ExtResource("9_vwngo"),
+"weight": 1.0
+}]),
 "name": "示例小花",
-"scene": ExtResource("3_2pljm"),
 "weight": 2.0
+}, {
+"enabled": true,
+"models": [{
+"material_overrides": {
+"植被_石头_001": {
+"0": ExtResource("11_r0agc")
+}
+},
+"scene": ExtResource("3_5ykq5"),
+"weight": 1.0
+}, {
+"material_overrides": {
+"植被_石头_002": {
+"0": ExtResource("11_r0agc")
+}
+},
+"scene": ExtResource("4_y6hco"),
+"weight": 1.0
+}, {
+"material_overrides": {
+"植被_石头_003": {
+"0": ExtResource("11_r0agc")
+}
+},
+"scene": ExtResource("5_78iyu"),
+"weight": 1.0
+}],
+"name": "石头",
+"weight": 1.0
 }])

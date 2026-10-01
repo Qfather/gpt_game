@@ -1,0 +1,46 @@
+[gd_resource type="Resource" script_class="TreasureCampData" format=3 uid="uid://cl1lij88vufrx"]
+
+[ext_resource type="Script" uid="uid://bgf6yenqu412o" path="res://Script/world/camp_guard_entry.gd" id="1_teyur"]
+[ext_resource type="Resource" uid="uid://b1056inxxe4ef" path="res://data/enemies/raid/WolfData.tres" id="2_xc1gc"]
+[ext_resource type="Resource" uid="uid://dfvxcsy3qegu1" path="res://data/enemies/raid/SlimeData.tres" id="3_rwg8v"]
+[ext_resource type="Script" uid="uid://27wnb3ml07f7" path="res://Script/world/camp_reward_entry.gd" id="4_kih0s"]
+[ext_resource type="Resource" path="res://data/resources/wood.tres" id="5_2v2w4"]
+[ext_resource type="Resource" path="res://data/resources/stone.tres" id="6_xrsop"]
+[ext_resource type="Resource" uid="uid://bcnlw6jhdnmcw" path="res://data/resources/grain.tres" id="7_2akxx"]
+[ext_resource type="Script" uid="uid://c8bkg48dmhljt" path="res://Script/world/treasure_camp_data.gd" id="8_2mln1"]
+
+[sub_resource type="Resource" id="Resource_osk2r"]
+script = ExtResource("1_teyur")
+enemy = ExtResource("2_xc1gc")
+weight = 2.0
+
+[sub_resource type="Resource" id="Resource_eiu6d"]
+script = ExtResource("1_teyur")
+enemy = ExtResource("3_rwg8v")
+
+[sub_resource type="Resource" id="Resource_0id2m"]
+script = ExtResource("4_kih0s")
+resource = ExtResource("5_2v2w4")
+minimum_amount = 10
+maximum_amount = 15
+
+[sub_resource type="Resource" id="Resource_utvwj"]
+script = ExtResource("4_kih0s")
+resource = ExtResource("6_xrsop")
+weight = 2.0
+minimum_amount = 8
+maximum_amount = 12
+
+[sub_resource type="Resource" id="Resource_btxjc"]
+script = ExtResource("4_kih0s")
+resource = ExtResource("7_2akxx")
+minimum_amount = 8
+maximum_amount = 12
+
+[resource]
+script = ExtResource("8_2mln1")
+display_name = "狼群物资营地"
+minimum_guards = 2
+maximum_guards = 3
+guard_pool = Array[ExtResource("1_teyur")]([SubResource("Resource_osk2r"), SubResource("Resource_eiu6d")])
+reward_pool = Array[ExtResource("4_kih0s")]([SubResource("Resource_0id2m"), SubResource("Resource_utvwj"), SubResource("Resource_btxjc")])

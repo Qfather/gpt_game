@@ -129,6 +129,7 @@ script = ExtResource("24_encounter_director")
 
 [node name="StylizedDayNight" type="Node3D" parent="Systems" unique_id=796768329]
 script = ExtResource("29_stylized_sky")
+light_shafts_enabled = false
 cloud_style = 1
 distant_fog_enabled = true
 distant_fog_begin = 59.0
@@ -138,6 +139,7 @@ distant_fog_custom_color = Color(0.8307326, 0.085023634, 0.44128248, 1)
 "开始时刻（小时）" = 9.0
 "夜间视野倍率" = 0.8
 "暂停昼夜循环" = false
+"启用光束效果" = false
 "启用云层" = true
 "云层样式" = 1
 "云层密度" = 0.5
