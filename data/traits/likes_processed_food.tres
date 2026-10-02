@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://Script/trait/trait_level_data.gd" id="1_255ep"]
+[ext_resource type="Script" path="res://Script/trait/trait_data.gd" id="2_tdvxv"]
+
+[resource]
+script = ExtResource("2_tdvxv")
+trait_id = "likes_processed_food"
+trait_name = "精致食物爱好者"
+description = "优先选择喜欢的食物；进食后饱腹增加25%，60秒内饥饿速度降低20%。"
+preferred_food_tags = Array[StringName]([&"processed_food"])
+preferred_nutrition_multiplier = 1.25
+preferred_hunger_multiplier = 0.8
+preferred_effect_duration = 60.0

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://Script/trait/trait_level_data.gd" id="1_vdcna"]
+[ext_resource type="Script" path="res://Script/trait/trait_data.gd" id="2_1yj7b"]
+
+[resource]
+script = ExtResource("2_1yj7b")
+trait_id = "likes_meat"
+trait_name = "肉食爱好者"
+description = "优先选择喜欢的食物；进食后饱腹增加25%，60秒内饥饿速度降低20%。"
+preferred_food_tags = Array[StringName]([&"meat"])
+preferred_nutrition_multiplier = 1.25
+preferred_hunger_multiplier = 0.8
+preferred_effect_duration = 60.0

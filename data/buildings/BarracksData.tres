@@ -7,9 +7,14 @@
 script = ExtResource("1_building_data")
 id = &"barracks"
 display_name = "军营"
-description = "为剑士提供驻扎位置。"
-function_text = "容量：6。军粮容量：60。"
+description = "为剑士提供驻扎位置。
+容量：6。军粮容量：60。"
 building_scene = ExtResource("2_barracks")
+storage_capacities = Dictionary[StringName, float]({
+&"bread": 30.0,
+&"grain": 30.0,
+&"meat": 30.0
+})
 grid_size = Vector2i(2, 3)
 construction_cost = Dictionary[StringName, float]({
 &"stone": 15.0,

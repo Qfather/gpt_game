@@ -7,9 +7,12 @@
 script = ExtResource("1_building_data")
 id = &"lumber_camp"
 display_name = "伐木场"
-description = "为居民提供采集木材的工作地点。"
-function_text = "生产木材，并将木材存入建筑库存。"
+description = "为居民提供采集木材的工作地点。
+生产木材，并将木材存入建筑库存。"
 building_scene = ExtResource("2_lumber_camp")
+storage_capacities = Dictionary[StringName, float]({
+&"wood": 20.0
+})
 grid_size = Vector2i(3, 2)
 construction_cost = Dictionary[StringName, float]({
 &"wood": 20.0

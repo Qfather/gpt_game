@@ -1,0 +1,460 @@
+[gd_resource type="Resource" script_class="LevelFlowData" format=3 uid="uid://btv3w3sxavkxb"]
+
+[ext_resource type="Script" uid="uid://cyjav6b6b6q4g" path="res://Script/world/camp_pool_entry.gd" id="1_m7y26"]
+[ext_resource type="Resource" uid="uid://c28udpva1umya" path="res://data/camps/slime_camp.tres" id="2_2dml3"]
+[ext_resource type="Resource" uid="uid://cl1lij88vufrx" path="res://data/camps/wolf_camp.tres" id="3_42f0i"]
+[ext_resource type="Script" uid="uid://bfclkuso5c6ip" path="res://Script/world/camp_spawn_config.gd" id="4_af0xk"]
+[ext_resource type="Script" uid="uid://b5bj88yjc8g2j" path="res://Script/enemy/level_event_entry.gd" id="5_swnqa"]
+[ext_resource type="Resource" uid="uid://ctj3q8wxxytyh" path="res://data/enemies/raid/FortyMinuteGroups.tres" id="6_ou7le"]
+[ext_resource type="Script" uid="uid://bb178be55hilu" path="res://addons/MapGenerate/core/level_config.gd" id="7_8masj"]
+[ext_resource type="Script" uid="uid://dimwhbjvo6um7" path="res://Script/world/map_resource_entry.gd" id="8_0v8oa"]
+[ext_resource type="PackedScene" uid="uid://bjhgmbhk67241" path="res://Scene/resource/tree.tscn" id="9_bfu8i"]
+[ext_resource type="PackedScene" uid="uid://b35h0wuf0qn8a" path="res://Scene/resource/stone.tscn" id="10_2veba"]
+[ext_resource type="Script" uid="uid://bkxnpn082gwig" path="res://Script/enemy/level_flow_data.gd" id="11_ir40n"]
+[ext_resource type="Script" uid="uid://dwfvohwbuihee" path="res://Script/population/immigration_group.gd" id="12_2veba"]
+[ext_resource type="Script" uid="uid://dn5nvrc4lcjwi" path="res://Script/population/ImmigrationRules.gd" id="12_42f0i"]
+[ext_resource type="Script" uid="uid://hytnojlttnon" path="res://Script/level_config.gd" id="13_af0xk"]
+[ext_resource type="Script" uid="uid://b2vt2lwsdilgf" path="res://Script/building_data.gd" id="13_ir40n"]
+[ext_resource type="Script" uid="uid://vjowyu6mphb3" path="res://Script/unit/unit_trait.gd" id="14_1vuhi"]
+[ext_resource type="Script" uid="uid://2fkm0m0oilvi" path="res://Script/trait/trait_level_data.gd" id="15_7ckty"]
+[ext_resource type="Script" uid="uid://b2ilqqawkrpyb" path="res://Script/trait/trait_data.gd" id="16_2xdbb"]
+[ext_resource type="Resource" uid="uid://bccdhdh8h8b78" path="res://data/buildings/HouseData.tres" id="17_y27eg"]
+[ext_resource type="Resource" path="res://data/buildings/FarmData.tres" id="18_y2to8"]
+
+[sub_resource type="Resource" id="Resource_1vuhi"]
+script = ExtResource("1_m7y26")
+camp = ExtResource("2_2dml3")
+end_time = 600.0
+
+[sub_resource type="Resource" id="Resource_7ckty"]
+script = ExtResource("1_m7y26")
+camp = ExtResource("3_42f0i")
+start_time = 600.0
+
+[sub_resource type="Resource" id="Resource_2xdbb"]
+script = ExtResource("4_af0xk")
+enabled = true
+camp_pool = Array[ExtResource("1_m7y26")]([SubResource("Resource_1vuhi"), SubResource("Resource_7ckty")])
+
+[sub_resource type="Resource" id="Resource_y27eg"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_01"
+event_name = "01 · 开局试探"
+start_time = 150.0
+rift_wave_count = 1
+rift_wave_interval = 15.0
+
+[sub_resource type="Resource" id="Resource_y2to8"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_02"
+event_name = "02 · 仓库窃贼"
+start_time = 240.0
+rift_wave_count = 1
+rift_wave_interval = 15.0
+
+[sub_resource type="Resource" id="Resource_rmmnu"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_03"
+event_name = "03 · 第一道裂缝"
+start_time = 300.0
+rift_wave_count = 2
+rift_wave_interval = 15.0
+rift_countdown = 30.0
+
+[sub_resource type="Resource" id="Resource_hew13"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_04"
+event_name = "04 · 骷髅斥候"
+start_time = 420.0
+rift_wave_count = 1
+rift_wave_interval = 15.0
+
+[sub_resource type="Resource" id="Resource_wpcg3"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_05"
+event_name = "05 · 骷髅推进"
+start_time = 480.0
+rift_wave_count = 2
+rift_wave_interval = 15.0
+rift_countdown = 30.0
+
+[sub_resource type="Resource" id="Resource_a4ryv"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_06"
+event_name = "06 · 狼与小恶魔"
+start_time = 600.0
+rift_wave_count = 1
+rift_wave_interval = 15.0
+
+[sub_resource type="Resource" id="Resource_br4xf"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_07"
+event_name = "07 · 恶魔混编"
+start_time = 660.0
+rift_wave_count = 2
+rift_wave_interval = 15.0
+rift_countdown = 30.0
+
+[sub_resource type="Resource" id="Resource_fshfi"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_08"
+event_name = "08 · 快速夹击"
+start_time = 780.0
+rift_wave_count = 1
+rift_wave_interval = 15.0
+
+[sub_resource type="Resource" id="Resource_go71x"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_09"
+event_name = "09 · 亡骨军阵"
+start_time = 840.0
+rift_wave_count = 2
+rift_wave_interval = 15.0
+rift_countdown = 30.0
+
+[sub_resource type="Resource" id="Resource_e0era"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_10"
+event_name = "10 · 食人魔先遣"
+start_time = 960.0
+rift_wave_count = 1
+rift_wave_interval = 15.0
+
+[sub_resource type="Resource" id="Resource_nftf8"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_11"
+event_name = "11 · 重甲压境"
+start_time = 1020.0
+rift_wave_count = 2
+rift_wave_interval = 15.0
+rift_countdown = 30.0
+
+[sub_resource type="Resource" id="Resource_5wver"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_12"
+event_name = "12 · 追猎小队"
+start_time = 1140.0
+rift_wave_count = 1
+rift_wave_interval = 15.0
+
+[sub_resource type="Resource" id="Resource_cx6x4"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_13"
+event_name = "13 · 中场督军"
+start_time = 1200.0
+rift_wave_count = 1
+rift_wave_interval = 15.0
+rift_countdown = 45.0
+
+[sub_resource type="Resource" id="Resource_n5qtq"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_14"
+event_name = "14 · 趁乱劫掠"
+start_time = 1320.0
+rift_wave_count = 1
+rift_wave_interval = 15.0
+
+[sub_resource type="Resource" id="Resource_nawew"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_15"
+event_name = "15 · 亡骨潮汐"
+start_time = 1380.0
+rift_wave_count = 2
+rift_wave_interval = 15.0
+rift_countdown = 30.0
+
+[sub_resource type="Resource" id="Resource_c4soi"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_16"
+event_name = "16 · 三族突袭"
+start_time = 1500.0
+rift_wave_count = 1
+rift_wave_interval = 15.0
+
+[sub_resource type="Resource" id="Resource_7dqvv"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_17"
+event_name = "17 · 混合军团"
+start_time = 1560.0
+rift_wave_count = 2
+rift_wave_interval = 15.0
+rift_countdown = 30.0
+
+[sub_resource type="Resource" id="Resource_24rcn"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_18"
+event_name = "18 · 高速追猎"
+start_time = 1680.0
+rift_wave_count = 1
+rift_wave_interval = 15.0
+
+[sub_resource type="Resource" id="Resource_rdsp5"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_19"
+event_name = "19 · 双食人魔阵"
+start_time = 1740.0
+rift_wave_count = 2
+rift_wave_interval = 15.0
+rift_countdown = 30.0
+
+[sub_resource type="Resource" id="Resource_65ey0"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_20"
+event_name = "20 · 重装袭扰"
+start_time = 1860.0
+rift_wave_count = 1
+rift_wave_interval = 15.0
+
+[sub_resource type="Resource" id="Resource_eqv7b"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_21"
+event_name = "21 · 恶魔先锋"
+start_time = 1920.0
+rift_wave_count = 2
+rift_wave_interval = 15.0
+rift_countdown = 30.0
+
+[sub_resource type="Resource" id="Resource_qif7f"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_22"
+event_name = "22 · 最后补兵压力"
+start_time = 2040.0
+rift_wave_count = 1
+rift_wave_interval = 15.0
+
+[sub_resource type="Resource" id="Resource_e44vm"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_23"
+event_name = "23 · 决战前军团"
+start_time = 2100.0
+rift_wave_count = 2
+rift_wave_interval = 15.0
+rift_countdown = 30.0
+
+[sub_resource type="Resource" id="Resource_761oa"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_24"
+event_name = "24 · 食人魔突击队"
+start_time = 2220.0
+rift_wave_count = 1
+rift_wave_interval = 15.0
+
+[sub_resource type="Resource" id="Resource_th3kg"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_25"
+event_name = "25 · 关底前锋"
+start_time = 2280.0
+rift_wave_count = 2
+rift_wave_interval = 15.0
+rift_countdown = 30.0
+
+[sub_resource type="Resource" id="Resource_g1yox"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_26"
+event_name = "26 · 末轮袭扰"
+start_time = 2340.0
+rift_wave_count = 1
+rift_wave_interval = 15.0
+
+[sub_resource type="Resource" id="Resource_i3jhg"]
+script = ExtResource("5_swnqa")
+monster_database = ExtResource("6_ou7le")
+monster_group_id = &"hard40_27"
+event_name = "27 · 关底：裂缝食人魔王"
+start_time = 2400.0
+rift_wave_count = 1
+rift_wave_interval = 15.0
+rift_countdown = 45.0
+
+[sub_resource type="Resource" id="Resource_f1t3b"]
+script = ExtResource("7_8masj")
+cell_size_m = 3.0
+island_ratio_percent = 45
+center_clear_size = 8
+center_clear_circle = true
+
+[sub_resource type="Resource" id="Resource_blmkm"]
+script = ExtResource("8_0v8oa")
+display_name = "树木"
+scene = ExtResource("9_bfu8i")
+distribution = 0
+count = 520
+nearby_ratio = 0.6
+minimum_spacing = 1.1
+neighbor_distance_max = 1.8
+cluster_radius = 13.0
+cluster_separation = 10.0
+near_distance_min = 15.0
+near_distance_max = 19.0
+far_distance_min = 24.0
+base_weight = 1.2
+altitude_weight = -0.1
+cliff_foot_bonus = 0.6
+cliff_top_bonus = 0.0
+
+[sub_resource type="Resource" id="Resource_lea5l"]
+script = ExtResource("8_0v8oa")
+display_name = "石头"
+scene = ExtResource("10_2veba")
+minimum_spacing = 0.1
+neighbor_distance_max = 0.30000000000000004
+
+[sub_resource type="Resource" id="Resource_lfbav"]
+script = ExtResource("12_2veba")
+display_name = "基础移民"
+
+[sub_resource type="Resource" id="Resource_6umto"]
+script = ExtResource("16_2xdbb")
+trait_id = "likes_grain"
+trait_name = "谷物爱好者"
+description = "优先选择喜欢的食物；进食后饱腹增加25%，60秒内饥饿速度降低20%。"
+preferred_food_tags = Array[StringName]([&"grain"])
+preferred_nutrition_multiplier = 1.25
+preferred_hunger_multiplier = 0.8
+preferred_effect_duration = 60.0
+
+[sub_resource type="Resource" id="Resource_igi0h"]
+script = ExtResource("14_1vuhi")
+trait_data = SubResource("Resource_6umto")
+
+[sub_resource type="Resource" id="Resource_ige3b"]
+script = ExtResource("12_2veba")
+display_name = "谷物爱好者"
+food_tag = &"grain"
+food_amount = 30.0
+resident_traits = Array[ExtResource("14_1vuhi")]([SubResource("Resource_igi0h")])
+
+[sub_resource type="Resource" id="Resource_1lwy7"]
+script = ExtResource("12_2veba")
+display_name = "定居家庭"
+unlock_population = 6
+required_buildings = Array[ExtResource("13_ir40n")]([ExtResource("17_y27eg")])
+arrival_interval = 45.0
+
+[sub_resource type="Resource" id="Resource_0vlnd"]
+script = ExtResource("16_2xdbb")
+trait_id = "likes_meat"
+trait_name = "肉食爱好者"
+description = "优先选择喜欢的食物；进食后饱腹增加25%，60秒内饥饿速度降低20%。"
+preferred_food_tags = Array[StringName]([&"meat"])
+preferred_nutrition_multiplier = 1.25
+preferred_hunger_multiplier = 0.8
+preferred_effect_duration = 60.0
+
+[sub_resource type="Resource" id="Resource_1myby"]
+script = ExtResource("14_1vuhi")
+trait_data = SubResource("Resource_0vlnd")
+
+[sub_resource type="Resource" id="Resource_k0a6a"]
+script = ExtResource("12_2veba")
+display_name = "肉食家庭"
+unlock_population = 6
+food_tag = &"meat"
+food_amount = 20.0
+required_buildings = Array[ExtResource("13_ir40n")]([ExtResource("17_y27eg")])
+arrival_interval = 45.0
+resident_traits = Array[ExtResource("14_1vuhi")]([SubResource("Resource_1myby")])
+
+[sub_resource type="Resource" id="Resource_fimie"]
+script = ExtResource("12_2veba")
+display_name = "城镇定居者"
+unlock_population = 12
+required_buildings = Array[ExtResource("13_ir40n")]([ExtResource("17_y27eg"), ExtResource("18_y2to8")])
+max_group_size = 3
+arrival_interval = 45.0
+
+[sub_resource type="Resource" id="Resource_xfxb1"]
+script = ExtResource("16_2xdbb")
+trait_id = "likes_meat"
+trait_name = "肉食爱好者"
+description = "优先选择喜欢的食物；进食后饱腹增加25%，60秒内饥饿速度降低20%。"
+preferred_food_tags = Array[StringName]([&"meat"])
+preferred_nutrition_multiplier = 1.25
+preferred_hunger_multiplier = 0.8
+preferred_effect_duration = 60.0
+
+[sub_resource type="Resource" id="Resource_i3qcu"]
+script = ExtResource("14_1vuhi")
+trait_data = SubResource("Resource_xfxb1")
+
+[sub_resource type="Resource" id="Resource_ppc8g"]
+script = ExtResource("12_2veba")
+display_name = "肉食城镇居民"
+unlock_population = 12
+food_tag = &"meat"
+required_buildings = Array[ExtResource("13_ir40n")]([ExtResource("17_y27eg"), ExtResource("18_y2to8")])
+max_group_size = 3
+arrival_interval = 45.0
+resident_traits = Array[ExtResource("14_1vuhi")]([SubResource("Resource_i3qcu")])
+
+[sub_resource type="Resource" id="Resource_8hws5"]
+script = ExtResource("16_2xdbb")
+trait_id = "likes_processed_food"
+trait_name = "精致食物爱好者"
+description = "优先选择喜欢的食物；进食后饱腹增加25%，60秒内饥饿速度降低20%。"
+preferred_food_tags = Array[StringName]([&"processed_food"])
+preferred_nutrition_multiplier = 1.25
+preferred_hunger_multiplier = 0.8
+preferred_effect_duration = 60.0
+
+[sub_resource type="Resource" id="Resource_3bnub"]
+script = ExtResource("14_1vuhi")
+trait_data = SubResource("Resource_8hws5")
+
+[sub_resource type="Resource" id="Resource_ncii7"]
+script = ExtResource("12_2veba")
+display_name = "精致食物爱好者"
+unlock_population = 12
+food_tag = &"processed_food"
+food_amount = 30.0
+required_buildings = Array[ExtResource("13_ir40n")]([ExtResource("17_y27eg"), ExtResource("18_y2to8")])
+max_group_size = 3
+arrival_interval = 45.0
+resident_traits = Array[ExtResource("14_1vuhi")]([SubResource("Resource_3bnub")])
+
+[sub_resource type="Resource" id="Resource_af0xk"]
+script = ExtResource("12_42f0i")
+groups = Array[ExtResource("12_2veba")]([SubResource("Resource_lfbav"), SubResource("Resource_ige3b"), SubResource("Resource_1lwy7"), SubResource("Resource_k0a6a"), SubResource("Resource_fimie"), SubResource("Resource_ppc8g"), SubResource("Resource_ncii7")])
+
+[sub_resource type="Resource" id="Resource_swnqa"]
+script = ExtResource("13_af0xk")
+initial_wood = 200.0
+initial_stone = 200.0
+initial_grain = 200.0
+initial_villagers = 3
+immigration_rules = SubResource("Resource_af0xk")
+
+[resource]
+script = ExtResource("11_ir40n")
+map_config = SubResource("Resource_f1t3b")
+map_resources = Array[ExtResource("8_0v8oa")]([SubResource("Resource_blmkm"), SubResource("Resource_lea5l")])
+settlement_config = SubResource("Resource_swnqa")
+camp_config = SubResource("Resource_2xdbb")
+monster_database = ExtResource("6_ou7le")
+events = Array[ExtResource("5_swnqa")]([SubResource("Resource_y27eg"), SubResource("Resource_y2to8"), SubResource("Resource_rmmnu"), SubResource("Resource_hew13"), SubResource("Resource_wpcg3"), SubResource("Resource_a4ryv"), SubResource("Resource_br4xf"), SubResource("Resource_fshfi"), SubResource("Resource_go71x"), SubResource("Resource_e0era"), SubResource("Resource_nftf8"), SubResource("Resource_5wver"), SubResource("Resource_cx6x4"), SubResource("Resource_n5qtq"), SubResource("Resource_nawew"), SubResource("Resource_c4soi"), SubResource("Resource_7dqvv"), SubResource("Resource_24rcn"), SubResource("Resource_rdsp5"), SubResource("Resource_65ey0"), SubResource("Resource_eqv7b"), SubResource("Resource_qif7f"), SubResource("Resource_e44vm"), SubResource("Resource_761oa"), SubResource("Resource_th3kg"), SubResource("Resource_g1yox"), SubResource("Resource_i3jhg")])

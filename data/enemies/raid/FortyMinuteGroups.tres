@@ -1,0 +1,252 @@
+[gd_resource type="Resource" script_class="RaidGroupDatabase" format=3 uid="uid://ctj3q8wxxytyh"]
+
+[ext_resource type="Script" uid="uid://b0v2sgymqyugk" path="res://Script/enemy/raid_group_data.gd" id="1_d0ydt"]
+[ext_resource type="Script" uid="uid://cknte8tkj86va" path="res://Script/enemy/enemy_data.gd" id="2_d7oat"]
+[ext_resource type="Resource" uid="uid://dfvxcsy3qegu1" path="res://data/enemies/raid/SlimeData.tres" id="3_qi6rm"]
+[ext_resource type="Resource" uid="uid://brjf0vrd8fmv4" path="res://data/enemies/raid/GoblinData.tres" id="4_v40q7"]
+[ext_resource type="Resource" uid="uid://dkbg4aqhmos3t" path="res://data/enemies/rift/SlimeData.tres" id="5_c6p2f"]
+[ext_resource type="Resource" path="res://data/enemies/raid/SkeletonData.tres" id="6_n7usd"]
+[ext_resource type="Resource" path="res://data/enemies/rift/SkeletonData.tres" id="7_ooyop"]
+[ext_resource type="Resource" uid="uid://b1056inxxe4ef" path="res://data/enemies/raid/WolfData.tres" id="8_c53n2"]
+[ext_resource type="Resource" path="res://data/enemies/raid/ImpData.tres" id="9_sb1eu"]
+[ext_resource type="Resource" path="res://data/enemies/rift/ImpData.tres" id="10_yotvd"]
+[ext_resource type="Resource" path="res://data/enemies/raid/OgreData.tres" id="11_lqsyc"]
+[ext_resource type="Resource" path="res://data/enemies/rift/OgreData.tres" id="12_icefq"]
+[ext_resource type="Resource" path="res://data/enemies/rift/OgreCaptainData.tres" id="13_fesj3"]
+[ext_resource type="Resource" uid="uid://2xwj3j4tm4a7" path="res://data/enemies/rift/OgreWarlordData.tres" id="14_3er4d"]
+[ext_resource type="Script" uid="uid://keaifpwgb0ei" path="res://Script/enemy/raid_group_database.gd" id="15_d2yy0"]
+
+[sub_resource type="Resource" id="Resource_w3533"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_01"
+display_name = "开局试探"
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("3_qi6rm")])
+fixed_unit_counts = PackedInt32Array(3)
+unit_probabilities = PackedFloat32Array(100)
+
+[sub_resource type="Resource" id="Resource_8mx3d"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_02"
+display_name = "仓库窃贼"
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("4_v40q7")])
+fixed_unit_counts = PackedInt32Array(2)
+unit_probabilities = PackedFloat32Array(100)
+
+[sub_resource type="Resource" id="Resource_nfjhj"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_03"
+display_name = "第一道裂缝"
+group_type = 1
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("5_c6p2f")])
+fixed_unit_counts = PackedInt32Array(3)
+unit_probabilities = PackedFloat32Array(100)
+
+[sub_resource type="Resource" id="Resource_p1int"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_04"
+display_name = "骷髅斥候"
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("6_n7usd")])
+fixed_unit_counts = PackedInt32Array(3)
+unit_probabilities = PackedFloat32Array(100)
+
+[sub_resource type="Resource" id="Resource_2x4by"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_05"
+display_name = "骷髅推进"
+group_type = 1
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("7_ooyop")])
+fixed_unit_counts = PackedInt32Array(3)
+unit_probabilities = PackedFloat32Array(100)
+
+[sub_resource type="Resource" id="Resource_0o1yk"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_06"
+display_name = "狼与小恶魔"
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("8_c53n2"), ExtResource("9_sb1eu")])
+fixed_unit_counts = PackedInt32Array(2, 1)
+unit_probabilities = PackedFloat32Array(100, 100)
+
+[sub_resource type="Resource" id="Resource_8l5vp"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_07"
+display_name = "恶魔混编"
+group_type = 1
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("7_ooyop"), ExtResource("10_yotvd")])
+fixed_unit_counts = PackedInt32Array(3, 1)
+unit_probabilities = PackedFloat32Array(100, 100)
+
+[sub_resource type="Resource" id="Resource_jlkl3"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_08"
+display_name = "快速夹击"
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("6_n7usd"), ExtResource("9_sb1eu")])
+fixed_unit_counts = PackedInt32Array(4, 2)
+unit_probabilities = PackedFloat32Array(100, 100)
+
+[sub_resource type="Resource" id="Resource_qkiek"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_09"
+display_name = "亡骨军阵"
+group_type = 1
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("7_ooyop"), ExtResource("10_yotvd")])
+fixed_unit_counts = PackedInt32Array(4, 2)
+unit_probabilities = PackedFloat32Array(100, 100)
+
+[sub_resource type="Resource" id="Resource_tcjyx"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_10"
+display_name = "食人魔先遣"
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("11_lqsyc"), ExtResource("6_n7usd")])
+fixed_unit_counts = PackedInt32Array(1, 3)
+unit_probabilities = PackedFloat32Array(100, 100)
+
+[sub_resource type="Resource" id="Resource_ce022"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_11"
+display_name = "重甲压境"
+group_type = 1
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("12_icefq"), ExtResource("7_ooyop")])
+fixed_unit_counts = PackedInt32Array(1, 3)
+unit_probabilities = PackedFloat32Array(100, 100)
+
+[sub_resource type="Resource" id="Resource_js6ws"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_12"
+display_name = "追猎小队"
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("9_sb1eu"), ExtResource("8_c53n2")])
+fixed_unit_counts = PackedInt32Array(4, 1)
+unit_probabilities = PackedFloat32Array(100, 100)
+
+[sub_resource type="Resource" id="Resource_fpu5q"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_13"
+display_name = "中场督军"
+group_type = 1
+is_boss_group = true
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("13_fesj3")])
+fixed_unit_counts = PackedInt32Array(1)
+unit_probabilities = PackedFloat32Array(100)
+
+[sub_resource type="Resource" id="Resource_njwtt"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_14"
+display_name = "趁乱劫掠"
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("4_v40q7"), ExtResource("6_n7usd")])
+fixed_unit_counts = PackedInt32Array(3, 2)
+unit_probabilities = PackedFloat32Array(100, 100)
+
+[sub_resource type="Resource" id="Resource_xiwpu"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_15"
+display_name = "亡骨潮汐"
+group_type = 1
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("7_ooyop"), ExtResource("10_yotvd")])
+fixed_unit_counts = PackedInt32Array(5, 2)
+unit_probabilities = PackedFloat32Array(100, 100)
+
+[sub_resource type="Resource" id="Resource_1tpd0"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_16"
+display_name = "三族突袭"
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("11_lqsyc"), ExtResource("6_n7usd"), ExtResource("9_sb1eu")])
+fixed_unit_counts = PackedInt32Array(1, 4, 2)
+unit_probabilities = PackedFloat32Array(100, 100, 100)
+
+[sub_resource type="Resource" id="Resource_hcajc"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_17"
+display_name = "混合军团"
+group_type = 1
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("12_icefq"), ExtResource("7_ooyop"), ExtResource("10_yotvd")])
+fixed_unit_counts = PackedInt32Array(1, 4, 2)
+unit_probabilities = PackedFloat32Array(100, 100, 100)
+
+[sub_resource type="Resource" id="Resource_pn00v"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_18"
+display_name = "高速追猎"
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("8_c53n2"), ExtResource("9_sb1eu")])
+fixed_unit_counts = PackedInt32Array(2, 4)
+unit_probabilities = PackedFloat32Array(100, 100)
+
+[sub_resource type="Resource" id="Resource_1byw6"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_19"
+display_name = "双食人魔阵"
+group_type = 1
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("12_icefq"), ExtResource("7_ooyop")])
+fixed_unit_counts = PackedInt32Array(2, 4)
+unit_probabilities = PackedFloat32Array(100, 100)
+
+[sub_resource type="Resource" id="Resource_nm6je"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_20"
+display_name = "重装袭扰"
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("11_lqsyc"), ExtResource("6_n7usd")])
+fixed_unit_counts = PackedInt32Array(2, 3)
+unit_probabilities = PackedFloat32Array(100, 100)
+
+[sub_resource type="Resource" id="Resource_dysel"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_21"
+display_name = "恶魔先锋"
+group_type = 1
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("7_ooyop"), ExtResource("10_yotvd")])
+fixed_unit_counts = PackedInt32Array(4, 4)
+unit_probabilities = PackedFloat32Array(100, 100)
+
+[sub_resource type="Resource" id="Resource_c65ph"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_22"
+display_name = "最后补兵压力"
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("6_n7usd"), ExtResource("9_sb1eu")])
+fixed_unit_counts = PackedInt32Array(5, 3)
+unit_probabilities = PackedFloat32Array(100, 100)
+
+[sub_resource type="Resource" id="Resource_ortvv"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_23"
+display_name = "决战前军团"
+group_type = 1
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("12_icefq"), ExtResource("7_ooyop"), ExtResource("10_yotvd")])
+fixed_unit_counts = PackedInt32Array(2, 4, 2)
+unit_probabilities = PackedFloat32Array(100, 100, 100)
+
+[sub_resource type="Resource" id="Resource_vrfxh"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_24"
+display_name = "食人魔突击队"
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("11_lqsyc"), ExtResource("9_sb1eu")])
+fixed_unit_counts = PackedInt32Array(2, 3)
+unit_probabilities = PackedFloat32Array(100, 100)
+
+[sub_resource type="Resource" id="Resource_5jea2"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_25"
+display_name = "关底前锋"
+group_type = 1
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("12_icefq"), ExtResource("7_ooyop"), ExtResource("10_yotvd")])
+fixed_unit_counts = PackedInt32Array(2, 5, 2)
+unit_probabilities = PackedFloat32Array(100, 100, 100)
+
+[sub_resource type="Resource" id="Resource_b0btc"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_26"
+display_name = "末轮袭扰"
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("9_sb1eu"), ExtResource("6_n7usd")])
+fixed_unit_counts = PackedInt32Array(4, 4)
+unit_probabilities = PackedFloat32Array(100, 100)
+
+[sub_resource type="Resource" id="Resource_44xlp"]
+script = ExtResource("1_d0ydt")
+id = &"hard40_27"
+display_name = "关底：裂缝食人魔王"
+group_type = 1
+is_boss_group = true
+unit_data = Array[ExtResource("2_d7oat")]([ExtResource("14_3er4d")])
+fixed_unit_counts = PackedInt32Array(1)
+unit_probabilities = PackedFloat32Array(100)
+
+[resource]
+script = ExtResource("15_d2yy0")
+groups = Array[ExtResource("1_d0ydt")]([SubResource("Resource_w3533"), SubResource("Resource_8mx3d"), SubResource("Resource_nfjhj"), SubResource("Resource_p1int"), SubResource("Resource_2x4by"), SubResource("Resource_0o1yk"), SubResource("Resource_8l5vp"), SubResource("Resource_jlkl3"), SubResource("Resource_qkiek"), SubResource("Resource_tcjyx"), SubResource("Resource_ce022"), SubResource("Resource_js6ws"), SubResource("Resource_fpu5q"), SubResource("Resource_njwtt"), SubResource("Resource_xiwpu"), SubResource("Resource_1tpd0"), SubResource("Resource_hcajc"), SubResource("Resource_pn00v"), SubResource("Resource_1byw6"), SubResource("Resource_nm6je"), SubResource("Resource_dysel"), SubResource("Resource_c65ph"), SubResource("Resource_ortvv"), SubResource("Resource_vrfxh"), SubResource("Resource_5jea2"), SubResource("Resource_b0btc"), SubResource("Resource_44xlp")])

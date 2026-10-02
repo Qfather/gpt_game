@@ -8,6 +8,7 @@ signal arrived(migrant: Node3D, base: Node3D)
 @onready var navigation_agent: NavigationAgent3D = $NavigationAgent3D
 
 var target_base: Node3D
+var resident_traits: Array[UnitTrait] = []
 var _arrival_notified: bool = false
 var _navigation_target_ready: bool = false
 

@@ -1,115 +1,175 @@
 [gd_scene format=3 uid="uid://7esrxpfdrgi6"]
 
-[sub_resource type="StandardMaterial3D" id="WolfFur"]
-albedo_color = Color(0.36, 0.39, 0.43, 1)
-roughness = 0.9
+[sub_resource type="StandardMaterial3D" id="Mat0"]
+albedo_color = Color(0.4, 0.43, 0.47, 1)
+roughness = 0.85
 
-[sub_resource type="CapsuleMesh" id="WolfBodyMesh"]
-material = SubResource("WolfFur")
-radius = 0.39
-height = 1.35
+[sub_resource type="StandardMaterial3D" id="Mat1"]
+albedo_color = Color(0.64, 0.65, 0.62, 1)
+roughness = 0.85
 
-[sub_resource type="SphereMesh" id="WolfHeadMesh"]
-material = SubResource("WolfFur")
-radius = 0.36
-height = 0.68
+[sub_resource type="StandardMaterial3D" id="Mat2"]
+albedo_color = Color(0.055, 0.05, 0.045, 1)
+roughness = 0.85
 
-[sub_resource type="StandardMaterial3D" id="WolfLightFur"]
-albedo_color = Color(0.62, 0.63, 0.61, 1)
-roughness = 0.95
+[sub_resource type="StandardMaterial3D" id="Mat3"]
+albedo_color = Color(0.85, 0.65, 0.18, 1)
+roughness = 0.85
 
-[sub_resource type="SphereMesh" id="WolfMuzzleMesh"]
-material = SubResource("WolfLightFur")
-radius = 0.22
-height = 0.4
+[sub_resource type="StandardMaterial3D" id="Mat4"]
+albedo_color = Color(0.2, 0.22, 0.25, 1)
+roughness = 0.85
 
-[sub_resource type="StandardMaterial3D" id="WolfDarkFur"]
-albedo_color = Color(0.19, 0.21, 0.24, 1)
-roughness = 0.92
+[sub_resource type="BoxMesh" id="Mesh0"]
+material = SubResource("Mat0")
+size = Vector3(0.55, 0.52, 1.12)
 
-[sub_resource type="SphereMesh" id="WolfNoseMesh"]
-material = SubResource("WolfDarkFur")
-radius = 0.09
-height = 0.13
+[sub_resource type="BoxMesh" id="Mesh1"]
+material = SubResource("Mat1")
+size = Vector3(0.59, 0.6, 0.45)
 
-[sub_resource type="CylinderMesh" id="WolfEarMesh"]
-material = SubResource("WolfDarkFur")
+[sub_resource type="BoxMesh" id="Mesh2"]
+material = SubResource("Mat0")
+size = Vector3(0.47, 0.44, 0.52)
+
+[sub_resource type="BoxMesh" id="Mesh3"]
+material = SubResource("Mat1")
+size = Vector3(0.29, 0.24, 0.4)
+
+[sub_resource type="BoxMesh" id="Mesh4"]
+material = SubResource("Mat2")
+size = Vector3(0.25, 0.16, 0.08)
+
+[sub_resource type="BoxMesh" id="Mesh5"]
+material = SubResource("Mat3")
+size = Vector3(0.075, 0.075, 0.04)
+
+[sub_resource type="BoxMesh" id="Mesh6"]
+material = SubResource("Mat3")
+size = Vector3(0.075, 0.075, 0.04)
+
+[sub_resource type="CylinderMesh" id="Mesh7"]
+material = SubResource("Mat4")
 top_radius = 0.0
-bottom_radius = 0.15
-height = 0.42
+bottom_radius = 0.14
+height = 0.38
+radial_segments = 4
+rings = 1
 
-[sub_resource type="StandardMaterial3D" id="WolfEye"]
-albedo_color = Color(0.96, 0.66, 0.12, 1)
+[sub_resource type="CylinderMesh" id="Mesh8"]
+material = SubResource("Mat4")
+top_radius = 0.0
+bottom_radius = 0.14
+height = 0.38
+radial_segments = 4
+rings = 1
 
-[sub_resource type="SphereMesh" id="WolfEyeMesh"]
-material = SubResource("WolfEye")
-radius = 0.07
-height = 0.14
+[sub_resource type="BoxMesh" id="Mesh9"]
+material = SubResource("Mat0")
+size = Vector3(0.19, 0.536656, 0.19)
 
-[sub_resource type="CapsuleMesh" id="WolfLegMesh"]
-material = SubResource("WolfDarkFur")
-radius = 0.13
-height = 0.72
+[sub_resource type="BoxMesh" id="Mesh10"]
+material = SubResource("Mat4")
+size = Vector3(0.16, 0.52, 0.2)
 
-[sub_resource type="CapsuleMesh" id="WolfTailMesh"]
-material = SubResource("WolfFur")
-radius = 0.13
-height = 0.7
+[sub_resource type="BoxMesh" id="Mesh11"]
+material = SubResource("Mat4")
+size = Vector3(0.2, 0.14, 0.27)
 
-[node name="WolfVisual" type="Node3D" unique_id=1878832042]
+[sub_resource type="BoxMesh" id="Mesh12"]
+material = SubResource("Mat4")
+size = Vector3(0.16, 0.52, 0.2)
 
-[node name="Body" type="MeshInstance3D" parent="." unique_id=935232974]
-transform = Transform3D(1.05, 0, 0, 0, 0.82, 0, 0, 0, 1.55, 0, 0.67, 0.05)
-mesh = SubResource("WolfBodyMesh")
+[sub_resource type="BoxMesh" id="Mesh13"]
+material = SubResource("Mat4")
+size = Vector3(0.2, 0.14, 0.27)
 
-[node name="Chest" type="MeshInstance3D" parent="." unique_id=1834558968]
-transform = Transform3D(0.92, 0, 0, 0, 0.9, 0, 0, 0, 0.76, 0, 0.73, -0.35)
-mesh = SubResource("WolfHeadMesh")
+[sub_resource type="BoxMesh" id="Mesh14"]
+material = SubResource("Mat4")
+size = Vector3(0.16, 0.52, 0.2)
 
-[node name="Head" type="MeshInstance3D" parent="." unique_id=141230580]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.02, -0.59)
-mesh = SubResource("WolfHeadMesh")
+[sub_resource type="BoxMesh" id="Mesh15"]
+material = SubResource("Mat4")
+size = Vector3(0.2, 0.14, 0.27)
 
-[node name="Muzzle" type="MeshInstance3D" parent="." unique_id=190305935]
-transform = Transform3D(0.85, 0, 0, 0, 0.72, 0, 0, 0, 1, 0, 0.88, -0.88)
-mesh = SubResource("WolfMuzzleMesh")
+[sub_resource type="BoxMesh" id="Mesh16"]
+material = SubResource("Mat4")
+size = Vector3(0.16, 0.52, 0.2)
 
-[node name="Nose" type="MeshInstance3D" parent="." unique_id=385946654]
-transform = Transform3D(1, 0, 0, 0, 0.75, 0, 0, 0, 0.55, 0, 0.91, -1.06)
-mesh = SubResource("WolfNoseMesh")
+[sub_resource type="BoxMesh" id="Mesh17"]
+material = SubResource("Mat4")
+size = Vector3(0.2, 0.14, 0.27)
 
-[node name="LeftEar" type="MeshInstance3D" parent="." unique_id=507424286]
-transform = Transform3D(0.97589743, 0.21822962, 0, -0.21666026, 0.9688794, -0.119712204, -0.02612475, 0.11682683, 0.99280864, -0.22, 1.36, -0.52)
-mesh = SubResource("WolfEarMesh")
+[node name="WolfVisual" type="Node3D"]
 
-[node name="RightEar" type="MeshInstance3D" parent="." unique_id=1363995185]
-transform = Transform3D(0.97589743, -0.21822962, 0, 0.21666026, 0.9688794, -0.119712204, 0.02612475, 0.11682683, 0.99280864, 0.22, 1.36, -0.52)
-mesh = SubResource("WolfEarMesh")
+[node name="Body" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.69, -0.16)
+mesh = SubResource("Mesh0")
 
-[node name="LeftEye" type="MeshInstance3D" parent="." unique_id=785037881]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.2, 1.08, -0.88)
-mesh = SubResource("WolfEyeMesh")
+[node name="Chest" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.72, 0.35)
+mesh = SubResource("Mesh1")
 
-[node name="RightEye" type="MeshInstance3D" parent="." unique_id=169905309]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.2, 1.08, -0.88)
-mesh = SubResource("WolfEyeMesh")
+[node name="Head" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.05, 0.63)
+mesh = SubResource("Mesh2")
 
-[node name="FrontLeftLeg" type="MeshInstance3D" parent="." unique_id=1827945767]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.29, 0.31, -0.34)
-mesh = SubResource("WolfLegMesh")
+[node name="Muzzle" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.94, 0.96)
+mesh = SubResource("Mesh3")
 
-[node name="FrontRightLeg" type="MeshInstance3D" parent="." unique_id=386474763]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.29, 0.31, -0.34)
-mesh = SubResource("WolfLegMesh")
+[node name="Nose" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.97, 1.18)
+mesh = SubResource("Mesh4")
 
-[node name="RearLeftLeg" type="MeshInstance3D" parent="." unique_id=1805097507]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.29, 0.31, 0.44)
-mesh = SubResource("WolfLegMesh")
+[node name="LeftEye" type="MeshInstance3D" parent="."]
+position = Vector3(-0.16, 1.13, 0.905)
+mesh = SubResource("Mesh5")
 
-[node name="RearRightLeg" type="MeshInstance3D" parent="." unique_id=736780415]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.29, 0.31, 0.44)
-mesh = SubResource("WolfLegMesh")
+[node name="RightEye" type="MeshInstance3D" parent="."]
+position = Vector3(0.16, 1.13, 0.905)
+mesh = SubResource("Mesh6")
 
-[node name="Tail" type="MeshInstance3D" parent="." unique_id=1245999219]
-transform = Transform3D(1, 0, 0, 0, 0.6599831, -0.7512804, 0, 0.7512804, 0.6599831, 0, 0.84, 0.72)
-mesh = SubResource("WolfTailMesh")
+[node name="EarLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.17, 1.4, 0.59)
+mesh = SubResource("Mesh7")
+
+[node name="EarRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.17, 1.4, 0.59)
+mesh = SubResource("Mesh8")
+
+[node name="Tail" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, -0, 0.447214, 0.894427, 0, -0.894427, 0.447214, 0, 0.84, -0.94)
+mesh = SubResource("Mesh9")
+
+[node name="Leg0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.2, 0.26, 0.3)
+mesh = SubResource("Mesh10")
+
+[node name="Paw0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.2, 0.07, 0.35)
+mesh = SubResource("Mesh11")
+
+[node name="Leg1" type="MeshInstance3D" parent="."]
+position = Vector3(0.2, 0.26, 0.3)
+mesh = SubResource("Mesh12")
+
+[node name="Paw1" type="MeshInstance3D" parent="."]
+position = Vector3(0.2, 0.07, 0.35)
+mesh = SubResource("Mesh13")
+
+[node name="Leg2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.2, 0.26, -0.52)
+mesh = SubResource("Mesh14")
+
+[node name="Paw2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.2, 0.07, -0.47)
+mesh = SubResource("Mesh15")
+
+[node name="Leg3" type="MeshInstance3D" parent="."]
+position = Vector3(0.2, 0.26, -0.52)
+mesh = SubResource("Mesh16")
+
+[node name="Paw3" type="MeshInstance3D" parent="."]
+position = Vector3(0.2, 0.07, -0.47)
+mesh = SubResource("Mesh17")

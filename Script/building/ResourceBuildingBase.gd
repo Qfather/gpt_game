@@ -1,7 +1,7 @@
 class_name ResourceBuildingBase
 extends BuildingBase
+var destroyed: bool = false
 
-signal health_changed(current_health: float, max_health: float)
 
 # ============================================================
 # 资源建筑配置
@@ -26,10 +26,6 @@ var production_resource_type: ResourceType.Type:
 ## 工人空闲活动范围
 @export var idle_radius: float = 2.5
 
-@export_category("建筑耐久")
-@export_range(1.0, 100000.0, 1.0) var max_health: float = 300.0
-var current_health: float = 0.0
-var destroyed: bool = false
 
 
 # ============================================================
@@ -78,7 +74,7 @@ func is_destroyed() -> bool:
 func take_damage(amount: float, _source: Node = null) -> float:
 	if destroyed:
 		return 0.0
-	var actual_damage: float = minf(maxf(amount, 0.0), current_health)
+	var actual_damage: float = minf(maxf(amount - armor, 1.0), current_health) if amount > 0.0 else 0.0
 	if actual_damage <= 0.0:
 		return 0.0
 	current_health = maxf(current_health - actual_damage, 0.0)

@@ -7,9 +7,10 @@
 script = ExtResource("1_data")
 id = &"wall"
 display_name = "城墙"
-description = "阻挡敌人前进的基础防御建筑。"
-function_text = "提供物理阻挡，并可承受敌人攻击。"
+description = "阻挡敌人前进的基础防御建筑。
+提供物理阻挡，并可承受敌人攻击。"
 building_scene = ExtResource("2_scene")
+max_health = 500.0
 grid_size = Vector2i(3, 1)
 construction_cost = Dictionary[StringName, float]({
 &"wood": 10.0,
@@ -17,5 +18,5 @@ construction_cost = Dictionary[StringName, float]({
 })
 construction_time = 15.0
 max_construction_workers = 3
-allow_rotation = true
 allow_mirror = false
+allow_rotation = true

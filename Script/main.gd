@@ -5,13 +5,17 @@ const VILLAGER_SCENE: PackedScene = preload("res://Scene/unit/villager.tscn")
 const ENEMY_SCENE: PackedScene = preload("res://Scene/unit/enemy_base.tscn")
 const SLIME_DATA: EnemyData = preload("res://data/enemies/raid/SlimeData.tres")
 
-@export var level_config: LevelConfig = preload("res://data/levels/Level_01.tres")
-@export var level_preset: LevelFlowData = preload("res://data/levels/LevelFlow_V0.tres")
+var level_config: LevelConfig = preload("res://data/levels/Level_01.tres")
+@export var level_preset: LevelFlowData = preload("res://data/levels/LevelFlow_40min_Hard.tres")
 
 
 func _enter_tree() -> void:
+	$buildings/Base.set_building_data(preload("res://data/buildings/BaseData.tres"))
 	if level_preset == null:
 		return
+	if level_preset.settlement_config != null:
+		level_config = level_preset.settlement_config
+	$Systems/PopulationManager.level_config = level_config
 	$Systems/EncounterDirector.level_flow = level_preset
 	$Systems/RiftManager.minimum_base_distance = level_preset.rift_min_base_distance
 	var generator: MapGenerateRuntime = $Systems/MapGenerateRuntime
@@ -86,6 +90,12 @@ func _ready():
 
 	_apply_level_config()
 	_spawn_initial_villagers()
+	if level_preset != null and level_preset.wildlife_config != null:
+		var wildlife := Node3D.new()
+		wildlife.set_script(preload("res://Script/world/wildlife_manager.gd"))
+		wildlife.name = "WildlifeManager"
+		wildlife.config = level_preset.wildlife_config
+		$Systems.add_child(wildlife)
 	if level_preset != null and level_preset.fog_of_war_enabled:
 		var fog := Node3D.new()
 		fog.set_script(preload("res://Script/world/fog_of_war.gd"))

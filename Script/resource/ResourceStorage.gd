@@ -172,6 +172,16 @@ func set_capacity(
 		)
 
 
+func configure_capacities(values: Dictionary[StringName, float]) -> void:
+	for resource_id: StringName in capacities.keys():
+		if not values.has(resource_id): set_capacity(resource_id, 0.0)
+	capacities.clear()
+	for resource_id: StringName in values:
+		set_capacity(resource_id, values[resource_id])
+	if values.has(&"grain"):
+		set_capacity(&"food", values[&"grain"])
+
+
 # ============================================================
 # 获取容量
 # ============================================================

@@ -5,6 +5,13 @@ const HEALTH_BAR_SCRIPT: Script = preload("res://Script/combat/health_bar_3d.gd"
 
 signal building_clicked(building: BuildingBase)
 signal building_demolished(building: BuildingBase)
+signal health_changed(current_health: float, max_health: float)
+
+@export_range(1, 1000000, 1) var max_health: float = 300.0
+var armor: float = 1.0
+var current_health: float = 300.0
+var health_destroyed: bool = false
+var model_instance: Node3D
 
 @export var demolition_refund_ratio: float = 0.3
 
@@ -44,6 +51,9 @@ var interaction_positions: Dictionary = {}
 
 func _ready() -> void:
 	add_to_group("buildings")
+	current_health = max_health
+	if building_data != null:
+		_apply_building_data()
 	_create_health_bar()
 
 	if click_area == null:
@@ -126,6 +136,72 @@ func get_interaction_position(worker: Node) -> Vector3:
 
 func set_building_data(data: BuildingData) -> void:
 	building_data = data
+	if is_node_ready():
+		_apply_building_data()
+
+
+func _apply_building_data() -> void:
+	max_health = building_data.max_health
+	armor = building_data.armor
+	current_health = max_health
+	var durability: Node = get_node_or_null("BuildingDurability")
+	if durability != null:
+		durability.armor = armor
+		durability.setup(max_health)
+	var storage: ResourceStorage = get_node_or_null("ResourceStorage") as ResourceStorage
+	if storage == null and not building_data.storage_capacities.is_empty() and not self is Barracks:
+		storage = ResourceStorage.new()
+		storage.name = "ResourceStorage"
+		storage.wood_capacity = 0.0
+		storage.stone_capacity = 0.0
+		storage.food_capacity = 0.0
+		add_child(storage)
+	if storage != null:
+		storage.configure_capacities(building_data.storage_capacities)
+	if building_data.model_scene != null and model_instance == null:
+		_hide_original_model(self)
+		model_instance = building_data.model_scene.instantiate() as Node3D
+		if model_instance != null:
+			add_child(model_instance)
+	health_changed.emit(current_health, max_health)
+
+
+func _hide_original_model(node: Node) -> void:
+	if node is GeometryInstance3D:
+		node.hide()
+	for child: Node in node.get_children():
+		if child.name != &"HealthBar3D": _hide_original_model(child)
+
+
+func get_max_health() -> float:
+	return max_health
+
+
+func get_health() -> float:
+	return current_health
+
+
+func is_destroyed() -> bool:
+	return health_destroyed
+
+
+func take_damage(amount: float, _source: Node = null) -> float:
+	if health_destroyed or amount <= 0.0:
+		return 0.0
+	var actual: float = minf(maxf(amount - armor, 1.0), current_health)
+	current_health -= actual
+	health_changed.emit(current_health, max_health)
+	if current_health <= 0.0:
+		health_destroyed = true
+		_before_destroyed()
+		get_tree().call_group("task_manager", "cancel_tasks_for_target", self, true)
+		release_build_grid_area()
+		queue_free()
+	return actual
+
+
+func _before_destroyed() -> void:
+	pass
 
 
 func set_build_grid_occupancy(

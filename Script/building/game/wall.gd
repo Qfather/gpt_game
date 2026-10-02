@@ -1,7 +1,6 @@
 class_name Wall
 extends BuildingBase
 
-signal health_changed(current_health: float, max_health: float)
 
 @onready var durability: BuildingDurability = $BuildingDurability
 

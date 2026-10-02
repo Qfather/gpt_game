@@ -125,7 +125,7 @@ func refresh_visibility() -> void:
 		_reveal_at(building.global_position, radius)
 	_reveal_visible_tree_canopies()
 	mask_texture.update(visual_map)
-	for group: String in ["enemies", "migrants", "resources", "buildings", "villagers", "vegetation", "treasure_camps"]:
+	for group: String in ["enemies", "migrants", "resources", "buildings", "villagers", "vegetation", "treasure_camps", "wildlife"]:
 		for object: Node in get_tree().get_nodes_in_group(group):
 			if not object is Node3D or object.is_queued_for_deletion():
 				continue

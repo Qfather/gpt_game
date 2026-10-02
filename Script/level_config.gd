@@ -12,4 +12,4 @@ extends Resource
 @export_category("人口规则")
 @export var immigration_rules: ImmigrationRules = preload(
 	"res://data/population/immigration_rules.tres"
-)
+).duplicate(true)

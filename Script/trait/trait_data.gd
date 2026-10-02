@@ -1,3 +1,4 @@
+@tool
 class_name TraitData
 extends Resource
 
@@ -100,6 +101,12 @@ var weight: float = 10.0
 
 ## 标签各等级对应的数据
 @export var levels: Array[TraitLevelData] = []
+
+@export_group("饮食喜好")
+@export var preferred_food_tags: Array[StringName] = []
+@export_range(1.0, 5.0, 0.05) var preferred_nutrition_multiplier: float = 1.0
+@export_range(0.0, 1.0, 0.05) var preferred_hunger_multiplier: float = 1.0
+@export_range(0.0, 3600.0, 1.0) var preferred_effect_duration: float = 0.0
 
 
 # ============================================================

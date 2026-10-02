@@ -4,7 +4,8 @@ extends RefCounted
 
 enum Type {
 	NONE,
-	SWORDSMAN
+	SWORDSMAN,
+	ARCHER
 }
 
 
@@ -14,5 +15,7 @@ static func get_display_name(role: int) -> String:
 			return "无"
 		Type.SWORDSMAN:
 			return "剑士"
+		Type.ARCHER:
+			return "弓箭手"
 		_:
 			return "未知"

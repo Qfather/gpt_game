@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3 uid="uid://2xwj3j4tm4a7"]
+
+[ext_resource type="Script" uid="uid://dnnbqgitp7k2h" path="res://Script/ability/ability_entry.gd" id="1_54vav"]
+[ext_resource type="Resource" uid="uid://4cel5fe2pgo1" path="res://data/abilities/GroundSlam.tres" id="2_n7kcv"]
+[ext_resource type="Script" uid="uid://dg0c3skkn6alu" path="res://Script/feature/feature_entry.gd" id="2_tget3"]
+[ext_resource type="Script" uid="uid://cknte8tkj86va" path="res://Script/enemy/enemy_data.gd" id="3_n7kcv"]
+[ext_resource type="PackedScene" path="res://Scene/unit/ogre_boss_visual.tscn" id="4_0xqap"]
+
+[sub_resource type="Resource" id="Resource_0xqap"]
+script = ExtResource("1_54vav")
+ability = ExtResource("2_n7kcv")
+damage_multiplier = 1.25
+radius_multiplier = 2.0
+
+[resource]
+script = ExtResource("3_n7kcv")
+id = &"rift_ogre_warlord"
+display_name = "裂缝食人魔王"
+visual_scene = ExtResource("4_0xqap")
+visual_tint = Color(0.9, 0.8, 1, 1)
+ability_entries = Array[ExtResource("1_54vav")]([SubResource("Resource_0xqap")])
+max_health = 900.0
+damage = 18.0
+move_speed = 2.0
+attack_range = 1.7
+attack_interval = 1.8
+detection_range = 18.0
+is_boss = true
+faction = 2

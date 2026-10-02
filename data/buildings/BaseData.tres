@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://Script/building_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://Scene/building/base.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_data")
+id = &"base"
+display_name = "据点"
+description = "开局自动生成的据点；此配置用于统一编辑场景参数，不加入玩家建造菜单。"
+building_scene = ExtResource("2_scene")
+max_health = 1000.0
+storage_capacities = Dictionary[StringName, float]({
+&"grain": 1000.0,
+&"stone": 1000.0,
+&"wood": 1000.0
+})

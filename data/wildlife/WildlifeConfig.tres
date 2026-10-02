@@ -1,0 +1,8 @@
+[gd_resource type="Resource" format=3]
+[ext_resource type="Script" path="res://Script/world/wildlife_config.gd" id="1"]
+[ext_resource type="Resource" path="res://data/wildlife/rabbit.tres" id="2"]
+[ext_resource type="Resource" path="res://data/wildlife/pheasant.tres" id="3"]
+[ext_resource type="Resource" path="res://data/wildlife/boar.tres" id="4"]
+[resource]
+script = ExtResource("1")
+prey_pool = Array[Resource]([ExtResource("2"), ExtResource("3"), ExtResource("4")])

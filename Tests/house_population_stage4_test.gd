@@ -4,6 +4,11 @@ var _failed: bool = false
 var _ready_count: int = 0
 var _ready_group_size: int = 0
 
+# 本测试只验证倒计时信号；实际地图出生由移民完整链路测试验证。
+class CountdownManager extends PopulationManager:
+	func _spawn_migrant_group(_group_size: int) -> void:
+		pass
+
 
 class FoodSource extends Node:
 	var grain_amount: float = 50.0
@@ -38,7 +43,7 @@ func _initialize() -> void:
 		test_root.add_child(villager)
 		villagers.append(villager)
 
-	var manager: PopulationManager = PopulationManager.new()
+	var manager: PopulationManager = CountdownManager.new()
 	var rules: ImmigrationRules = ImmigrationRules.new()
 	rules.minimum_food_reserve = 30.0
 	rules.food_per_migrant = 10.0

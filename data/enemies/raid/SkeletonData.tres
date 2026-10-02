@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://Script/ability/ability_entry.gd" id="1_0hbb2"]
+[ext_resource type="Script" path="res://Script/feature/feature_entry.gd" id="2_cjwhe"]
+[ext_resource type="Script" path="res://Script/enemy/enemy_data.gd" id="3_d7eaa"]
+[ext_resource type="PackedScene" path="res://Scene/unit/skeleton_visual.tscn" id="4_gvryq"]
+
+[resource]
+script = ExtResource("3_d7eaa")
+id = &"raid_skeleton"
+display_name = "骷髅"
+visual_scene = ExtResource("4_gvryq")
+max_health = 48.0
+move_speed = 2.3
+attack_interval = 1.4
+detection_range = 12.0

@@ -39,12 +39,15 @@ const RESOURCE_DATABASE: ResourceDatabase = preload(
 const SLIME_DATA: EnemyData = preload("res://data/enemies/raid/SlimeData.tres")
 const WOLF_DATA: EnemyData = preload("res://data/enemies/raid/WolfData.tres")
 const PRODUCTION_BUILDINGS: Array[BuildingData] = [
+	preload("res://data/buildings/HunterHutData.tres"),
 	LUMBER_CAMP_DATA,
 	QUARRY_DATA,
 	FARM_DATA,
 	HOUSE_DATA
 ]
 const MILITARY_BUILDINGS: Array[BuildingData] = [
+	preload("res://data/buildings/ArcherCampData.tres"),
+	preload("res://data/buildings/ArrowTowerData.tres"),
 	SWORDSMAN_CAMP_DATA,
 	BARRACKS_DATA,
 	WALL_DATA,
@@ -65,6 +68,7 @@ const STRATEGY_BUILDINGS: Array[BuildingData] = [TORCH_DATA]
 @onready var immigration_status_label: Label = %ImmigrationStatusLabel
 @onready var immigration_requirement_label: Label = %ImmigrationRequirementLabel
 @onready var immigration_progress_bar: ProgressBar = %ImmigrationProgressBar
+var immigration_refresh_button: Button
 @onready var build_buttons: HBoxContainer = $BuildMenu/BuildMenuContent/BuildButtons
 @onready var building_tabs: TabBar = $BuildMenu/BuildMenuContent/BuildingTabs
 @onready var pause_button: Button = $PanelContainer/VBoxContainer/HBoxContainer/PauseButton
@@ -421,6 +425,15 @@ func _refresh_immigration_display() -> void:
 			int(floor(available_food)),
 		]
 	)
+	if status.has("group_name"):
+		immigration_requirement_label.text = "%s\n住房：%d / %d　%s：%d / %d" % [status.group_name, maxi(free_housing, 0), required_housing, status.food_name, int(floor(available_food)), int(ceil(required_food))]
+		if not status.building_requirements.is_empty():
+			immigration_requirement_label.text += "\n建筑：" + status.building_requirements
+		if not status.trait_names.is_empty():
+			immigration_requirement_label.text += "\n来者标签：" + status.trait_names
+	var cooldown: float = population_manager.refresh_cooldown_remaining
+	immigration_refresh_button.disabled = cooldown > 0.0 or not status.has("group_name")
+	immigration_refresh_button.text = "刷新需求（%d 秒）" % int(ceil(cooldown)) if cooldown > 0.0 else "刷新移民需求"
 
 	immigration_progress_bar.value = progress * 100.0
 	if countdown_active:
@@ -429,7 +442,7 @@ func _refresh_immigration_display() -> void:
 
 	immigration_progress_bar.value = 0.0
 	if ready_emitted:
-		immigration_status_label.text = "移民队伍已出发：%d 人" % group_size
+		immigration_status_label.text = "移民队伍已出发：%d 人" % int(status.get("pending_migrant_count", group_size))
 	elif bool(status.get("can_start", false)):
 		immigration_status_label.text = "移民条件满足"
 	else:
@@ -609,9 +622,18 @@ func _configure_status_layout() -> void:
 	immigration.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	immigration.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	immigration.offset_left = 12
-	immigration.offset_right = 290
-	immigration.offset_top = -116
+	immigration.offset_right = 370
+	immigration.offset_top = -210
 	immigration.offset_bottom = -12
+	immigration_requirement_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	immigration_refresh_button = Button.new()
+	immigration_refresh_button.name = "RefreshImmigrationButton"
+	immigration_refresh_button.tooltip_text = "重新抽取当前阶段需求，冷却60秒游戏时间；已出发的队伍保留"
+	$ImmigrationPanel/VBoxContainer.add_child(immigration_refresh_button)
+	immigration_refresh_button.pressed.connect(func() -> void:
+		if population_manager != null and population_manager.refresh_immigration_requirements():
+			_refresh_immigration_display()
+	)
 	game_clock = Control.new()
 	game_clock.name = "GameClock"
 	game_clock.set_script(preload("res://Script/ui/game_clock.gd"))
@@ -860,8 +882,6 @@ func _get_building_tooltip_body(building_data: BuildingData) -> String:
 	var lines: PackedStringArray = []
 	if not building_data.description.is_empty():
 		lines.append("介绍：" + building_data.description)
-	if not building_data.function_text.is_empty():
-		lines.append("功能：" + building_data.function_text)
 
 	var costs: PackedStringArray = []
 	for resource_key: Variant in building_data.construction_cost.keys():

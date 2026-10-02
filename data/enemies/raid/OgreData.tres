@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://Script/ability/ability_entry.gd" id="1_w4od2"]
+[ext_resource type="Script" path="res://Script/feature/feature_entry.gd" id="2_pbwlt"]
+[ext_resource type="Script" path="res://Script/enemy/enemy_data.gd" id="3_bsx6h"]
+[ext_resource type="PackedScene" path="res://Scene/unit/ogre_visual.tscn" id="4_xf8wr"]
+
+[resource]
+script = ExtResource("3_bsx6h")
+id = &"raid_ogre"
+display_name = "食人魔"
+visual_scene = ExtResource("4_xf8wr")
+max_health = 200.0
+damage = 14.0
+move_speed = 1.8
+attack_range = 1.7
+attack_interval = 2.0
+detection_range = 12.0

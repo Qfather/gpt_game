@@ -2,6 +2,17 @@ extends UnitBase
 
 signal unit_clicked(unit: UnitBase)
 
+const UnitDataResource = preload("res://Script/unit/unit_data.gd")
+
+@export var unit_data: UnitDataResource
+const RESIDENT_DATA: UnitDataResource = preload("res://data/units/ResidentData.tres")
+const SWORDSMAN_DATA: UnitDataResource = preload("res://data/units/SwordsmanData.tres")
+const ARCHER_DATA: UnitDataResource = preload("res://data/units/ArcherData.tres")
+const HUNTER_DATA: UnitDataResource = preload("res://data/units/HunterData.tres")
+const ARROW_SCRIPT: Script = preload("res://Script/combat/arrow.gd")
+var hunting: RefCounted = preload("res://Script/unit/hunting_behavior.gd").new()
+var visual_instance: Node3D
+
 const RESOURCE_DATABASE: ResourceDatabase = preload(
 	"res://data/resources/resource_database.tres"
 )
@@ -80,7 +91,8 @@ enum State {
 	FIND_FIELD_WORK,
 	MOVE_TO_FIELD,
 	WORKING_FIELD,
-	MOVE_TO_LOOT
+	MOVE_TO_LOOT,
+	HUNTING
 }
 
 var gather_previous_target_desired_distance: float = 1.5
@@ -148,17 +160,41 @@ enum Job {
 	NONE,
 	LUMBERJACK,
 	MINER,
-	FARMER
+	FARMER,
+	HUNTER
 }
 
 @export_category("军事职业")
-@export_enum("无", "剑士") var combat_role: int = CombatRole.Type.NONE
+@export_enum("无", "剑士", "弓箭手") var combat_role: int = CombatRole.Type.NONE
 @onready var body_mesh: MeshInstance3D = get_node_or_null("MeshInstance3D")
 
 
 func set_combat_role(role: int) -> void:
 	combat_role = role
-	_update_combat_visual()
+	set_unit_data(ARCHER_DATA if role == CombatRole.Type.ARCHER else (SWORDSMAN_DATA if role == CombatRole.Type.SWORDSMAN else RESIDENT_DATA))
+
+
+func set_unit_data(data: UnitDataResource) -> void:
+	var health_ratio: float = get_health() / maxf(get_max_health(), 1.0) if is_node_ready() else 1.0
+	unit_data = data
+	_apply_unit_parameters()
+	if is_node_ready():
+		health_component.max_health = get_max_health()
+		health_component.current_health = health_component.max_health * health_ratio
+		_on_health_component_changed(health_component.current_health, health_component.max_health)
+		var range_display: Node = get_node_or_null("SwordsmanAggroRange")
+		if range_display != null: range_display.set_radius(combat_detection_range)
+		_update_combat_visual()
+
+
+func _apply_unit_parameters() -> void:
+	for key: String in UnitDataResource.PARAMETERS:
+		set(UnitDataResource.PARAMETERS[key], unit_data.get(key))
+	base_attack_damage = unit_data.damage
+
+
+func get_display_name() -> String:
+	return unit_data.display_name if unit_data != null else String(name)
 
 
 func get_combat_role() -> int:
@@ -174,15 +210,29 @@ func _update_combat_visual() -> void:
 		add_to_group("combat_units")
 	elif is_in_group("combat_units"):
 		remove_from_group("combat_units")
-	if body_mesh == null:
+	if body_mesh == null or unit_data == null:
 		return
-	if combat_role == CombatRole.Type.SWORDSMAN:
-		var swordsman_material := StandardMaterial3D.new()
-		swordsman_material.albedo_color = Color(0.85, 0.05, 0.03, 1.0)
-		swordsman_material.roughness = 0.8
-		body_mesh.material_override = swordsman_material
-	else:
-		body_mesh.material_override = null
+	if is_instance_valid(visual_instance):
+		remove_child(visual_instance)
+		visual_instance.queue_free()
+		visual_instance = null
+	body_mesh.visible = unit_data.visual_scene == null
+	if unit_data.visual_scene != null:
+		visual_instance = unit_data.visual_scene.instantiate() as Node3D
+		add_child(visual_instance)
+	_apply_visual_tint(visual_instance if visual_instance != null else body_mesh)
+
+
+func _apply_visual_tint(node: Node) -> void:
+	if node is MeshInstance3D:
+		if unit_data.visual_tint == Color.WHITE:
+			if node == body_mesh: node.material_override = null
+		else:
+			var material := StandardMaterial3D.new()
+			material.albedo_color = unit_data.visual_tint
+			material.roughness = 0.8
+			node.material_override = material
+	for child: Node in node.get_children(): _apply_visual_tint(child)
 
 enum ActivityLevel {
 	RESTING,
@@ -213,12 +263,17 @@ const SATIATED_HUNGER_THRESHOLD: float = 30.0
 var eating_timer: float = 0.0
 var resting_timer: float = 0.0
 var selected_food_id: StringName = &""
+var preferred_food_effect_remaining: float = 0.0
+var preferred_food_hunger_multiplier: float = 1.0
 
 
 func update_needs(delta: float) -> void:
 	activity_level = get_activity_level()
 	var multiplier: float = float(ACTIVITY_MULTIPLIERS[activity_level])
-	hunger = clampf(hunger + delta * hunger_rate * multiplier, 0.0, 100.0)
+	var effect_delta: float = minf(delta, preferred_food_effect_remaining)
+	var hunger_delta: float = delta - effect_delta + effect_delta * preferred_food_hunger_multiplier
+	preferred_food_effect_remaining = maxf(preferred_food_effect_remaining - delta, 0.0)
+	hunger = clampf(hunger + hunger_delta * hunger_rate * multiplier, 0.0, 100.0)
 
 	if activity_level == ActivityLevel.RESTING:
 		fatigue = clampf(fatigue - delta * rest_recovery_rate, 0.0, 100.0)
@@ -233,6 +288,8 @@ func update_needs(delta: float) -> void:
 
 func get_activity_level() -> ActivityLevel:
 	match state:
+		State.HUNTING:
+			return ActivityLevel.WORKING
 		State.FIND_RESOURCE, State.MOVE_TO_RESOURCE, State.GATHER_RESOURCE:
 			return ActivityLevel.WORKING
 		State.MOVE_TO_WORKPLACE, State.DEPOSIT_TO_WORKPLACE:
@@ -300,9 +357,43 @@ func find_available_food(
 	return available_food
 
 
-func choose_food(storage_filter: ResourceStorage = null) -> StringName:
+func choose_food(storage_filter: ResourceStorage = null, resupply_target: Barracks = null) -> StringName:
 	var available_food: Array[StringName] = find_available_food(storage_filter)
+	if resupply_target != null:
+		available_food = available_food.filter(func(id: StringName) -> bool: return resupply_target.get_food_free_space(id) > 0.0)
+	for food_id: StringName in available_food:
+		if not _get_food_preferences(RESOURCE_DATABASE.get_resource_data(food_id)).is_empty():
+			return food_id
 	return available_food[0] if not available_food.is_empty() else &""
+
+
+func _get_food_preferences(food: ResourceData) -> Array[TraitData]:
+	var result: Array[TraitData] = []
+	if food == null:
+		return result
+	for entry: UnitTrait in traits:
+		if entry == null or entry.trait_data == null:
+			continue
+		for tag: StringName in entry.trait_data.preferred_food_tags:
+			if food.has_tag(tag):
+				result.append(entry.trait_data)
+				break
+	return result
+
+
+func _apply_food_nutrition(food: ResourceData) -> void:
+	if food == null or food.food_properties == null:
+		return
+	var nutrition_multiplier: float = 1.0
+	for preference: TraitData in _get_food_preferences(food):
+		nutrition_multiplier = maxf(nutrition_multiplier, preference.preferred_nutrition_multiplier)
+		if preference.preferred_effect_duration > 0.0:
+			if preferred_food_effect_remaining <= 0.0 or preference.preferred_hunger_multiplier < preferred_food_hunger_multiplier:
+				preferred_food_hunger_multiplier = preference.preferred_hunger_multiplier
+				preferred_food_effect_remaining = preference.preferred_effect_duration
+			elif preference.preferred_hunger_multiplier == preferred_food_hunger_multiplier:
+				preferred_food_effect_remaining = maxf(preferred_food_effect_remaining, preference.preferred_effect_duration)
+	hunger = clampf(hunger - food.food_properties.nutrition * nutrition_multiplier, 0.0, 100.0)
 
 
 func evaluate_needs() -> void:
@@ -334,6 +425,7 @@ func evaluate_needs() -> void:
 		return
 	if not is_hungry() and not is_tired():
 		return
+	if job == Job.HUNTER: hunting.release_target(self)
 	if current_task != null:
 		_release_current_task_for_needs()
 		if current_task != null:
@@ -450,12 +542,7 @@ func _eat_while_resting(delta: float) -> void:
 		return
 
 	var food_data: ResourceData = RESOURCE_DATABASE.get_resource_data(selected_food_id)
-	if food_data != null and food_data.food_properties != null:
-		hunger = clampf(
-			hunger - food_data.food_properties.nutrition,
-			0.0,
-			100.0
-		)
+	_apply_food_nutrition(food_data)
 
 	if hunger > SATIATED_HUNGER_THRESHOLD:
 		selected_food_id = choose_food(base_storage)
@@ -501,12 +588,7 @@ func eat_food(delta: float) -> void:
 		return
 
 	var food_data: ResourceData = RESOURCE_DATABASE.get_resource_data(selected_food_id)
-	if food_data != null and food_data.food_properties != null:
-		hunger = clampf(
-			hunger - food_data.food_properties.nutrition,
-			0.0,
-			100.0
-		)
+	_apply_food_nutrition(food_data)
 	if hunger > SATIATED_HUNGER_THRESHOLD:
 		selected_food_id = choose_food(base_storage)
 		if not selected_food_id.is_empty():
@@ -605,6 +687,9 @@ var chop_timer: float = 0.0
 # ============================================================
 
 func _ready():
+	if unit_data == null:
+		unit_data = ARCHER_DATA if combat_role == CombatRole.Type.ARCHER else (SWORDSMAN_DATA if combat_role == CombatRole.Type.SWORDSMAN else RESIDENT_DATA)
+	_apply_unit_parameters()
 	super._ready()
 	idle_reposition_timer = randf_range(3.0, 10.0)
 	_update_combat_visual()
@@ -642,6 +727,8 @@ func _create_unreachable_marker() -> void:
 
 
 func _on_unit_died(_source: Node) -> void:
+	hunting.release_target(self)
+	hunting.clear_bundle()
 	_set_unreachable_warning(false)
 	remove_from_group("villagers")
 	remove_from_group("combat_units")
@@ -721,6 +808,8 @@ func _physics_process(delta):
 		_start_current_task()
 
 	match state:
+		State.HUNTING:
+			hunting.process(self, delta)
 
 		State.IDLE:
 			velocity = Vector3.ZERO
@@ -911,11 +1000,17 @@ func has_unreachable_warning() -> bool:
 
 
 func _process_combat(delta: float) -> bool:
+	# 箭塔补粮员完成往返，由留在塔上的弓箭手负责射击。
+	if is_instance_valid(resupply_barracks) and resupply_barracks.has_method("allows_garrison_attacks"):
+		return false
 	if not has_combat_role():
 		return false
 	if is_dead():
 		return false
 	if is_instance_valid(garrisoned_in):
+		if garrisoned_in.has_method("allows_garrison_attacks"):
+			_process_tower_combat(delta)
+			return false
 		# 驻军在建筑内部保持隐藏和战备，不能隔着军营搜索并攻击敌人。
 		# 同时修复旧逻辑留下的“仍属于军营但状态变成 IDLE”的幽灵剑士。
 		if (
@@ -974,6 +1069,10 @@ func _process_combat(delta: float) -> bool:
 	if combat_attack_cooldown > 0.0:
 		return true
 	if combat_target.has_method("take_damage"):
+		if unit_data.uses_arrows:
+			fire_arrow(combat_target)
+			combat_attack_cooldown = combat_attack_interval
+			return true
 		var actual_damage: float = float(
 			combat_target.take_damage(combat_damage, self)
 		)
@@ -985,9 +1084,9 @@ func _process_combat(delta: float) -> bool:
 	return true
 
 
-func _find_nearest_hostile() -> Node3D:
+func _find_nearest_hostile(search_range: float = -1.0) -> Node3D:
 	var nearest: Node3D = null
-	var nearest_distance: float = combat_detection_range
+	var nearest_distance: float = combat_detection_range if search_range < 0.0 else search_range
 	for candidate: Node in get_tree().get_nodes_in_group("enemies"):
 		if not candidate is Node3D or not is_instance_valid(candidate):
 			continue
@@ -998,11 +1097,29 @@ func _find_nearest_hostile() -> Node3D:
 		if candidate.has_method("get_faction") and int(candidate.get_faction()) == get_faction():
 			continue
 		var candidate_node: Node3D = candidate as Node3D
-		var distance: float = global_position.distance_to(candidate_node.global_position)
+		var distance: float = Vector2(global_position.x, global_position.z).distance_to(Vector2(candidate_node.global_position.x, candidate_node.global_position.z))
 		if distance < nearest_distance:
 			nearest_distance = distance
 			nearest = candidate_node
 	return nearest
+
+
+func fire_arrow(target: Node3D) -> void:
+	ARROW_SCRIPT.launch(self, target, global_position + Vector3.UP, combat_damage, unit_data.arrow_speed)
+
+
+func is_hunter() -> bool:
+	return job == Job.HUNTER
+
+
+func _process_tower_combat(delta: float) -> void:
+	combat_attack_cooldown = maxf(combat_attack_cooldown - delta, 0.0)
+	if state != State.GARRISONED or combat_attack_cooldown > 0.0: return
+	var range: float = combat_attack_range * garrisoned_in.attack_range_multiplier
+	var target: Node3D = _find_nearest_hostile(range)
+	if target != null:
+		fire_arrow(target)
+		combat_attack_cooldown = combat_attack_interval
 
 
 func _finish_combat() -> void:
@@ -1065,6 +1182,8 @@ func begin_treasure_hunt(camp: Node3D) -> bool:
 	}
 	if is_instance_valid(garrisoned_in):
 		garrisoned_in.unregister_garrison(self)
+		if garrisoned_in.has_method("get_garrison_position"):
+			global_position = garrisoned_in.get_garrison_entrance_position(self)
 		garrisoned_in = null
 		garrison_target = null
 		visible = true
@@ -1503,7 +1622,7 @@ func get_training_progress() -> float:
 func try_assign_to_barracks(barracks: Node) -> bool:
 	if (
 		barracks == null
-		or combat_role != CombatRole.Type.SWORDSMAN
+		or not has_combat_role()
 		or garrisoned_in != null
 		or not is_idle()
 		or state != State.IDLE and state != State.RETURN_TO_IDLE
@@ -1560,6 +1679,9 @@ func enter_garrison(barracks: Node) -> void:
 	collision_layer = 0
 	collision_mask = 0
 	state = State.GARRISONED
+	if barracks.has_method("get_garrison_position"):
+		global_position = barracks.get_garrison_position(self)
+		visible = true
 
 
 func process_garrison_needs() -> void:
@@ -1592,6 +1714,10 @@ func begin_garrison_eating() -> bool:
 	if food_ids.is_empty():
 		return false
 	selected_food_id = food_ids[0]
+	for food_id: StringName in food_ids:
+		if not _get_food_preferences(RESOURCE_DATABASE.get_resource_data(food_id)).is_empty():
+			selected_food_id = food_id
+			break
 	eating_timer = 0.0
 	state = State.GARRISON_EATING
 	return true
@@ -1618,12 +1744,7 @@ func process_garrison_eating(delta: float) -> void:
 		state = State.GARRISONED
 		return
 	var food_data: ResourceData = RESOURCE_DATABASE.get_resource_data(selected_food_id)
-	if food_data != null and food_data.food_properties != null:
-		hunger = clampf(
-			hunger - food_data.food_properties.nutrition,
-			0.0,
-			100.0
-		)
+	_apply_food_nutrition(food_data)
 	if hunger > SATIATED_HUNGER_THRESHOLD:
 		if begin_garrison_eating():
 			return
@@ -1666,7 +1787,7 @@ func begin_barracks_resupply(barracks: Node, base: Node) -> bool:
 		base_storage = base.get_node_or_null("ResourceStorage") as ResourceStorage
 	if base_storage == null:
 		return false
-	resupply_food_id = choose_food(base_storage)
+	resupply_food_id = choose_food(base_storage, barracks)
 	if resupply_food_id.is_empty():
 		return false
 	resupply_barracks = barracks
@@ -1676,6 +1797,8 @@ func begin_barracks_resupply(barracks: Node, base: Node) -> bool:
 	garrisoned_in = null
 	garrison_target = null
 	visible = true
+	if barracks.has_method("get_garrison_position"):
+		global_position = barracks.get_garrison_entrance_position(self)
 	_refresh_health_bar_display()
 	collision_layer = 2
 	collision_mask = 3
@@ -1697,7 +1820,7 @@ func _load_barracks_resupply_from_base() -> void:
 	if base_storage == null:
 		return_to_idle()
 		return
-	var taken: float = base_storage.take(resupply_food_id, carry_capacity)
+	var taken: float = base_storage.take(resupply_food_id, minf(carry_capacity, resupply_barracks.get_food_free_space(resupply_food_id)))
 	if taken <= 0.0:
 		return_to_idle()
 		return
@@ -1884,6 +2007,8 @@ func return_to_patrol_barracks() -> void:
 
 
 func leave_garrison() -> void:
+	if is_instance_valid(garrisoned_in) and garrisoned_in.has_method("get_garrison_position"):
+		global_position = garrisoned_in.get_garrison_entrance_position(self)
 	garrisoned_in = null
 	garrison_target = null
 	garrison_resume_state = -1
@@ -2854,6 +2979,10 @@ func assign_job(
 
 	job = new_job
 	workplace = new_workplace
+	if new_job == Job.HUNTER:
+		set_unit_data(HUNTER_DATA)
+		state = State.HUNTING
+		return
 
 
 	# ========================================================
@@ -2963,7 +3092,7 @@ func return_to_idle():
 			return
 		return
 
-	if combat_role == CombatRole.Type.SWORDSMAN and try_find_available_barracks():
+	if has_combat_role() and try_find_available_barracks():
 		return
 
 	# ============================================================
@@ -3050,8 +3179,11 @@ func _resume_patrol_after_needs() -> bool:
 
 
 func try_find_available_barracks() -> bool:
-	if combat_role != CombatRole.Type.SWORDSMAN or garrisoned_in != null:
+	if not has_combat_role() or garrisoned_in != null:
 		return false
+	if combat_role == CombatRole.Type.ARCHER:
+		for building: Node in get_tree().get_nodes_in_group("buildings"):
+			if building.has_method("allows_garrison_attacks") and not building.is_demolition_in_progress() and try_assign_to_barracks(building): return true
 	for building: Node in get_tree().get_nodes_in_group("buildings"):
 		if not building.has_method("has_free_garrison_slot"):
 			continue
@@ -3679,6 +3811,10 @@ func abandon_current_work() -> void:
 
 
 func quit_job():
+	if job == Job.HUNTER:
+		is_quitting_job = true
+		hunting.request_return(self)
+		return
 
 	if job == Job.NONE:
 		return
@@ -3707,6 +3843,9 @@ func quit_job():
 	finish_quit_job()
 #正式离职
 func finish_quit_job():
+	if job == Job.HUNTER:
+		hunting.release_target(self)
+		set_unit_data(RESIDENT_DATA)
 
 	print("👨 村民完成离职")
 
@@ -3749,6 +3888,10 @@ func set_current_task(task: Object) -> void:
 
 func clear_current_task() -> void:
 
+	if state == State.TRAINING and not is_dead():
+		visible = true
+		collision_layer = 2
+		collision_mask = 3
 	var was_training: bool = (
 		state == State.MOVE_TO_TRAINING or state == State.TRAINING
 	)

@@ -18,6 +18,7 @@ enum DamageState {
 @export_range(0.0, 1.0, 0.01) var heavy_damaged_threshold: float = 0.3
 
 var current_health: float = 0.0
+var armor: float = 0.0
 var damage_state: DamageState = DamageState.HEALTHY
 var _destroyed_emitted: bool = false
 
@@ -37,7 +38,7 @@ func setup(initial_max_health: float) -> void:
 func take_damage(amount: float, _source: Node = null) -> float:
 	if is_destroyed():
 		return 0.0
-	var actual_damage: float = minf(maxf(amount, 0.0), current_health)
+	var actual_damage: float = minf(maxf(amount - armor, 1.0), current_health) if amount > 0.0 else 0.0
 	if actual_damage <= 0.0:
 		return 0.0
 	current_health = maxf(current_health - actual_damage, 0.0)

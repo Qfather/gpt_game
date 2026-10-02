@@ -137,8 +137,9 @@ func _create_preview_mesh() -> void:
 	if building_data == null or building_data.building_scene == null:
 		return
 
+	var visual_scene: PackedScene = building_data.model_scene if building_data.model_scene != null else building_data.building_scene
 	var source_root: Node3D = (
-		building_data.building_scene.instantiate()
+		visual_scene.instantiate()
 		as Node3D
 	)
 	preview_model.transform = source_root.transform

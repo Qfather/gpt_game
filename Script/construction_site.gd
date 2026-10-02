@@ -99,6 +99,13 @@ func set_activation_deferred_until_unpause(deferred: bool) -> void:
 	activation_deferred_until_unpause = deferred
 
 
+# 工地沿用施工预览，成品的模型和仓储在竣工后应用。
+func _apply_building_data() -> void:
+	max_health = building_data.max_health
+	armor = building_data.armor
+	current_health = max_health
+
+
 func _ready() -> void:
 
 	_create_click_area()
@@ -784,7 +791,8 @@ func _calculate_model_bounds() -> void:
 	if building_data == null or building_data.building_scene == null:
 		return
 
-	var model: Node3D = building_data.building_scene.instantiate() as Node3D
+	var visual_scene: PackedScene = building_data.model_scene if building_data.model_scene != null else building_data.building_scene
+	var model: Node3D = visual_scene.instantiate() as Node3D
 	if model == null:
 		return
 	add_child(model)

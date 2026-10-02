@@ -7,8 +7,8 @@
 script = ExtResource("1_data")
 id = &"torch"
 display_name = "火把"
-description = "可放置在战争迷雾中的临时照明建筑。"
-function_text = "建成后提供视野 120 秒；每高一层视野半径增加 20%，到期自动消失。"
+description = "可放置在战争迷雾中的临时照明建筑。
+建成后提供视野 120 秒；每高一层视野半径增加 20%，到期自动消失。"
 building_scene = ExtResource("2_scene")
 construction_cost = Dictionary[StringName, float]({
 &"wood": 5.0

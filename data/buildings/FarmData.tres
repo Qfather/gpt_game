@@ -7,9 +7,12 @@
 script = ExtResource("1_farm_data")
 id = &"farm"
 display_name = "农场"
-description = "为居民提供种植粮食的工作地点。"
-function_text = "阶段 1 为空壳建筑，暂不生产粮食。"
+description = "为居民提供种植粮食的工作地点。
+阶段 1 为空壳建筑，暂不生产粮食。"
 building_scene = ExtResource("2_farm_scene")
+storage_capacities = Dictionary[StringName, float]({
+&"grain": 50.0
+})
 grid_size = Vector2i(4, 4)
 construction_cost = Dictionary[StringName, float]({
 &"wood": 20.0

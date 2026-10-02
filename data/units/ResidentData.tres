@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="UnitData" format=3]
+
+[ext_resource type="Script" path="res://Script/unit/unit_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://Scene/unit/resident_visual.tscn" id="2_visual"]
+
+[resource]
+script = ExtResource("1_data")
+id = &"resident"
+display_name = "居民"
+visual_scene = ExtResource("2_visual")
+description = "普通居民，负责采集、施工、搬运和农业；不主动参战。"

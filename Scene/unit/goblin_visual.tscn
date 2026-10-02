@@ -1,58 +1,181 @@
 [gd_scene format=3 uid="uid://cucdlrhdeend8"]
 
-[sub_resource type="StandardMaterial3D" id="GoblinClothes"]
-albedo_color = Color(0.28, 0.16, 0.08, 1)
-roughness = 0.95
+[sub_resource type="StandardMaterial3D" id="Mat0"]
+albedo_color = Color(0.42, 0.26, 0.14, 1)
+roughness = 0.85
 
-[sub_resource type="CapsuleMesh" id="GoblinBodyMesh"]
-material = SubResource("GoblinClothes")
-radius = 0.36
-height = 0.95
+[sub_resource type="StandardMaterial3D" id="Mat1"]
+albedo_color = Color(0.24, 0.53, 0.2, 1)
+roughness = 0.85
 
-[sub_resource type="StandardMaterial3D" id="GoblinSkin"]
-albedo_color = Color(0.18, 0.48, 0.16, 1)
-roughness = 0.9
+[sub_resource type="StandardMaterial3D" id="Mat2"]
+albedo_color = Color(0.18, 0.12, 0.08, 1)
+roughness = 0.85
 
-[sub_resource type="SphereMesh" id="GoblinHeadMesh"]
-material = SubResource("GoblinSkin")
-radius = 0.32
-height = 0.58
+[sub_resource type="StandardMaterial3D" id="Mat3"]
+albedo_color = Color(0.85, 0.65, 0.18, 1)
+roughness = 0.85
 
-[sub_resource type="SphereMesh" id="GoblinEarMesh"]
-material = SubResource("GoblinSkin")
-radius = 0.16
-height = 0.42
+[sub_resource type="StandardMaterial3D" id="Mat4"]
+albedo_color = Color(0.055, 0.05, 0.045, 1)
+roughness = 0.85
 
-[sub_resource type="StandardMaterial3D" id="GoblinEye"]
-albedo_color = Color(0.95, 0.78, 0.12, 1)
+[sub_resource type="StandardMaterial3D" id="Mat5"]
+albedo_color = Color(0.6, 0.65, 0.72, 1)
+roughness = 0.85
 
-[sub_resource type="SphereMesh" id="GoblinEyeMesh"]
-material = SubResource("GoblinEye")
-radius = 0.055
-height = 0.11
+[sub_resource type="BoxMesh" id="Mesh0"]
+material = SubResource("Mat0")
+size = Vector3(0.4, 0.63, 0.32)
 
-[node name="GoblinVisual" type="Node3D" unique_id=2131915119]
+[sub_resource type="BoxMesh" id="Mesh1"]
+material = SubResource("Mat1")
+size = Vector3(0.48, 0.46, 0.42)
 
-[node name="Body" type="MeshInstance3D" parent="." unique_id=765890599]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.52, 0)
-mesh = SubResource("GoblinBodyMesh")
+[sub_resource type="BoxMesh" id="Mesh2"]
+material = SubResource("Mat1")
+size = Vector3(0.15, 0.5, 0.2)
 
-[node name="Head" type="MeshInstance3D" parent="." unique_id=1987845616]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.18, 0)
-mesh = SubResource("GoblinHeadMesh")
+[sub_resource type="BoxMesh" id="Mesh3"]
+material = SubResource("Mat1")
+size = Vector3(0.15, 0.5, 0.2)
 
-[node name="LeftEar" type="MeshInstance3D" parent="." unique_id=1092746591]
-transform = Transform3D(0.5731804, -0.6051864, 0, 0.43573424, 0.7960838, 0, 0, 0, 0.72, -0.29, 1.35, 0)
-mesh = SubResource("GoblinEarMesh")
+[sub_resource type="BoxMesh" id="Mesh4"]
+material = SubResource("Mat2")
+size = Vector3(0.17, 0.26, 0.23)
 
-[node name="RightEar" type="MeshInstance3D" parent="." unique_id=1746743974]
-transform = Transform3D(0.5731804, 0.6051864, 0, -0.43573424, 0.7960838, 0, 0, 0, 0.72, 0.29, 1.35, 0)
-mesh = SubResource("GoblinEarMesh")
+[sub_resource type="BoxMesh" id="Mesh5"]
+material = SubResource("Mat2")
+size = Vector3(0.17, 0.26, 0.23)
 
-[node name="LeftEye" type="MeshInstance3D" parent="." unique_id=1763968957]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 1.22, -0.27)
-mesh = SubResource("GoblinEyeMesh")
+[sub_resource type="CylinderMesh" id="Mesh6"]
+material = SubResource("Mat1")
+top_radius = 0.0
+bottom_radius = 0.12
+height = 0.35
+radial_segments = 4
+rings = 1
 
-[node name="RightEye" type="MeshInstance3D" parent="." unique_id=672254681]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 1.22, -0.27)
-mesh = SubResource("GoblinEyeMesh")
+[sub_resource type="CylinderMesh" id="Mesh7"]
+material = SubResource("Mat1")
+top_radius = 0.0
+bottom_radius = 0.12
+height = 0.35
+radial_segments = 4
+rings = 1
+
+[sub_resource type="BoxMesh" id="Mesh8"]
+material = SubResource("Mat3")
+size = Vector3(0.11, 0.09, 0.04)
+
+[sub_resource type="BoxMesh" id="Mesh9"]
+material = SubResource("Mat3")
+size = Vector3(0.11, 0.09, 0.04)
+
+[sub_resource type="BoxMesh" id="Mesh10"]
+material = SubResource("Mat4")
+size = Vector3(0.04, 0.06, 0.02)
+
+[sub_resource type="BoxMesh" id="Mesh11"]
+material = SubResource("Mat4")
+size = Vector3(0.04, 0.06, 0.02)
+
+[sub_resource type="BoxMesh" id="Mesh12"]
+material = SubResource("Mat1")
+size = Vector3(0.13, 0.1, 0.14)
+
+[sub_resource type="BoxMesh" id="Mesh13"]
+material = SubResource("Mat4")
+size = Vector3(0.18, 0.04, 0.025)
+
+[sub_resource type="BoxMesh" id="Mesh14"]
+material = SubResource("Mat2")
+size = Vector3(0.43, 0.07, 0.37)
+
+[sub_resource type="BoxMesh" id="Mesh15"]
+material = SubResource("Mat0")
+size = Vector3(0.14, 0.18, 0.12)
+
+[sub_resource type="BoxMesh" id="Mesh16"]
+material = SubResource("Mat2")
+size = Vector3(0.06, 0.15, 0.07)
+
+[sub_resource type="BoxMesh" id="Mesh17"]
+material = SubResource("Mat5")
+size = Vector3(0.07, 0.33, 0.04)
+
+[node name="GoblinVisual" type="Node3D"]
+
+[node name="Body" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.57, 0)
+mesh = SubResource("Mesh0")
+
+[node name="Head" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.08, 0)
+mesh = SubResource("Mesh1")
+
+[node name="LeftArm" type="MeshInstance3D" parent="."]
+position = Vector3(-0.29, 0.57, 0)
+mesh = SubResource("Mesh2")
+
+[node name="RightArm" type="MeshInstance3D" parent="."]
+position = Vector3(0.29, 0.57, 0)
+mesh = SubResource("Mesh3")
+
+[node name="LeftLeg" type="MeshInstance3D" parent="."]
+position = Vector3(-0.12, 0.13, 0)
+mesh = SubResource("Mesh4")
+
+[node name="RightLeg" type="MeshInstance3D" parent="."]
+position = Vector3(0.12, 0.13, 0)
+mesh = SubResource("Mesh5")
+
+[node name="LeftEar" type="MeshInstance3D" parent="."]
+position = Vector3(-0.34, 1.17, 0)
+rotation_degrees = Vector3(0, 0, 60)
+mesh = SubResource("Mesh6")
+
+[node name="RightEar" type="MeshInstance3D" parent="."]
+position = Vector3(0.34, 1.17, 0)
+rotation_degrees = Vector3(0, 0, -60)
+mesh = SubResource("Mesh7")
+
+[node name="LeftEye" type="MeshInstance3D" parent="."]
+position = Vector3(-0.11, 1.14, 0.235)
+mesh = SubResource("Mesh8")
+
+[node name="RightEye" type="MeshInstance3D" parent="."]
+position = Vector3(0.11, 1.14, 0.235)
+mesh = SubResource("Mesh9")
+
+[node name="LeftPupil" type="MeshInstance3D" parent="."]
+position = Vector3(-0.11, 1.14, 0.263)
+mesh = SubResource("Mesh10")
+
+[node name="RightPupil" type="MeshInstance3D" parent="."]
+position = Vector3(0.11, 1.14, 0.263)
+mesh = SubResource("Mesh11")
+
+[node name="Nose" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.055, 0.28)
+mesh = SubResource("Mesh12")
+
+[node name="Mouth" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.97, 0.225)
+mesh = SubResource("Mesh13")
+
+[node name="Belt" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.36, 0)
+mesh = SubResource("Mesh14")
+
+[node name="Pouch" type="MeshInstance3D" parent="."]
+position = Vector3(-0.24, 0.38, 0.21)
+mesh = SubResource("Mesh15")
+
+[node name="DaggerGrip" type="MeshInstance3D" parent="."]
+position = Vector3(0.4, 0.45, 0.19)
+mesh = SubResource("Mesh16")
+
+[node name="DaggerBlade" type="MeshInstance3D" parent="."]
+position = Vector3(0.4, 0.69, 0.19)
+mesh = SubResource("Mesh17")

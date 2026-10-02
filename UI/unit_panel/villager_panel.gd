@@ -4,7 +4,7 @@ extends UnitPanelBase
 const RESOURCE_DATABASE: ResourceDatabase = preload(
 	"res://data/resources/resource_database.tres"
 )
-const JOB_DISPLAY_NAMES: PackedStringArray = ["无业", "伐木工", "矿工", "农夫"]
+const JOB_DISPLAY_NAMES: PackedStringArray = ["无业", "伐木工", "矿工", "农夫", "猎户"]
 const STATE_DISPLAY_NAMES: PackedStringArray = [
 	"待命",
 	"需要进食",
@@ -46,7 +46,8 @@ const STATE_DISPLAY_NAMES: PackedStringArray = [
 	"寻找田地",
 	"前往田地",
 	"正在处理田地",
-	"前往战利品"
+	"前往战利品",
+	"狩猎／回屋处理"
 ]
 const TASK_DISPLAY_NAMES: PackedStringArray = ["运输建造材料", "建筑施工", "训练剑士", "回收战利品"]
 
@@ -93,7 +94,8 @@ func refresh():
 	# 基础状态
 	# ========================================================
 
-	unit_name.text = "%s  #%d" % [villager.name, villager.get_instance_id()]
+	var display_name: String = villager.get_display_name() if villager.has_method("get_display_name") else String(villager.name)
+	unit_name.text = "%s  #%d" % [display_name, villager.get_instance_id()]
 	health_label.text = (
 		"生命："
 		+ str(round(current_unit.get_health()))
@@ -127,13 +129,17 @@ func refresh():
 	job_label.text = "职业：" + _get_display_name(JOB_DISPLAY_NAMES, job_index)
 	combat_role_label.text = "军事职业：" + CombatRole.get_display_name(combat_role_index)
 	state_label.text = "状态：" + _get_display_name(STATE_DISPLAY_NAMES, state_index)
+	if state_index == villager.State.HUNTING:
+		state_label.text = "状态：回屋处理" if villager.hunting.returning else "状态：狩猎"
 	task_label.text = "当前任务：" + _get_task_text(villager)
 	workplace_label.text = "工作地点：" + _get_node_name(villager.get("workplace") as Node)
 	_update_needs_bar(hunger_bar, float(villager.call("get_hunger")))
 	_update_needs_bar(fatigue_bar, float(villager.call("get_fatigue")))
 
 	var carried_amount: float = float(villager.call("get_carried_amount"))
-	if carried_amount <= 0.0:
+	if villager.is_hunter() and villager.hunting.prey_count > 0:
+		carry_label.text = "携带：猎物 %d / 3（处理后产肉%d）" % [villager.hunting.prey_count, villager.hunting.raw_meat]
+	elif carried_amount <= 0.0:
 		carry_label.text = "携带：无"
 	else:
 		var carried_resource_id: StringName = StringName(

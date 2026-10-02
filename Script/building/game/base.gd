@@ -1,7 +1,6 @@
 extends BuildingBase
 
 
-signal health_changed(current_health: float, max_health: float)
 signal destroyed
 
 @onready var durability: BuildingDurability = get_node_or_null(

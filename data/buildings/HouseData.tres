@@ -7,8 +7,8 @@
 script = ExtResource("1_building_data")
 id = &"house"
 display_name = "住宅"
-description = "为据点提供住房容量。"
-function_text = "增加 3 点全局住房容量。"
+description = "为据点提供住房容量。
+增加 3 点全局住房容量。"
 building_scene = ExtResource("2_house")
 grid_size = Vector2i(2, 2)
 construction_cost = Dictionary[StringName, float]({

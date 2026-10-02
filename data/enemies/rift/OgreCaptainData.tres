@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://Script/ability/ability_entry.gd" id="1_ljhuo"]
+[ext_resource type="Script" path="res://Script/feature/feature_entry.gd" id="2_cjhf5"]
+[ext_resource type="Script" path="res://Script/enemy/enemy_data.gd" id="3_4r33h"]
+[ext_resource type="PackedScene" path="res://Scene/unit/ogre_boss_visual.tscn" id="4_3sef7"]
+
+[resource]
+script = ExtResource("3_4r33h")
+id = &"rift_ogre_captain"
+display_name = "食人魔督军"
+visual_scene = ExtResource("4_3sef7")
+visual_tint = Color(0.9, 0.8, 1, 1)
+max_health = 400.0
+damage = 14.0
+move_speed = 2.0
+attack_range = 1.7
+attack_interval = 1.8
+detection_range = 18.0
+is_boss = true
+faction = 2

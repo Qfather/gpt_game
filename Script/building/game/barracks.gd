@@ -50,6 +50,11 @@ func demolish() -> bool:
 	var started: bool = super.demolish()
 	if not started:
 		return false
+	_before_destroyed()
+	return true
+
+
+func _before_destroyed() -> void:
 	var units_to_release: Array[Node] = garrisoned_units.duplicate()
 	garrisoned_units.clear()
 	units_to_release.append_array(garrison_reservations)
@@ -57,7 +62,6 @@ func demolish() -> bool:
 	for unit: Node in units_to_release:
 		if is_instance_valid(unit) and unit.has_method("leave_garrison"):
 			unit.leave_garrison()
-	return true
 
 
 func get_garrison_capacity() -> int:
@@ -137,16 +141,20 @@ func get_food_ratio() -> float:
 	return clampf(get_food_amount() / capacity, 0.0, 1.0)
 
 
+func get_food_free_space(resource_id: StringName) -> float:
+	var free_space: float = maxf(get_food_capacity() - get_food_amount(), 0.0)
+	if building_data != null:
+		free_space = minf(free_space, maxf(float(building_data.storage_capacities.get(resource_id, 0.0)) - float(food_inventory.get(resource_id, 0.0)), 0.0))
+	return free_space
+
+
 func add_food(resource_id: StringName, amount: float) -> float:
 	if amount <= 0.0:
 		return 0.0
 	var resource_data: ResourceData = RESOURCE_DATABASE.get_resource_data(resource_id)
 	if resource_data == null or not resource_data.is_food():
 		return 0.0
-	var accepted_amount: float = minf(
-		amount,
-		maxf(get_food_capacity() - get_food_amount(), 0.0)
-	)
+	var accepted_amount: float = minf(amount, get_food_free_space(resource_id))
 	if accepted_amount <= 0.0:
 		return 0.0
 	food_inventory[resource_id] = (
@@ -187,6 +195,7 @@ func debug_add_food(amount: float = 10.0) -> float:
 func register_garrison(unit: Node) -> bool:
 	if unit == null or garrisoned_units.has(unit) or garrison_reservations.has(unit):
 		return false
+	if not unit.has_combat_role() or (get_garrison_role() >= 0 and unit.get_combat_role() != get_garrison_role()): return false
 	if not has_free_garrison_slot():
 		return false
 	garrison_reservations.append(unit)
@@ -317,6 +326,10 @@ func dispatch_available_swordsmen() -> void:
 			return
 		if unit.has_method("try_assign_to_barracks"):
 			unit.try_assign_to_barracks(self)
+
+
+func get_garrison_role() -> int:
+	return -1
 
 
 func can_start_patrol() -> bool:

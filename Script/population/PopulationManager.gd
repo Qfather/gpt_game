@@ -14,7 +14,7 @@ const VILLAGER_SCENE: PackedScene = preload(
 	"res://Scene/unit/villager.tscn"
 )
 
-@export var level_config: LevelConfig = preload(
+var level_config: LevelConfig = preload(
 	"res://data/levels/Level_01.tres"
 )
 
@@ -26,6 +26,11 @@ var immigration_countdown_remaining: float = 0.0
 var immigration_countdown_group_size: int = 0
 var _immigration_ready_emitted: bool = false
 var pending_migrant_count: int = 0
+var highest_population: int = 0
+var current_immigration_group: ImmigrationGroup
+var departing_immigration_group: ImmigrationGroup
+var refresh_cooldown_remaining: float = 0.0
+const REFRESH_COOLDOWN: float = 60.0
 
 
 func _ready() -> void:
@@ -35,6 +40,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	refresh_cooldown_remaining = maxf(refresh_cooldown_remaining - delta, 0.0)
 	refresh_population()
 	_refresh_immigration_status()
 	_update_immigration_countdown(delta)
@@ -76,6 +82,7 @@ func unregister_housing(_source: Node) -> void:
 
 func refresh_population() -> void:
 	var next_population: int = get_tree().get_nodes_in_group("villagers").size()
+	highest_population = maxi(highest_population, next_population)
 	var next_housing_capacity: int = 0
 
 	for base: Node in get_tree().get_nodes_in_group("bases"):
@@ -133,6 +140,11 @@ func _get_immigration_rules() -> ImmigrationRules:
 
 
 func get_immigration_group_size() -> int:
+	_ensure_immigration_group()
+	if current_immigration_group != null:
+		if not _group_requirements_satisfied():
+			return 0
+		return mini(maxi(get_free_housing() - pending_migrant_count, 0), current_immigration_group.max_group_size)
 	var rules: ImmigrationRules = _get_immigration_rules()
 	if rules == null:
 		return 0
@@ -163,6 +175,9 @@ func get_immigration_group_size() -> int:
 
 
 func can_start_immigration() -> bool:
+	_ensure_immigration_group()
+	if current_immigration_group != null:
+		return get_immigration_group_size() >= current_immigration_group.min_group_size
 	var rules: ImmigrationRules = _get_immigration_rules()
 	if rules == null:
 		return false
@@ -174,6 +189,27 @@ func can_start_immigration() -> bool:
 
 
 func get_immigration_status() -> Dictionary:
+	_ensure_immigration_group()
+	if current_immigration_group != null:
+		var group: ImmigrationGroup = current_immigration_group
+		var size: int = get_immigration_group_size()
+		var trait_names: PackedStringArray = []
+		for entry: UnitTrait in group.resident_traits:
+			if entry != null and entry.trait_data != null:
+				trait_names.append(entry.trait_data.trait_name)
+		return {
+			"group_name": group.display_name, "group_size": size,
+			"housing_satisfied": get_free_housing() - pending_migrant_count >= group.min_group_size,
+			"food_satisfied": _get_group_food() >= group.food_amount,
+			"required_housing": group.min_group_size, "free_housing": get_free_housing() - pending_migrant_count,
+			"required_food": group.food_amount, "available_food": _get_group_food(),
+			"food_name": _get_food_tag_name(group.food_tag),
+			"building_requirements": _get_building_requirements_text(),
+			"trait_names": "、".join(trait_names), "can_start": can_start_immigration(),
+			"countdown_active": immigration_countdown_active, "countdown_remaining": immigration_countdown_remaining,
+			"ready_emitted": _immigration_ready_emitted, "pending_migrant_count": pending_migrant_count,
+			"refresh_cooldown": refresh_cooldown_remaining,
+		}
 	var rules: ImmigrationRules = _get_immigration_rules()
 	if rules == null:
 		return {
@@ -255,15 +291,16 @@ func is_immigration_countdown_active() -> bool:
 
 func get_immigration_progress() -> float:
 	var rules: ImmigrationRules = _get_immigration_rules()
+	var interval: float = current_immigration_group.arrival_interval if current_immigration_group != null else (rules.arrival_interval if rules != null else 0.0)
 	if (
 		rules == null
 		or not immigration_countdown_active
-		or rules.arrival_interval <= 0.0
+		or interval <= 0.0
 	):
 		return 0.0
 
 	return clampf(
-		1.0 - immigration_countdown_remaining / rules.arrival_interval,
+		1.0 - immigration_countdown_remaining / interval,
 		0.0,
 		1.0
 	)
@@ -271,6 +308,7 @@ func get_immigration_progress() -> float:
 
 func _update_immigration_countdown(delta: float) -> void:
 	var rules: ImmigrationRules = _get_immigration_rules()
+	var minimum: int = current_immigration_group.min_group_size if current_immigration_group != null else (rules.min_group_size if rules != null else 1)
 	if rules == null:
 		if pending_migrant_count <= 0:
 			_reset_immigration_countdown()
@@ -284,7 +322,7 @@ func _update_immigration_countdown(delta: float) -> void:
 		return
 
 	var group_size: int = get_immigration_group_size()
-	if group_size < rules.min_group_size:
+	if group_size < minimum:
 		if pending_migrant_count <= 0:
 			_reset_immigration_countdown()
 		return
@@ -296,7 +334,7 @@ func _update_immigration_countdown(delta: float) -> void:
 		immigration_countdown_active = true
 		immigration_countdown_group_size = group_size
 		immigration_countdown_remaining = maxf(
-			rules.arrival_interval,
+			current_immigration_group.arrival_interval if current_immigration_group != null else rules.arrival_interval,
 			0.0
 		)
 		print(
@@ -384,10 +422,13 @@ func _spawn_migrant_group(group_size: int) -> void:
 		migrant_container = get_tree().current_scene
 
 	var spawned_count: int = 0
+	departing_immigration_group = current_immigration_group
 	for index: int in range(group_size):
 		var migrant: Node3D = MIGRANT_SCENE.instantiate() as Node3D
 		if migrant == null:
 			continue
+		if current_immigration_group != null:
+			migrant.resident_traits = current_immigration_group.resident_traits.duplicate(true)
 		migrant_container.add_child(migrant)
 		migrant.global_position = spawn_positions[index]
 		if migrant.has_method("setup"):
@@ -418,6 +459,8 @@ func _on_migrant_arrived(migrant: Node3D, base: Node3D) -> void:
 		villager_container = get_tree().current_scene
 
 	var villager: Node3D = VILLAGER_SCENE.instantiate() as Node3D
+	for entry: UnitTrait in migrant.resident_traits:
+		villager.traits.append(entry.duplicate(true))
 	villager_container.add_child(villager)
 	villager.global_position = migrant.global_position
 
@@ -437,8 +480,106 @@ func _on_migrant_arrived(migrant: Node3D, base: Node3D) -> void:
 	pending_migrant_count = maxi(pending_migrant_count - 1, 0)
 	if pending_migrant_count == 0:
 		_immigration_ready_emitted = false
+		if current_immigration_group == departing_immigration_group:
+			_select_immigration_group()
 	migrant.queue_free()
 
 	print(
 		"Migrant 已抵达 Base，转为正式 Villager：人口将更新"
 	)
+
+
+func _ensure_immigration_group() -> void:
+	if current_immigration_group == null:
+		_select_immigration_group()
+
+
+func _select_immigration_group() -> void:
+	var rules: ImmigrationRules = _get_immigration_rules()
+	if rules == null or rules.groups.is_empty():
+		return
+	var stage: int = -1
+	var candidates: Array[ImmigrationGroup] = []
+	for group: ImmigrationGroup in rules.groups:
+		if group != null and group.unlock_population <= highest_population:
+			stage = maxi(stage, group.unlock_population)
+	for group: ImmigrationGroup in rules.groups:
+		if group != null and group.unlock_population == stage:
+			candidates.append(group)
+	if candidates.size() > 1:
+		candidates.erase(current_immigration_group)
+	if candidates.is_empty():
+		return
+	var total: float = 0.0
+	for group: ImmigrationGroup in candidates:
+		total += group.weight
+	var roll: float = randf() * total
+	for group: ImmigrationGroup in candidates:
+		roll -= group.weight
+		if roll <= 0.0:
+			current_immigration_group = group
+			return
+	current_immigration_group = candidates.back()
+
+
+func refresh_immigration_requirements() -> bool:
+	if refresh_cooldown_remaining > 0.0:
+		return false
+	var rules: ImmigrationRules = _get_immigration_rules()
+	if rules == null or rules.groups.is_empty():
+		return false
+	_cancel_active_immigration_countdown()
+	_select_immigration_group()
+	_immigration_ready_emitted = pending_migrant_count > 0
+	refresh_cooldown_remaining = REFRESH_COOLDOWN
+	return true
+
+
+func _get_group_food() -> float:
+	var manager: Node = get_tree().get_first_node_in_group("resource_manager")
+	var amount: float = 0.0
+	if manager == null:
+		return amount
+	for food: ResourceData in RESOURCE_DATABASE.resources:
+		if food != null and food.is_food() and (current_immigration_group.food_tag == &"" or food.has_tag(current_immigration_group.food_tag)):
+			amount += manager.get_total(food.id)
+	return amount
+
+
+func _has_required_building(required: BuildingData) -> bool:
+	for building: Node in get_tree().get_nodes_in_group("buildings"):
+		if building.is_queued_for_deletion() or (building.has_method("is_destroyed") and building.is_destroyed()):
+			continue
+		if building is BuildingBase and building.demolition_state != BuildingBase.DemolitionState.NONE:
+			continue
+		if building.has_method("get_building_data"):
+			var data: BuildingData = building.get_building_data()
+			if data != null and data.id == required.id:
+				return true
+	return false
+
+
+func _group_requirements_satisfied() -> bool:
+	if _get_group_food() < current_immigration_group.food_amount:
+		return false
+	for required: BuildingData in current_immigration_group.required_buildings:
+		if required != null and not _has_required_building(required):
+			return false
+	return true
+
+
+func _get_building_requirements_text() -> String:
+	var names: PackedStringArray = []
+	for required: BuildingData in current_immigration_group.required_buildings:
+		if required != null:
+			names.append("%s（%s）" % [required.display_name, "已满足" if _has_required_building(required) else "缺少"])
+	return "、".join(names)
+
+
+func _get_food_tag_name(tag: StringName) -> String:
+	if tag == &"":
+		return "任意食物"
+	for food: ResourceData in RESOURCE_DATABASE.resources:
+		if food != null and food.id == tag:
+			return food.display_name
+	return {&"processed_food": "精致加工食物", &"grain_product": "谷物制品"}.get(tag, String(tag))

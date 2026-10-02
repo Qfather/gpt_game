@@ -1,8 +1,8 @@
 @tool
 extends VBoxContainer
 
-const DATABASE_PATH: String = "res://data/enemies/raid/RaidGroups.tres"
-const LEVEL_FLOW_PATH: String = "res://data/levels/LevelFlow_V0.tres"
+const DATABASE_PATH: String = "res://data/enemies/raid/FortyMinuteGroups.tres"
+const LEVEL_FLOW_PATH: String = "res://data/levels/LevelFlow_40min_Hard.tres"
 const RAID_UNIT_FOLDER: String = "res://data/enemies/raid/"
 const RIFT_UNIT_FOLDER: String = "res://data/enemies/rift/"
 
@@ -748,6 +748,10 @@ func _write_event_editor() -> void:
 
 func _save_all() -> bool:
 	if database == null or level_flow == null:
+		return false
+	var immigration_error: String = level_flow.settlement_config.immigration_rules.validation_error()
+	if not immigration_error.is_empty():
+		push_error("无法保存关卡：" + immigration_error)
 		return false
 	for entry: MapResourceEntry in level_flow.map_resources:
 		if entry != null and entry.enabled and not entry.validation_error().is_empty():

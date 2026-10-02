@@ -13,6 +13,8 @@ const CATEGORY_LABELS: Array[String] = [
 ]
 
 var main_panel: Control
+var building_panel: Control
+var unit_panel: Control
 var resource_list: ItemList
 var resource_items: Array[ResourceData] = []
 var current_resource: ResourceData
@@ -46,10 +48,22 @@ func _enter_tree() -> void:
 	_create_main_panel()
 	_create_icon_dialog()
 	_refresh_resource_list()
+	building_panel = preload("res://addons/resource_editor/building_editor_panel.gd").new()
+	add_control_to_bottom_panel(building_panel, "建筑")
+	unit_panel = preload("res://addons/resource_editor/unit_editor_panel.gd").new()
+	add_control_to_bottom_panel(unit_panel, "单位")
 	print("Resource Editor 插件启动")
 
 
 func _exit_tree() -> void:
+	if unit_panel != null:
+		remove_control_from_bottom_panel(unit_panel)
+		unit_panel.queue_free()
+		unit_panel = null
+	if building_panel != null:
+		remove_control_from_bottom_panel(building_panel)
+		building_panel.queue_free()
+		building_panel = null
 	if icon_dialog != null:
 		icon_dialog.queue_free()
 		icon_dialog = null

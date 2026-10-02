@@ -1,0 +1,11 @@
+[gd_resource type="Resource" format=3]
+[ext_resource type="Script" path="res://Script/world/prey_data.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scene/unit/prey/rabbit.tscn" id="2"]
+[resource]
+script = ExtResource("1")
+id = &"rabbit"
+display_name = "兔子"
+scene = ExtResource("2")
+health = 1
+meat_yield = 1
+flee_speed = 3.0

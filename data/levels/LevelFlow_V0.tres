@@ -11,6 +11,15 @@
 [ext_resource type="Script" uid="uid://cyjav6b6b6q4g" path="res://Script/world/camp_pool_entry.gd" id="9_camp_entry"]
 [ext_resource type="Resource" uid="uid://c28udpva1umya" path="res://data/camps/slime_camp.tres" id="10_slime_camp"]
 [ext_resource type="Resource" uid="uid://cl1lij88vufrx" path="res://data/camps/wolf_camp.tres" id="11_wolf_camp"]
+[ext_resource type="Script" uid="uid://dn5nvrc4lcjwi" path="res://Script/population/ImmigrationRules.gd" id="12_hd3m8"]
+[ext_resource type="Script" uid="uid://dwfvohwbuihee" path="res://Script/population/immigration_group.gd" id="12_hks2v"]
+[ext_resource type="Script" uid="uid://hytnojlttnon" path="res://Script/level_config.gd" id="13_gtcwl"]
+[ext_resource type="Script" uid="uid://b2vt2lwsdilgf" path="res://Script/building_data.gd" id="13_xvm7f"]
+[ext_resource type="Script" uid="uid://vjowyu6mphb3" path="res://Script/unit/unit_trait.gd" id="14_c628r"]
+[ext_resource type="Script" uid="uid://2fkm0m0oilvi" path="res://Script/trait/trait_level_data.gd" id="15_7t1b1"]
+[ext_resource type="Script" uid="uid://b2ilqqawkrpyb" path="res://Script/trait/trait_data.gd" id="16_77cdf"]
+[ext_resource type="Resource" uid="uid://bccdhdh8h8b78" path="res://data/buildings/HouseData.tres" id="17_uux5k"]
+[ext_resource type="Resource" path="res://data/buildings/FarmData.tres" id="18_lhcrx"]
 
 [sub_resource type="Resource" id="CampEarly"]
 script = ExtResource("9_camp_entry")
@@ -75,10 +84,136 @@ scene = ExtResource("7_stone")
 minimum_spacing = 0.1
 neighbor_distance_max = 0.30000000000000004
 
+[sub_resource type="Resource" id="Resource_okksm"]
+script = ExtResource("12_hks2v")
+display_name = "基础移民"
+
+[sub_resource type="Resource" id="Resource_8ckq8"]
+script = ExtResource("16_77cdf")
+trait_id = "likes_grain"
+trait_name = "谷物爱好者"
+description = "优先选择喜欢的食物；进食后饱腹增加25%，60秒内饥饿速度降低20%。"
+preferred_food_tags = Array[StringName]([&"grain"])
+preferred_nutrition_multiplier = 1.25
+preferred_hunger_multiplier = 0.8
+preferred_effect_duration = 60.0
+
+[sub_resource type="Resource" id="Resource_oag42"]
+script = ExtResource("14_c628r")
+trait_data = SubResource("Resource_8ckq8")
+
+[sub_resource type="Resource" id="Resource_fmhds"]
+script = ExtResource("12_hks2v")
+display_name = "谷物爱好者"
+food_tag = &"grain"
+food_amount = 30.0
+resident_traits = Array[ExtResource("14_c628r")]([SubResource("Resource_oag42")])
+
+[sub_resource type="Resource" id="Resource_dte5p"]
+script = ExtResource("12_hks2v")
+display_name = "定居家庭"
+unlock_population = 6
+required_buildings = Array[ExtResource("13_xvm7f")]([ExtResource("17_uux5k")])
+arrival_interval = 45.0
+
+[sub_resource type="Resource" id="Resource_0oxcw"]
+script = ExtResource("16_77cdf")
+trait_id = "likes_meat"
+trait_name = "肉食爱好者"
+description = "优先选择喜欢的食物；进食后饱腹增加25%，60秒内饥饿速度降低20%。"
+preferred_food_tags = Array[StringName]([&"meat"])
+preferred_nutrition_multiplier = 1.25
+preferred_hunger_multiplier = 0.8
+preferred_effect_duration = 60.0
+
+[sub_resource type="Resource" id="Resource_3jwk8"]
+script = ExtResource("14_c628r")
+trait_data = SubResource("Resource_0oxcw")
+
+[sub_resource type="Resource" id="Resource_bm63n"]
+script = ExtResource("12_hks2v")
+display_name = "肉食家庭"
+unlock_population = 6
+food_tag = &"meat"
+food_amount = 20.0
+required_buildings = Array[ExtResource("13_xvm7f")]([ExtResource("17_uux5k")])
+arrival_interval = 45.0
+resident_traits = Array[ExtResource("14_c628r")]([SubResource("Resource_3jwk8")])
+
+[sub_resource type="Resource" id="Resource_siaw5"]
+script = ExtResource("12_hks2v")
+display_name = "城镇定居者"
+unlock_population = 12
+required_buildings = Array[ExtResource("13_xvm7f")]([ExtResource("17_uux5k"), ExtResource("18_lhcrx")])
+max_group_size = 3
+arrival_interval = 45.0
+
+[sub_resource type="Resource" id="Resource_1po3v"]
+script = ExtResource("16_77cdf")
+trait_id = "likes_meat"
+trait_name = "肉食爱好者"
+description = "优先选择喜欢的食物；进食后饱腹增加25%，60秒内饥饿速度降低20%。"
+preferred_food_tags = Array[StringName]([&"meat"])
+preferred_nutrition_multiplier = 1.25
+preferred_hunger_multiplier = 0.8
+preferred_effect_duration = 60.0
+
+[sub_resource type="Resource" id="Resource_p0pfk"]
+script = ExtResource("14_c628r")
+trait_data = SubResource("Resource_1po3v")
+
+[sub_resource type="Resource" id="Resource_65xv8"]
+script = ExtResource("12_hks2v")
+display_name = "肉食城镇居民"
+unlock_population = 12
+food_tag = &"meat"
+required_buildings = Array[ExtResource("13_xvm7f")]([ExtResource("17_uux5k"), ExtResource("18_lhcrx")])
+max_group_size = 3
+arrival_interval = 45.0
+resident_traits = Array[ExtResource("14_c628r")]([SubResource("Resource_p0pfk")])
+
+[sub_resource type="Resource" id="Resource_qb8e7"]
+script = ExtResource("16_77cdf")
+trait_id = "likes_processed_food"
+trait_name = "精致食物爱好者"
+description = "优先选择喜欢的食物；进食后饱腹增加25%，60秒内饥饿速度降低20%。"
+preferred_food_tags = Array[StringName]([&"processed_food"])
+preferred_nutrition_multiplier = 1.25
+preferred_hunger_multiplier = 0.8
+preferred_effect_duration = 60.0
+
+[sub_resource type="Resource" id="Resource_rjey5"]
+script = ExtResource("14_c628r")
+trait_data = SubResource("Resource_qb8e7")
+
+[sub_resource type="Resource" id="Resource_kpqkg"]
+script = ExtResource("12_hks2v")
+display_name = "精致食物爱好者"
+unlock_population = 12
+food_tag = &"processed_food"
+food_amount = 30.0
+required_buildings = Array[ExtResource("13_xvm7f")]([ExtResource("17_uux5k"), ExtResource("18_lhcrx")])
+max_group_size = 3
+arrival_interval = 45.0
+resident_traits = Array[ExtResource("14_c628r")]([SubResource("Resource_rjey5")])
+
+[sub_resource type="Resource" id="Resource_gtcwl"]
+script = ExtResource("12_hd3m8")
+groups = Array[ExtResource("12_hks2v")]([SubResource("Resource_okksm"), SubResource("Resource_fmhds"), SubResource("Resource_dte5p"), SubResource("Resource_bm63n"), SubResource("Resource_siaw5"), SubResource("Resource_65xv8"), SubResource("Resource_kpqkg")])
+
+[sub_resource type="Resource" id="Resource_74d3a"]
+script = ExtResource("13_gtcwl")
+initial_wood = 200.0
+initial_stone = 200.0
+initial_grain = 200.0
+initial_villagers = 3
+immigration_rules = SubResource("Resource_gtcwl")
+
 [resource]
 script = ExtResource("1_flow")
 map_config = SubResource("MapConfig")
 map_resources = Array[ExtResource("5_resource")]([SubResource("Trees"), SubResource("Stones")])
+settlement_config = SubResource("Resource_74d3a")
 camp_config = SubResource("CampConfig")
 monster_database = ExtResource("3_groups")
 events = Array[ExtResource("2_event")]([SubResource("RaidEvent_02"), SubResource("Resource_dsvsc")])

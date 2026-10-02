@@ -279,6 +279,8 @@ func refresh():
 			int(current_building.get_food_amount()),
 			int(current_building.get_food_capacity())
 		]
+		if current_building.has_method("allows_garrison_attacks"):
+			storage_label.text = "箭塔\n粮食：%d / %d\n视野：%.1f米\n射程倍率：%.1f" % [current_building.get_food_amount(), current_building.get_food_capacity(), current_building.get_sight_radius(), current_building.attack_range_multiplier]
 		material_label.hide()
 		worker_label.show()
 		hire_button.hide()
@@ -291,6 +293,12 @@ func refresh():
 			int(current_building.get_garrison_count()),
 			int(current_building.get_garrison_capacity())
 		]
+		if current_building.has_method("allows_garrison_attacks"):
+			worker_label.text += "\n塔上：%d人，补粮：%d人" % [current_building.garrisoned_units.size(), current_building.resupply_workers.size()]
+			barracks_food_button.hide()
+			patrol_button.hide()
+			return
+		patrol_button.show()
 		patrol_button.disabled = (
 			current_building.has_method("can_start_patrol")
 			and not current_building.can_start_patrol()
@@ -307,7 +315,7 @@ func refresh():
 
 	if current_building.has_method("get_training_slots"):
 		storage_label.show()
-		storage_label.text = "剑士营"
+		storage_label.text = "弓箭手营" if current_building.training_role == CombatRole.Type.ARCHER else "剑士营"
 		material_label.hide()
 		worker_label.show()
 		hire_button.show()
@@ -318,7 +326,7 @@ func refresh():
 		]
 		if current_building.has_method("get_training_slot_status_text"):
 			worker_label.text += "\n" + current_building.get_training_slot_status_text()
-		hire_button.text = "训练剑士"
+		hire_button.text = "训练" + CombatRole.get_display_name(current_building.training_role)
 		if current_building.has_method("get_training_cost"):
 			hire_button.text += "（%s）" % _format_resource_dictionary(
 				current_building.get_training_cost()

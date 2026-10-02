@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://Script/ability/ability_entry.gd" id="1_3rui0"]
+[ext_resource type="Script" path="res://Script/feature/feature_entry.gd" id="2_5w4re"]
+[ext_resource type="Script" path="res://Script/enemy/enemy_data.gd" id="3_66277"]
+[ext_resource type="PackedScene" path="res://Scene/unit/imp_visual.tscn" id="4_ppcrd"]
+
+[resource]
+script = ExtResource("3_66277")
+id = &"rift_imp"
+display_name = "小恶魔"
+visual_scene = ExtResource("4_ppcrd")
+visual_tint = Color(0.9, 0.8, 1, 1)
+max_health = 36.0
+damage = 4.0
+move_speed = 3.8
+attack_interval = 0.8
+detection_range = 12.0
+faction = 2

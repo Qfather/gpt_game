@@ -3,6 +3,7 @@ extends BuildingBase
 
 
 @export_category("训练")
+@export_enum("无", "剑士", "弓箭手") var training_role: int = CombatRole.Type.SWORDSMAN
 @export var training_slots: int = 2
 @export var training_time: float = 10.0
 
@@ -83,13 +84,18 @@ func get_training_position(worker: Node) -> Vector3:
 	if worker_index < 0:
 		worker_index = training_workers.size()
 	var side: float = -1.0 if worker_index % 2 == 0 else 1.0
-	return global_position + Vector3(side * 1.2, 0.0, 1.0)
+	return global_position + Vector3(side * 0.6, 0.0, 2.0)
 
 
 func begin_training(worker: Node) -> bool:
 	if worker == null or not training_workers.has(worker):
 		return false
 	worker.state = worker.State.TRAINING
+	worker.visible = false
+	worker.velocity = Vector3.ZERO
+	worker.collision_layer = 0
+	worker.collision_mask = 0
+	worker.global_position = get_training_position(worker)
 	return true
 
 
@@ -105,7 +111,7 @@ func complete_training(worker: Node) -> bool:
 	if not managers[0].complete_task(task):
 		return false
 	var previous_workplace: Node = worker.get("workplace") as Node
-	worker.set_combat_role(CombatRole.Type.SWORDSMAN)
+	worker.set_combat_role(training_role)
 	if worker.has_method("assign_job"):
 		worker.assign_job(worker.Job.NONE)
 	if (
