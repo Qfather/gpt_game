@@ -17,6 +17,8 @@ var attack_interval: float = 0.0
 var detection_range: float = 0.0
 var raid_steal_timer: float = 0.0
 var target: Node3D = null
+var repair_priority_target: Node3D
+var repair_priority_building: Node3D
 var attack_cooldown: float = 0.0
 var raid_destination: Vector3 = Vector3.ZERO
 var raid_spawn_position: Vector3 = Vector3.ZERO
@@ -226,6 +228,8 @@ func _create_aggro_range_display() -> void:
 
 
 func take_damage(amount: float, source: Node = null) -> float:
+	if is_instance_valid(source) and source.has_method("get_faction") and not EnemyData.are_factions_hostile(get_faction(), int(source.get_faction())):
+		return 0.0
 	return float(health_component.call("take_damage", amount, source))
 
 
@@ -250,6 +254,8 @@ func update_targeting() -> void:
 
 	var nearest_combat_target: Node3D = null
 	var nearest_distance: float = detection_range
+	var nearest_defender: Node3D = null
+	var defender_distance: float = detection_range
 	var combat_targets: Array[Node3D] = []
 	var preferred_kill_targets: Array[Node3D] = []
 	var candidates: Array[Node] = []
@@ -267,6 +273,10 @@ func update_targeting() -> void:
 		)
 		if distance > detection_range:
 			continue
+		if candidate.is_in_group("enemies") or (candidate.has_method("get_combat_role") and int(candidate.get_combat_role()) != CombatRole.Type.NONE):
+			if distance <= defender_distance:
+				nearest_defender = candidate_node
+				defender_distance = distance
 		combat_targets.append(candidate_node)
 		if (
 			_has_raid_objective(EnemyData.RaidObjective.KILL_UNITS)
@@ -278,6 +288,19 @@ func update_targeting() -> void:
 
 		nearest_distance = distance
 		nearest_combat_target = candidate_node
+
+	if nearest_defender != null:
+		_set_target(nearest_defender)
+		return
+	if is_instance_valid(repair_priority_target) and _is_legal_target(repair_priority_target, true) and global_position.distance_to(repair_priority_target.global_position) <= detection_range:
+		_set_target(repair_priority_target)
+		return
+	repair_priority_target = null
+	if is_instance_valid(repair_priority_building) and not repair_priority_building.is_queued_for_deletion() and not repair_priority_building.is_destroyed():
+		_set_target(repair_priority_building)
+	repair_priority_building = null
+	if _try_target_repair_worker(target):
+		return
 
 	var nearest_target: Node3D = nearest_combat_target
 	if _has_raid_objective(EnemyData.RaidObjective.KILL_UNITS):
@@ -316,6 +339,8 @@ func update_targeting() -> void:
 		if is_instance_valid(base) and not _is_base_destroyed(base):
 			nearest_target = base
 
+	if _try_target_repair_worker(nearest_target):
+		return
 	_set_target(nearest_target)
 
 
@@ -359,6 +384,8 @@ func _find_nearest_building_target(
 		if not include_bases and building.is_in_group("bases"):
 			continue
 		if not building is Node3D or not building.has_method("take_damage"):
+			continue
+		if building is ConstructionSite and building.is_blueprint():
 			continue
 		if building.has_method("is_destroyed") and building.is_destroyed():
 			continue
@@ -603,7 +630,29 @@ func _is_base_destroyed(base: Node) -> bool:
 	return base.has_method("is_destroyed") and base.is_destroyed()
 
 
-func _is_legal_target(candidate: Node) -> bool:
+func _try_target_repair_worker(building: Node3D) -> bool:
+	if not is_instance_valid(building) or not building.is_in_group("buildings"):
+		return false
+	var nearest: Node3D
+	var nearest_distance: float = detection_range
+	for candidate: Node in get_tree().get_nodes_in_group("villagers"):
+		if not candidate is Node3D or not _is_legal_target(candidate, true):
+			continue
+		if not candidate.has_method("is_repairing_building") or not candidate.is_repairing_building(building):
+			continue
+		var distance: float = global_position.distance_to(candidate.global_position)
+		if distance <= nearest_distance:
+			nearest = candidate
+			nearest_distance = distance
+	if nearest == null:
+		return false
+	repair_priority_building = building
+	repair_priority_target = nearest
+	_set_target(nearest)
+	return true
+
+
+func _is_legal_target(candidate: Node, allow_civilian: bool = false) -> bool:
 	if candidate == null or not is_instance_valid(candidate):
 		return false
 	if not candidate.is_visible_in_tree():
@@ -613,7 +662,7 @@ func _is_legal_target(candidate: Node) -> bool:
 			_has_raid_objective(EnemyData.RaidObjective.KILL_UNITS)
 			and candidate.is_in_group("villagers")
 		)
-		if not raid_hunts_villagers:
+		if not raid_hunts_villagers and not allow_civilian:
 			if not candidate.has_method("get_combat_role"):
 				return false
 			if candidate.has_method("has_combat_role") and not candidate.has_combat_role():
@@ -622,10 +671,16 @@ func _is_legal_target(candidate: Node) -> bool:
 				return false
 	if candidate.has_method("is_dead") and candidate.is_dead():
 		return false
-	return candidate.has_method("get_faction") and int(candidate.get_faction()) != get_faction()
+	return candidate.has_method("get_faction") and EnemyData.are_factions_hostile(get_faction(), int(candidate.get_faction()))
 
 
 func _set_target(next_target: Node3D) -> void:
+	if is_instance_valid(next_target) and next_target.has_method("get_faction") and not EnemyData.are_factions_hostile(get_faction(), int(next_target.get_faction())):
+		next_target = null
+	if is_instance_valid(next_target) and next_target.has_method("get_damage_protector"):
+		var protector: Node3D = next_target.get_damage_protector()
+		if protector != null:
+			next_target = protector
 	if target == next_target:
 		return
 	target = next_target
@@ -693,7 +748,9 @@ func _drop_stolen_loot() -> void:
 		return
 	bundle.configure_resources(stolen_resources)
 	container.add_child(bundle)
-	bundle.global_position = Vector3(global_position.x, 0.0, global_position.z)
+	bundle.global_position = NavigationServer3D.map_get_closest_point(
+		navigation_agent.get_navigation_map(), global_position
+	)
 	print("📦 袭扰单位死亡，掉落一个战利品包裹：", stolen_resources)
 	stolen_resources.clear()
 	stolen_resource_amount = 0.0

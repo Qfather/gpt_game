@@ -55,4 +55,6 @@ func _is_valid_target(candidate: Node, owner_faction: int) -> bool:
 		return false
 	if candidate.has_method("is_dead") and candidate.is_dead():
 		return false
-	return int(candidate.get_faction()) != owner_faction
+	if candidate.has_method("get_damage_protector") and candidate.get_damage_protector() != null:
+		return false
+	return EnemyData.are_factions_hostile(owner_faction, int(candidate.get_faction()))

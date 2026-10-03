@@ -19,6 +19,11 @@ func _process(_delta: float) -> void:
 	dispatch_available_farmers()
 
 
+func has_gatherable_resources() -> bool:
+	# 田地可持续耕种，作物生长等待不属于资源耗尽。
+	return true
+
+
 func assign_worker_job(worker: Node) -> void:
 	worker.assign_job(
 		worker.Job.FARMER,

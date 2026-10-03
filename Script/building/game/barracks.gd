@@ -274,7 +274,11 @@ func _try_start_food_resupply() -> void:
 
 
 func get_garrison_entrance_position(_unit: Node = null) -> Vector3:
-	return global_position + Vector3(0.0, 0.0, 2.0)
+	var entrance: Vector3 = global_position + global_transform.basis.orthonormalized() * Vector3(0.0, 0.0, 2.0)
+	var navigation_map: RID = get_world_3d().get_navigation_map()
+	if NavigationServer3D.map_get_iteration_id(navigation_map) > 0:
+		entrance = NavigationServer3D.map_get_closest_point(navigation_map, entrance)
+	return entrance
 
 
 func get_garrison_entry_reach_radius() -> float:

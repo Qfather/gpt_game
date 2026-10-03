@@ -1,0 +1,195 @@
+[gd_scene format=3]
+
+[sub_resource type="StandardMaterial3D" id="Mat_wood"]
+albedo_color = Color(0.36, 0.22, 0.13, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Mat_beam"]
+albedo_color = Color(0.22, 0.13, 0.08, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Mat_plaster"]
+albedo_color = Color(0.78, 0.69, 0.5, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Mat_stone"]
+albedo_color = Color(0.42, 0.45, 0.48, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Mat_edge"]
+albedo_color = Color(0.57, 0.59, 0.59, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Mat_dark"]
+albedo_color = Color(0.12, 0.16, 0.18, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Mat_red"]
+albedo_color = Color(0.53, 0.17, 0.12, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Mat_blue"]
+albedo_color = Color(0.16, 0.32, 0.43, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Mat_green"]
+albedo_color = Color(0.22, 0.37, 0.19, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Mat_gold"]
+albedo_color = Color(0.88, 0.63, 0.22, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Mat_iron"]
+albedo_color = Color(0.28, 0.31, 0.34, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Mat_grain"]
+albedo_color = Color(0.68, 0.49, 0.23, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="Mesh_0"]
+material = SubResource("Mat_beam")
+size = Vector3(0.13, 1.3, 0.13)
+
+[sub_resource type="BoxMesh" id="Mesh_1"]
+material = SubResource("Mat_beam")
+size = Vector3(0.13, 1.3, 0.13)
+
+[sub_resource type="BoxMesh" id="Mesh_2"]
+material = SubResource("Mat_beam")
+size = Vector3(0.13, 1.3, 0.13)
+
+[sub_resource type="BoxMesh" id="Mesh_3"]
+material = SubResource("Mat_beam")
+size = Vector3(0.13, 1.3, 0.13)
+
+[sub_resource type="BoxMesh" id="Mesh_4"]
+material = SubResource("Mat_green")
+size = Vector3(2.0, 0.16, 1.8)
+
+[sub_resource type="BoxMesh" id="Mesh_5"]
+material = SubResource("Mat_wood")
+size = Vector3(1.8, 1.0, 0.1)
+
+[sub_resource type="BoxMesh" id="Mesh_6"]
+material = SubResource("Mat_grain")
+size = Vector3(1.65, 0.13, 0.5)
+
+[sub_resource type="BoxMesh" id="Mesh_7"]
+material = SubResource("Mat_beam")
+size = Vector3(0.12, 0.6, 0.3)
+
+[sub_resource type="BoxMesh" id="Mesh_8"]
+material = SubResource("Mat_beam")
+size = Vector3(0.12, 0.6, 0.3)
+
+[sub_resource type="BoxMesh" id="Mesh_9"]
+material = SubResource("Mat_wood")
+size = Vector3(0.38, 0.24, 0.4)
+
+[sub_resource type="BoxMesh" id="Mesh_10"]
+material = SubResource("Mat_wood")
+size = Vector3(0.38, 0.24, 0.4)
+
+[sub_resource type="BoxMesh" id="Mesh_11"]
+material = SubResource("Mat_wood")
+size = Vector3(0.38, 0.24, 0.4)
+
+[sub_resource type="BoxMesh" id="Mesh_12"]
+material = SubResource("Mat_wood")
+size = Vector3(0.38, 0.24, 0.4)
+
+[sub_resource type="BoxMesh" id="Mesh_13"]
+material = SubResource("Mat_wood")
+size = Vector3(0.38, 0.24, 0.4)
+
+[sub_resource type="BoxMesh" id="Mesh_14"]
+material = SubResource("Mat_beam")
+size = Vector3(0.06, 0.5, 0.06)
+
+[sub_resource type="BoxMesh" id="Mesh_15"]
+material = SubResource("Mat_iron")
+size = Vector3(0.3, 0.1, 0.09)
+
+[node name="BuildingVisual" type="Node3D"]
+
+[node name="ShedPost_0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.9, 0.65, -0.8)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("Mesh_0")
+
+[node name="ShedPost_1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.9, 0.65, 0.65)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("Mesh_1")
+
+[node name="ShedPost_2" type="MeshInstance3D" parent="."]
+position = Vector3(0.9, 0.65, -0.8)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("Mesh_2")
+
+[node name="ShedPost_3" type="MeshInstance3D" parent="."]
+position = Vector3(0.9, 0.65, 0.65)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("Mesh_3")
+
+[node name="ShedRoof_4" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.4, -0.08)
+rotation_degrees = Vector3(0, 0, 8)
+mesh = SubResource("Mesh_4")
+
+[node name="BackWall_5" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.58, -0.77)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("Mesh_5")
+
+[node name="Worktop_6" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.63, 0.1)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("Mesh_6")
+
+[node name="BenchLeg_7" type="MeshInstance3D" parent="."]
+position = Vector3(-0.64, 0.3, 0.1)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("Mesh_7")
+
+[node name="BenchLeg_8" type="MeshInstance3D" parent="."]
+position = Vector3(0.64, 0.3, 0.1)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("Mesh_8")
+
+[node name="Logs_9" type="MeshInstance3D" parent="."]
+position = Vector3(-0.46, 0.13, 0.77)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("Mesh_9")
+
+[node name="Logs_10" type="MeshInstance3D" parent="."]
+position = Vector3(0.0, 0.13, 0.77)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("Mesh_10")
+
+[node name="Logs_11" type="MeshInstance3D" parent="."]
+position = Vector3(0.46, 0.13, 0.77)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("Mesh_11")
+
+[node name="Logs_12" type="MeshInstance3D" parent="."]
+position = Vector3(-0.46, 0.41, 0.77)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("Mesh_12")
+
+[node name="Logs_13" type="MeshInstance3D" parent="."]
+position = Vector3(0.0, 0.41, 0.77)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("Mesh_13")
+
+[node name="ToolHandle_14" type="MeshInstance3D" parent="."]
+position = Vector3(0.7, 0.87, 0.24)
+rotation_degrees = Vector3(0, 0, 25)
+mesh = SubResource("Mesh_14")
+
+[node name="ToolHead_15" type="MeshInstance3D" parent="."]
+position = Vector3(0.6, 1.03, 0.24)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("Mesh_15")

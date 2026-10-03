@@ -50,9 +50,10 @@ func is_area_free(
 	area_size: Vector2i,
 	rotation_step: int = 0,
 	ignore_resources: bool = false,
-	ignore_fog: bool = false
+	ignore_fog: bool = false,
+	ignored_cells: Array[Vector2i] = []
 ) -> bool:
-	return is_area_buildable(grid_position, area_size, rotation_step, ignore_resources, ignore_fog)
+	return is_area_buildable(grid_position, area_size, rotation_step, ignore_resources, ignore_fog, ignored_cells)
 
 
 func is_cell_buildable(grid_position: Vector2i, ignore_fog: bool = false) -> bool:
@@ -71,7 +72,8 @@ func is_area_buildable(
 	area_size: Vector2i,
 	rotation_step: int = 0,
 	ignore_resources: bool = false,
-	ignore_fog: bool = false
+	ignore_fog: bool = false,
+	ignored_cells: Array[Vector2i] = []
 ) -> bool:
 
 	var first_height: float = get_ground_height(grid_position)
@@ -86,7 +88,7 @@ func is_area_buildable(
 		if not is_equal_approx(get_ground_height(cell), first_height):
 			return false
 
-		if occupied_cells.has(cell):
+		if occupied_cells.has(cell) and not ignored_cells.has(cell):
 			return false
 
 	return ignore_resources or not _overlaps_resource(grid_position, area_size, rotation_step)

@@ -1,6 +1,10 @@
 class_name ResourceBuildingPanel
 extends BuildingPanelBase
 
+signal move_requested(building: BuildingBase)
+
+var move_button: Button
+
 var priority_row: HBoxContainer
 var priority_value: Label
 
@@ -38,6 +42,12 @@ func _ready():
 	hire_button.pressed.connect(_on_hire_pressed)
 	fire_button.pressed.connect(_on_fire_pressed)
 	demolish_button.pressed.connect(_on_demolish_pressed)
+	move_button = Button.new()
+	move_button.text = "移动"
+	move_button.focus_mode = Control.FOCUS_NONE
+	$Vbox.add_child(move_button)
+	$Vbox.move_child(move_button, close_button.get_index())
+	move_button.pressed.connect(_on_move_pressed)
 	patrol_button.pressed.connect(_on_patrol_pressed)
 	priority_row = HBoxContainer.new()
 	priority_row.name = "ConstructionPriority"
@@ -65,14 +75,21 @@ func _change_construction_priority(step: int) -> void:
 		current_building.set_construction_priority(current_building.construction_priority + step)
 		refresh()
 
+
+func _on_move_pressed() -> void:
+	if is_instance_valid(current_building) and current_building.can_be_moved():
+		move_requested.emit(current_building)
+
 # ============================================================
 # 刷新资源建筑信息
 # ============================================================
 
 func refresh():
 
-	if current_building == null:
+	if not is_instance_valid(current_building):
+		close_panel_immediately()
 		return
+	move_button.visible = current_building is BuildingBase and current_building.can_be_moved()
 	priority_row.visible = current_building is ConstructionSite and current_building.can_cancel_construction()
 	if priority_row.visible:
 		priority_value.text = str(current_building.construction_priority)
@@ -147,10 +164,11 @@ func refresh():
 		worker_label.hide()
 		hire_button.hide()
 		fire_button.hide()
-		storage_label.text = "库存：\n木材：%d\n石材：%d\n谷物：%d\n食物：%d" % [
+		storage_label.text = "库存：\n木材：%d\n石材：%d\n谷物：%d\n肉类：%d\n食物：%d" % [
 			int(current_building.get_resource(&"wood")),
 			int(current_building.get_resource(&"stone")),
 			int(current_building.get_resource(&"grain")),
+			int(current_building.get_resource(&"meat")),
 			int(current_building.get_resource(&"food"))
 		]
 		return
@@ -467,7 +485,7 @@ func _on_fire_pressed():
 		return
 
 
-	if current_building.workers.is_empty():
+	if current_building.get_worker_count() == 0:
 		print("❌ 当前建筑没有工人")
 		return
 

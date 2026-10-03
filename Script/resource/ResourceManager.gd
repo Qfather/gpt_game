@@ -19,10 +19,7 @@ func _connect_resource_sources() -> void:
 		"resource_storages"
 	):
 
-		if storage.has_signal("resource_changed"):
-			storage.resource_changed.connect(
-				_on_storage_resource_changed
-			)
+		register_storage(storage)
 
 
 	for villager: Node in get_tree().get_nodes_in_group(
@@ -30,6 +27,12 @@ func _connect_resource_sources() -> void:
 	):
 
 		register_villager(villager)
+
+
+func register_storage(storage: Node) -> void:
+	if not storage.resource_changed.is_connected(_on_storage_resource_changed):
+		storage.resource_changed.connect(_on_storage_resource_changed)
+	request_refresh()
 
 
 func register_villager(villager: Node) -> void:

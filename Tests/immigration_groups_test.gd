@@ -19,7 +19,9 @@ func _run() -> void:
 	var base: Node3D = get_first_node_in_group("bases")
 	var storage: ResourceStorage = base.get_node("ResourceStorage")
 	var meat_group: ImmigrationGroup = rules.groups[3]
-	manager.highest_population = 6
+	for index in range(3):
+		main.add_child(load("res://Scene/unit/villager.tscn").instantiate())
+	manager.refresh_population()
 	manager.current_immigration_group = meat_group
 	assert(not manager.can_start_immigration())
 	storage.set_capacity(&"meat", 100)
@@ -57,7 +59,7 @@ func _run() -> void:
 	assert(manager.refresh_cooldown_remaining == 1 and not manager.refresh_immigration_requirements())
 	manager._process(1)
 	assert(manager.refresh_cooldown_remaining == 0)
-	assert(manager.highest_population == 6) # 当前只有3人，阶段不回退。
+	assert(manager.current_population == 6)
 	manager.current_immigration_group = meat_group
 	manager._reset_immigration_countdown()
 	storage.add(&"meat", 25)
@@ -81,7 +83,7 @@ func _run() -> void:
 		await physics_frame
 		if manager.pending_migrant_count == 0: break
 	Engine.time_scale = 1
-	assert(manager.pending_migrant_count == 0 and get_nodes_in_group("villagers").size() == 5)
+	assert(manager.pending_migrant_count == 0 and get_nodes_in_group("villagers").size() == 8)
 	assert(manager.current_immigration_group == refreshed_group)
 	var resident: Node
 	for unit: Node in get_nodes_in_group("villagers"):
@@ -118,7 +120,30 @@ func _run() -> void:
 		main.get_node("UI/HUD")._refresh_immigration_display()
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png("res://.godot/immigration_meat_requirement_preview.png")
+	# 人口下降跨档时，旧高阶需求自动回退，手动刷新冷却保持。
+	for index in range(6):
+		main.add_child(load("res://Scene/unit/villager.tscn").instantiate())
+	manager.refresh_population()
+	assert(manager.current_population == 14 and manager.current_immigration_group.unlock_population == 12)
+	manager.refresh_cooldown_remaining = 37
+	manager.immigration_countdown_active = true
+	var units: Array[Node] = get_nodes_in_group("villagers")
+	for index in range(11):
+		units[index].take_damage(100000)
+	manager.refresh_population()
+	assert(manager.current_population == 3 and manager.current_immigration_group.unlock_population == 0)
+	assert(manager.refresh_cooldown_remaining == 37 and not manager.immigration_countdown_active)
+	var survivors: Array[Node] = get_nodes_in_group("villagers")
+	survivors[0].set_combat_role(CombatRole.Type.ARCHER)
+	var hud: GameHUD = main.get_node("UI/HUD")
+	hud._refresh_population_display(3, manager.housing_capacity)
+	assert(hud.resident_label.text == "居民：2" and hud.archer_label.text == "弓箭手：1")
+	assert(hud.resident_label.get_index() == hud.population_label.get_index() + 1)
+	if DisplayServer.get_name() != "headless":
+		hud._refresh_immigration_display()
+		await RenderingServer.frame_post_draw
+		root.get_texture().get_image().save_png("res://.godot/population_decline_preview.png")
 	main.queue_free()
 	await process_frame
-	print("阶段移民完整测试通过：库存与建筑、条件中断、60秒刷新、最高人口、实际导航、标签保留、喜好饮食效果")
+	print("阶段移民完整测试通过：库存与建筑、条件中断、60秒刷新、当前人口、实际导航、标签保留、喜好饮食效果")
 	quit()

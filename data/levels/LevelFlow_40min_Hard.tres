@@ -20,6 +20,11 @@
 [ext_resource type="Script" uid="uid://b2ilqqawkrpyb" path="res://Script/trait/trait_data.gd" id="16_2xdbb"]
 [ext_resource type="Resource" uid="uid://bccdhdh8h8b78" path="res://data/buildings/HouseData.tres" id="17_y27eg"]
 [ext_resource type="Resource" path="res://data/buildings/FarmData.tres" id="18_y2to8"]
+[ext_resource type="Script" uid="uid://bouo0ry5acg1w" path="res://Script/world/prey_data.gd" id="21_y27eg"]
+[ext_resource type="PackedScene" path="res://Scene/unit/prey/rabbit.tscn" id="22_y2to8"]
+[ext_resource type="PackedScene" path="res://Scene/unit/prey/pheasant.tscn" id="23_rmmnu"]
+[ext_resource type="PackedScene" path="res://Scene/unit/prey/boar.tscn" id="24_hew13"]
+[ext_resource type="Script" uid="uid://dmvctc0klx7q8" path="res://Script/world/wildlife_config.gd" id="25_wpcg3"]
 
 [sub_resource type="Resource" id="Resource_1vuhi"]
 script = ExtResource("1_m7y26")
@@ -450,10 +455,38 @@ initial_grain = 200.0
 initial_villagers = 3
 immigration_rules = SubResource("Resource_af0xk")
 
+[sub_resource type="Resource" id="Resource_dncxs"]
+script = ExtResource("21_y27eg")
+id = &"rabbit"
+display_name = "兔子"
+scene = ExtResource("22_y2to8")
+flee_speed = 3.0
+
+[sub_resource type="Resource" id="Resource_77ct0"]
+script = ExtResource("21_y27eg")
+id = &"pheasant"
+display_name = "野鸡"
+scene = ExtResource("23_rmmnu")
+health = 2
+meat_yield = 2
+
+[sub_resource type="Resource" id="Resource_3m11f"]
+script = ExtResource("21_y27eg")
+id = &"boar"
+display_name = "野猪"
+scene = ExtResource("24_hew13")
+health = 3
+meat_yield = 3
+
+[sub_resource type="Resource" id="Resource_s437n"]
+script = ExtResource("25_wpcg3")
+prey_pool = Array[ExtResource("21_y27eg")]([SubResource("Resource_dncxs"), SubResource("Resource_77ct0"), SubResource("Resource_3m11f")])
+
 [resource]
 script = ExtResource("11_ir40n")
 map_config = SubResource("Resource_f1t3b")
 map_resources = Array[ExtResource("8_0v8oa")]([SubResource("Resource_blmkm"), SubResource("Resource_lea5l")])
+wildlife_config = SubResource("Resource_s437n")
 settlement_config = SubResource("Resource_swnqa")
 camp_config = SubResource("Resource_2xdbb")
 monster_database = ExtResource("6_ou7le")

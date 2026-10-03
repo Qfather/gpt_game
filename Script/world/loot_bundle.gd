@@ -1,6 +1,8 @@
 class_name LootBundle
 extends Node3D
 
+signal loot_clicked(bundle: LootBundle)
+
 var resources: Dictionary[StringName, float] = {}
 var pickup_task: GameTask
 var picked_up: bool = false
@@ -21,6 +23,10 @@ func configure_resources(next_resources: Dictionary) -> void:
 
 func _ready() -> void:
 	add_to_group("loot_bundles")
+	$ClickArea.input_event.connect(_on_loot_input_event)
+	var main: Node = get_tree().current_scene
+	if main != null and main.has_method("register_loot_bundle"):
+		main.register_loot_bundle(self)
 	call_deferred("_create_pickup_task")
 	call_deferred("_request_resource_refresh")
 
@@ -97,3 +103,11 @@ func _request_resource_refresh() -> void:
 	var managers: Array[Node] = get_tree().get_nodes_in_group("resource_manager")
 	if not managers.is_empty() and managers[0].has_method("request_refresh"):
 		managers[0].request_refresh()
+
+
+func _on_loot_input_event(_camera: Node, event: InputEvent, _position: Vector3, _normal: Vector3, _shape: int) -> void:
+	if bool(get_meta("fog_hidden", false)) or is_queued_for_deletion():
+		return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		loot_clicked.emit(self)
+		get_viewport().set_input_as_handled()

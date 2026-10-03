@@ -140,6 +140,9 @@ func _ready() -> void:
 			&"grain",
 			starting_grain
 		)
+	var manager: Node = get_tree().get_first_node_in_group("resource_manager")
+	if manager != null:
+		manager.register_storage(self)
 
 
 # ============================================================

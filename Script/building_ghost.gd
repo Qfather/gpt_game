@@ -28,6 +28,9 @@ var has_reachable_approach: bool = true
 var was_paused: bool = false
 var placement_active_when_paused: bool = false
 var placement_cancelled_during_pause: bool = false
+var moving_building: BuildingBase
+var moving_existing_building: bool = false
+var relocation_cost_label: Label3D
 
 
 func _ready() -> void:
@@ -36,6 +39,13 @@ func _ready() -> void:
 	visible = false
 	_create_preview_mesh()
 	_create_path_warning()
+	relocation_cost_label = Label3D.new()
+	relocation_cost_label.name = "RelocationCost"
+	relocation_cost_label.font_size = 32
+	relocation_cost_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	relocation_cost_label.no_depth_test = true
+	relocation_cost_label.hide()
+	add_child(relocation_cost_label)
 	if start_preview:
 		_update_preview()
 
@@ -43,6 +53,9 @@ func _ready() -> void:
 func select_building(data: BuildingData) -> void:
 	if data == null:
 		return
+	moving_building = null
+	moving_existing_building = false
+	relocation_cost_label.hide()
 	if get_tree().paused:
 		placement_active_when_paused = true
 		placement_cancelled_during_pause = false
@@ -63,6 +76,23 @@ func is_placement_active() -> bool:
 	return start_preview
 
 
+func select_moving_building(building: BuildingBase) -> void:
+	if not is_instance_valid(building) or not building.can_be_moved():
+		return
+	select_building(building.building_data)
+	moving_building = building
+	moving_existing_building = true
+	rotation_step = building.build_grid_rotation_step
+	mirrored = building.scale.x < 0.0
+	_update_preview()
+
+
+func _moving_building_cells() -> Array[Vector2i]:
+	if is_instance_valid(moving_building) and moving_building.build_grid_area_registered:
+		return build_grid._get_area_cells(moving_building.build_grid_position, moving_building.build_grid_size, moving_building.build_grid_rotation_step)
+	return []
+
+
 func _process(delta: float) -> void:
 	var paused: bool = get_tree().paused
 	if paused and not was_paused:
@@ -77,6 +107,9 @@ func _process(delta: float) -> void:
 		placement_cancelled_during_pause = false
 
 	if not start_preview:
+		return
+	if moving_existing_building and (not is_instance_valid(moving_building) or not moving_building.can_be_moved()):
+		cancel_preview()
 		return
 
 	_update_preview(delta)
@@ -259,7 +292,8 @@ func _update_preview(delta: float = 0.0) -> void:
 		building_data.grid_size,
 		rotation_step,
 		building_data.id == &"wall",
-		building_data.id == &"torch"
+		true,
+		_moving_building_cells()
 	)
 
 	var rotated_size := build_grid.get_rotated_size(
@@ -274,6 +308,18 @@ func _update_preview(delta: float = 0.0) -> void:
 		0.0,
 		float(rotated_size.y - 1) * build_grid.cell_size * 0.5
 	)
+	if moving_existing_building and is_instance_valid(moving_building):
+		var can_pay: bool = moving_building.can_pay_relocation_cost(global_position)
+		is_valid_position = is_valid_position and can_pay
+		var parts: PackedStringArray = []
+		var database: ResourceDatabase = preload("res://data/resources/resource_database.tres")
+		var cost := moving_building.get_relocation_cost(global_position)
+		for resource_id: StringName in cost:
+			var resource_data: ResourceData = database.get_resource_data(resource_id)
+			parts.append("%s %.0f" % [resource_data.display_name if resource_data != null else str(resource_id), cost[resource_id]])
+		relocation_cost_label.text = "搬迁费用：%s%s" % ["、".join(parts) if not parts.is_empty() else "无", "（据点库存不足）" if not can_pay else ""]
+		relocation_cost_label.position = Vector3(0, preview_model_bounds.end.y + 1.5, 0)
+		relocation_cost_label.show()
 	path_check_timer += delta
 	if delta <= 0.0 or path_check_timer >= 0.35:
 		path_check_timer = 0.0
@@ -422,6 +468,10 @@ func _confirm_preview() -> void:
 	if not is_valid_position:
 		print("BuildingGhost 放置非法：", grid_position)
 		return
+	if moving_existing_building:
+		if is_instance_valid(moving_building) and moving_building.relocate(build_grid, grid_position, rotation_step, mirrored, global_transform):
+			cancel_preview()
+		return
 	var placed_data: BuildingData = building_data
 	var placed_grid_position: Vector2i = grid_position
 	var placed_rotation_step: int = rotation_step
@@ -485,7 +535,7 @@ func _create_construction_site(
 			placed_data.grid_size,
 			placed_rotation_step,
 			placed_data.id == &"wall",
-			placed_data.id == &"torch"
+			true
 		)
 	):
 		print("BuildingGhost 放置时网格已被占用：", placed_grid_position)
@@ -558,3 +608,6 @@ func cancel_preview() -> void:
 		placement_cancelled_during_pause = true
 	start_preview = false
 	visible = false
+	moving_building = null
+	moving_existing_building = false
+	relocation_cost_label.hide()

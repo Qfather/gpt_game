@@ -119,6 +119,33 @@ func _ready() -> void:
 	call_deferred("_register_with_main")
 
 
+func is_blueprint() -> bool:
+	return construction_progress <= 0.0 and state != State.BUILDING
+
+
+func take_damage(amount: float, source: Node = null) -> float:
+	if is_blueprint():
+		return 0.0
+	return super.take_damage(amount, source)
+
+
+func _before_destroyed() -> void:
+	state = State.CANCELLED
+	stop_assigning_workers()
+	for worker: Node in cancellation_workers + returning_cancellation_workers:
+		if is_instance_valid(worker):
+			worker.finish_construction_cancellation()
+			if float(worker.get("carried_amount")) > 0.0:
+				worker.go_to_base()
+	for carrier: Node in cancellation_carriers:
+		if is_instance_valid(carrier):
+			carrier.finish_demolition_pickup()
+	cancellation_workers.clear()
+	returning_cancellation_workers.clear()
+	cancellation_carriers.clear()
+	state_changed.emit(state)
+
+
 func _process(delta: float) -> void:
 	if activation_deferred_until_unpause:
 		activation_deferred_until_unpause = false

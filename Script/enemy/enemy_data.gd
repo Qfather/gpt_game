@@ -51,3 +51,8 @@ enum RaidObjective {
 
 func get_raid_steal_resource_id() -> StringName:
 	return raid_steal_resource_id
+
+
+static func are_factions_hostile(first: int, second: int) -> bool:
+	# 营地、袭扰和裂缝怪物属于同盟，只有玩家与怪物之间敌对。
+	return (first == Faction.SETTLEMENT) != (second == Faction.SETTLEMENT)

@@ -5,6 +5,7 @@ const LABELS: Dictionary = {
 	"camp": "营地方案", "weight": "抽取权重", "start_time": "允许出现的开始时间（秒）",
 	"end_time": "结束时间（秒，-1 不限）", "display_name": "营地名称", "scene": "营地场景（空为默认）",
 	"footprint_radius": "营地占地半径（米）", "guard_leash_radius": "守卫活动半径（米）",
+	"guard_health_regen": "守卫回营后每秒回血量（生命/秒，0关闭）",
 	"minimum_guards": "守卫最小数量", "maximum_guards": "守卫最大数量", "guard_pool": "守卫随机池",
 	"enemy": "怪物数据", "reward_draws": "奖励抽取次数（可重复累加）", "reward_pool": "奖励随机池",
 	"resource": "奖励资源", "minimum_amount": "每次最小数量", "maximum_amount": "每次最大数量"

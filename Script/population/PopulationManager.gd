@@ -26,7 +26,6 @@ var immigration_countdown_remaining: float = 0.0
 var immigration_countdown_group_size: int = 0
 var _immigration_ready_emitted: bool = false
 var pending_migrant_count: int = 0
-var highest_population: int = 0
 var current_immigration_group: ImmigrationGroup
 var departing_immigration_group: ImmigrationGroup
 var refresh_cooldown_remaining: float = 0.0
@@ -82,7 +81,6 @@ func unregister_housing(_source: Node) -> void:
 
 func refresh_population() -> void:
 	var next_population: int = get_tree().get_nodes_in_group("villagers").size()
-	highest_population = maxi(highest_population, next_population)
 	var next_housing_capacity: int = 0
 
 	for base: Node in get_tree().get_nodes_in_group("bases"):
@@ -101,6 +99,7 @@ func refresh_population() -> void:
 
 	current_population = next_population
 	housing_capacity = next_housing_capacity
+	_ensure_immigration_group()
 	population_changed.emit(current_population, housing_capacity)
 
 
@@ -492,6 +491,18 @@ func _on_migrant_arrived(migrant: Node3D, base: Node3D) -> void:
 func _ensure_immigration_group() -> void:
 	if current_immigration_group == null:
 		_select_immigration_group()
+		return
+	var rules: ImmigrationRules = _get_immigration_rules()
+	if rules == null or rules.groups.is_empty():
+		return
+	var stage: int = 0
+	for group: ImmigrationGroup in rules.groups:
+		if group != null and group.unlock_population <= current_population:
+			stage = maxi(stage, group.unlock_population)
+	if current_immigration_group.unlock_population != stage:
+		_cancel_active_immigration_countdown()
+		_select_immigration_group()
+		_immigration_ready_emitted = pending_migrant_count > 0
 
 
 func _select_immigration_group() -> void:
@@ -501,7 +512,7 @@ func _select_immigration_group() -> void:
 	var stage: int = -1
 	var candidates: Array[ImmigrationGroup] = []
 	for group: ImmigrationGroup in rules.groups:
-		if group != null and group.unlock_population <= highest_population:
+		if group != null and group.unlock_population <= current_population:
 			stage = maxi(stage, group.unlock_population)
 	for group: ImmigrationGroup in rules.groups:
 		if group != null and group.unlock_population == stage:
@@ -548,6 +559,8 @@ func _get_group_food() -> float:
 
 func _has_required_building(required: BuildingData) -> bool:
 	for building: Node in get_tree().get_nodes_in_group("buildings"):
+		if building is ConstructionSite:
+			continue
 		if building.is_queued_for_deletion() or (building.has_method("is_destroyed") and building.is_destroyed()):
 			continue
 		if building is BuildingBase and building.demolition_state != BuildingBase.DemolitionState.NONE:

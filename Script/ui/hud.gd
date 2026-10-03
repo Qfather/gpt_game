@@ -63,8 +63,11 @@ const STRATEGY_BUILDINGS: Array[BuildingData] = [TORCH_DATA]
 @onready var wood_label: Label = %WoodLabel
 @onready var stone_label: Label = %StoneLabel
 @onready var grain_label: Label = %GrainLabel
+@onready var meat_label: Label = %MeatLabel
 @onready var population_label: Label = %PopulationLabel
+@onready var resident_label: Label = %ResidentLabel
 @onready var swordsman_label: Label = %SwordsmanLabel
+@onready var archer_label: Label = %ArcherLabel
 @onready var immigration_status_label: Label = %ImmigrationStatusLabel
 @onready var immigration_requirement_label: Label = %ImmigrationRequirementLabel
 @onready var immigration_progress_bar: ProgressBar = %ImmigrationProgressBar
@@ -99,6 +102,8 @@ var debug_toggle: Button
 var game_clock: Control
 var unreachable_icons: HBoxContainer
 var unreachable_buttons: Dictionary = {}
+var fps_label: Label
+var fps_update_msec: int = 0
 
 
 # ============================================================
@@ -149,6 +154,10 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	var now: int = Time.get_ticks_msec()
+	if now >= fps_update_msec:
+		fps_label.text = "帧率：%d FPS" % Engine.get_frames_per_second()
+		fps_update_msec = now + 500
 	var director: EncounterDirector = get_tree().get_first_node_in_group("encounter_director") as EncounterDirector
 	if director != null:
 		game_clock.set_elapsed_time(director.elapsed_time)
@@ -388,15 +397,21 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _refresh_population_display(current_population: int, housing_capacity: int) -> void:
 	population_label.text = "人口：%d / %d" % [current_population, housing_capacity]
+	resident_label.text = "居民：%d" % _get_combat_role_count(CombatRole.Type.NONE)
 	swordsman_label.text = "剑士：%d" % _get_swordsman_count()
+	archer_label.text = "弓箭手：%d" % _get_combat_role_count(CombatRole.Type.ARCHER)
 
 
 func _get_swordsman_count() -> int:
+	return _get_combat_role_count(CombatRole.Type.SWORDSMAN)
+
+
+func _get_combat_role_count(role: int) -> int:
 	var count: int = 0
 	for villager: Node in get_tree().get_nodes_in_group("villagers"):
 		if (
 			villager.has_method("get_combat_role")
-			and villager.get_combat_role() == CombatRole.Type.SWORDSMAN
+			and villager.get_combat_role() == role
 		):
 			count += 1
 	return count
@@ -611,12 +626,19 @@ func _configure_status_layout() -> void:
 	var population := VBoxContainer.new()
 	row.add_child(population)
 	population_label.reparent(population)
+	resident_label.reparent(population)
 	swordsman_label.reparent(population)
+	archer_label.reparent(population)
+	fps_label = Label.new()
+	fps_label.name = "FPSLabel"
+	fps_label.text = "帧率：-- FPS"
+	population.add_child(fps_label)
 	var materials := VBoxContainer.new()
 	row.add_child(materials)
 	wood_label.reparent(materials)
 	stone_label.reparent(materials)
 	grain_label.reparent(materials)
+	meat_label.reparent(materials)
 	$PanelContainer.reset_size()
 	var immigration: Control = $ImmigrationPanel
 	immigration.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
@@ -770,6 +792,7 @@ func _refresh_building_buttons() -> void:
 		building_options = MILITARY_BUILDINGS
 	for building_data: BuildingData in building_options:
 		var button := Button.new()
+		button.focus_mode = Control.FOCUS_NONE
 		button.custom_minimum_size = Vector2(115.0, 48.0)
 		button.text = building_data.display_name
 		button.pressed.connect(_on_building_button_pressed.bind(building_data))
@@ -918,6 +941,7 @@ func update_resource_display() -> void:
 		wood_label.text = "木材：0"
 		stone_label.text = "石头：0"
 		grain_label.text = "谷物：0"
+		meat_label.text = "肉类：0"
 
 		return
 
@@ -947,6 +971,7 @@ func update_resource_display() -> void:
 		"谷物："
 		+ str(int(grain_amount))
 	)
+	meat_label.text = "肉类：" + str(int(resource_manager.get_total(&"meat")))
 
 
 # ============================================================

@@ -11,6 +11,7 @@ var display_name: String = "宝箱营地"
 var generated_at: float = 0.0
 var footprint_radius: float = 3.0
 var guard_leash_radius: float = 10.0
+var guard_health_regen: float = 1.0
 var guard_plan: Array[EnemyData] = []
 var guard_positions: Array[Vector3] = []
 var guards: Array[EnemyBase] = []
@@ -23,6 +24,7 @@ func configure_camp(data: TreasureCampData, plan: Dictionary, positions: Array[V
 	generated_at = elapsed
 	footprint_radius = data.footprint_radius
 	guard_leash_radius = data.guard_leash_radius
+	guard_health_regen = data.guard_health_regen
 	guard_plan.assign(plan["guards"])
 	guard_positions = positions.duplicate()
 	configure_resources(plan["rewards"])

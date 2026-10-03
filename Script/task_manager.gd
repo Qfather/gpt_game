@@ -165,6 +165,24 @@ func register_task(task: GameTask) -> bool:
 	return true
 
 
+func create_repair_task(building: BuildingBase) -> GameTask:
+	if not is_instance_valid(building) or building.is_queued_for_deletion() or building.is_destroyed() or building.is_demolition_in_progress():
+		return null
+	if building is ConstructionSite or building.building_data == null:
+		return null
+	if building.get_health() <= 0.0 or building.get_health() >= building.get_max_health():
+		return null
+	for existing: GameTask in tasks.values():
+		if existing.target == building and existing.type == GameTask.TaskType.REPAIR_BUILDING and existing.state in [GameTask.State.AVAILABLE, GameTask.State.CLAIMED, GameTask.State.IN_PROGRESS]:
+			return existing
+	var task: GameTask = create_task(GameTask.TaskType.REPAIR_BUILDING, building, building, 40)
+	task.data["remaining_health"] = building.get_max_health() - building.get_health()
+	var cleanup: Callable = cancel_tasks_for_target.bind(building)
+	if not building.tree_exiting.is_connected(cleanup):
+		building.tree_exiting.connect(cleanup)
+	return task
+
+
 func find_task(task_id: StringName) -> GameTask:
 
 	return tasks.get(task_id) as GameTask

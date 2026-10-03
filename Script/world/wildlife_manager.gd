@@ -2,6 +2,7 @@ extends Node3D
 
 var config: Resource
 var timer: float = 0.0
+var initial_spawn_complete: bool = false
 var rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
@@ -12,11 +13,15 @@ func _process(delta: float) -> void:
 	if config == null or not config.enabled: return
 	var runtime: MapGenerateRuntime = get_tree().get_first_node_in_group("map_generate_runtime") as MapGenerateRuntime
 	if runtime == null or runtime.map_data == null: return
+	if runtime.navigation_revision == 0: return
 	if NavigationServer3D.map_get_iteration_id(get_world_3d().get_navigation_map()) == 0: return
 	timer -= delta
 	if timer > 0.0: return
-	timer = maxf(config.refresh_interval, 1.0)
 	refill()
+	if get_tree().get_nodes_in_group("wildlife").size() > 0 or config.maximum_animals == 0:
+		initial_spawn_complete = true
+	# 首次同步还没有安全位置时短暂重试，不等完整补充周期。
+	timer = maxf(config.refresh_interval, 1.0) if initial_spawn_complete else 1.0
 
 func refill() -> void:
 	var runtime: MapGenerateRuntime = get_tree().get_first_node_in_group("map_generate_runtime") as MapGenerateRuntime
@@ -34,6 +39,8 @@ func refill() -> void:
 		var point: Vector3 = base.global_position + Vector3(cos(angle), 0, sin(angle)) * radius
 		point = runtime.get_safe_ground_position(Vector2(point.x, point.z), 0.4)
 		if point == Vector3.INF: continue
+		var actual_distance: float = Vector2(point.x, point.z).distance_to(Vector2(base.global_position.x, base.global_position.z))
+		if actual_distance < config.minimum_base_distance or actual_distance > config.maximum_base_distance: continue
 		var closest: Vector3 = NavigationServer3D.map_get_closest_point(get_world_3d().get_navigation_map(), point)
 		if point.distance_to(closest) > 0.5: continue
 		var value: float = rng.randf_range(0.0, total_weight)

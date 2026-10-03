@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="UnitData" format=3]
+[gd_resource type="Resource" script_class="UnitData" format=3 uid="uid://c02yjpss6e22a"]
 
-[ext_resource type="Script" path="res://Script/unit/unit_data.gd" id="1_data"]
+[ext_resource type="Script" uid="uid://d2c8wn4dawh6x" path="res://Script/unit/unit_data.gd" id="1_data"]
 [ext_resource type="PackedScene" path="res://Scene/unit/swordsman_visual.tscn" id="2_visual"]
 
 [resource]

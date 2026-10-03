@@ -7,6 +7,7 @@ extends Resource
 @export var scene: PackedScene
 @export_range(2.0, 20.0, 0.5) var footprint_radius: float = 3.0
 @export_range(3.0, 50.0, 0.5) var guard_leash_radius: float = 10.0
+@export_range(0.0, 100.0, 0.1) var guard_health_regen: float = 1.0
 @export_range(1, 20, 1) var minimum_guards: int = 1
 @export_range(1, 20, 1) var maximum_guards: int = 2
 @export var guard_pool: Array[CampGuardEntry] = []

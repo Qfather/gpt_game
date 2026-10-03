@@ -30,12 +30,22 @@ func _run() -> void:
 	# 保存测试全部使用副本，不覆盖项目现有关卡或共享营地资源。
 	panel.level_flow = panel.level_flow.duplicate(true)
 	editor.edit_preset(panel.level_flow)
+	panel.level_flow.camp_config = panel.level_flow.camp_config.duplicate(false)
+	var local_entries: Array[CampPoolEntry] = []
+	for entry: CampPoolEntry in panel.level_flow.camp_config.camp_pool:
+		var local_entry: CampPoolEntry = entry.duplicate(false)
+		local_entry.camp = entry.camp.duplicate(true)
+		local_entries.append(local_entry)
+	panel.level_flow.camp_config.camp_pool = local_entries
+	panel.level_flow.camp_config.camp_pool[0].camp.guard_leash_radius = 14.0
+	panel.level_flow.camp_config.camp_pool[0].camp.guard_health_regen = 2.5
 	panel.database = panel.database.duplicate(true)
 	panel.database.take_over_path("res://.godot/test_camp_editor_database.tres")
 	panel.preset_path = "res://.godot/test_camp_editor_level.tres"
 	_expect(panel._save_all(), "统一保存入口支持营地配置")
 	var saved: LevelFlowData = ResourceLoader.load(panel.preset_path, "", ResourceLoader.CACHE_MODE_IGNORE_DEEP)
 	_expect(saved.camp_config.maximum_camps == 3 and saved.camp_config.camp_pool.size() == 2, "营地设置和池随关卡保存并正确读回")
+	_expect(saved.camp_config.camp_pool[0].camp.guard_leash_radius == 14.0 and saved.camp_config.camp_pool[0].camp.guard_health_regen == 2.5, "营地半径与回营回血参数随关卡保存并读回")
 	if "--preview" in OS.get_cmdline_user_args():
 		root.size = Vector2i(1440, 1000)
 		for child: Node in panel.get_children():

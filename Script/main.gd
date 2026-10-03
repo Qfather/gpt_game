@@ -46,9 +46,12 @@ var world_object_clicked: bool = false
 var selected_object: Node3D = null
 var selected_mesh_overlays: Dictionary = {}
 var selection_outline_material: ShaderMaterial
+var selected_building_range: MeshInstance3D
 var paused_game_commands: Array[Callable] = []
 var enemy_placement_active: bool = false
 var enemy_preview: Node3D = null
+var prey_panel: PanelContainer
+var loot_panel: PanelContainer
 var camp_panel: PanelContainer
 var enemy_placement_data: EnemyData = SLIME_DATA
 
@@ -78,12 +81,19 @@ func _ready():
 	camp_panel = preload("res://UI/camp_panel.gd").new()
 	$UI.add_child(camp_panel)
 	camp_panel.closed.connect(clear_selection)
+	loot_panel = preload("res://UI/loot_panel.gd").new()
+	$UI.add_child(loot_panel)
+	loot_panel.closed.connect(clear_selection)
+	prey_panel = preload("res://UI/prey_panel.gd").new()
+	$UI.add_child(prey_panel)
+	prey_panel.closed.connect(clear_selection)
 	if level_preset != null and level_preset.camp_config != null:
 		var camp_manager := CampSpawnManager.new()
 		camp_manager.name = "CampSpawnManager"
 		camp_manager.config = level_preset.camp_config
 		$Systems.add_child(camp_manager)
 	resource_building_panel.close_button.pressed.connect(_clear_selection_highlight)
+	resource_building_panel.move_requested.connect(_on_building_move_requested)
 	villager_panel.close_button.pressed.connect(_clear_selection_highlight)
 	resource_node_panel.close_button.pressed.connect(_clear_selection_highlight)
 	enemy_panel.close_button.pressed.connect(_clear_selection_highlight)
@@ -185,6 +195,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(_delta: float) -> void:
+	if is_instance_valid(selected_building_range) and selected_building_range.visible:
+		if not is_instance_valid(selected_object) or selected_object.is_queued_for_deletion() or selected_object.get_meta("fog_hidden", false):
+			selected_building_range.hide()
 	if enemy_placement_active:
 		_update_enemy_preview()
 
@@ -359,7 +372,7 @@ func _spawn_initial_villagers() -> void:
 		villager.global_position = spawn_origin + Vector3(
 			float(column - 1) * 1.5,
 			0.0,
-			float(row + 1) * 1.5
+			float(row + 1) * 1.5 + 1.0
 		)
 
 
@@ -410,6 +423,12 @@ func _on_resource_building_clicked(building):
 	call_deferred("_open_resource_building_panel", building)
 
 
+func _on_building_move_requested(building: BuildingBase) -> void:
+	_cancel_enemy_placement()
+	clear_selection()
+	building_ghost.select_moving_building(building)
+
+
 func _on_villager_clicked(villager: UnitBase) -> void:
 	world_object_clicked = true
 	hud.set_debug_villager(villager)
@@ -444,6 +463,36 @@ func _on_enemy_clicked(enemy: EnemyBase) -> void:
 	_close_selection_panels_immediately()
 	_select_world_object(enemy)
 	call_deferred("_open_enemy_panel", enemy)
+
+
+func register_prey(prey: Node3D) -> void:
+	prey.prey_clicked.connect(_on_prey_clicked)
+
+
+func _on_prey_clicked(prey: Node3D) -> void:
+	if bool(prey.get_meta("fog_hidden", false)) or prey.is_queued_for_deletion():
+		return
+	world_object_clicked = true
+	hud.set_debug_villager(null)
+	_clear_selection_highlight()
+	_close_selection_panels_immediately()
+	_select_world_object(prey)
+	prey_panel.open_prey(prey)
+
+
+func register_loot_bundle(bundle: LootBundle) -> void:
+	bundle.loot_clicked.connect(_on_loot_bundle_clicked)
+
+
+func _on_loot_bundle_clicked(bundle: LootBundle) -> void:
+	if bool(bundle.get_meta("fog_hidden", false)) or bundle.is_queued_for_deletion():
+		return
+	world_object_clicked = true
+	hud.set_debug_villager(null)
+	_clear_selection_highlight()
+	_close_selection_panels_immediately()
+	_select_world_object(bundle)
+	loot_panel.open_bundle(bundle)
 
 
 func register_treasure_camp(camp: TreasureCamp) -> void:
@@ -483,6 +532,8 @@ func _open_enemy_panel(enemy: EnemyBase) -> void:
 
 func _close_selection_panels_immediately() -> void:
 	camp_panel.hide()
+	loot_panel.hide()
+	prey_panel.hide()
 	resource_building_panel.close_panel_immediately()
 	villager_panel.close_panel_immediately()
 	resource_node_panel.close_panel_immediately()
@@ -491,6 +542,8 @@ func _close_selection_panels_immediately() -> void:
 
 func clear_selection() -> void:
 	camp_panel.hide()
+	loot_panel.hide()
+	prey_panel.hide()
 	_clear_selection_highlight()
 	hud.set_debug_villager(null)
 	resource_building_panel.close_panel()
@@ -526,6 +579,7 @@ func _select_world_object(target: Node3D) -> void:
 		return
 
 	selected_object = target
+	_show_selected_building_range(target)
 	var mesh_nodes: Array[Node] = target.find_children(
 		"*",
 		"MeshInstance3D",
@@ -542,7 +596,48 @@ func _select_world_object(target: Node3D) -> void:
 		mesh_instance.material_overlay = selection_outline_material
 
 
+func _show_selected_building_range(target: Node3D) -> void:
+	if is_instance_valid(selected_building_range):
+		selected_building_range.hide()
+	var radius: float = 0.0
+	var center: Vector3 = target.global_position
+	var color := Color(0.25, 0.7, 1.0, 0.85)
+	if target is ResourceBuildingBase:
+		radius = target.idle_radius if target is Farm else target.work_radius
+		if not target is Farm:
+			color = Color(0.3, 1.0, 0.4, 0.85)
+		if target.get_script() == preload("res://Script/building/game/hunter_hut.gd"):
+			var base: Node3D = get_tree().get_first_node_in_group("bases") as Node3D
+			if is_instance_valid(base):
+				center = base.global_position
+	elif target.is_in_group("bases"):
+		radius = target.idle_radius
+	if radius <= 0.0:
+		return
+	if not is_instance_valid(selected_building_range):
+		selected_building_range = MeshInstance3D.new()
+		selected_building_range.name = "SelectedBuildingRange"
+		selected_building_range.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(selected_building_range)
+	var ring := TorusMesh.new()
+	ring.inner_radius = maxf(radius - 0.08, 0.01)
+	ring.outer_radius = radius
+	ring.rings = 128
+	ring.ring_segments = 8
+	var material := StandardMaterial3D.new()
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.no_depth_test = true
+	material.albedo_color = color
+	ring.material = material
+	selected_building_range.mesh = ring
+	selected_building_range.global_position = center + Vector3.UP * 0.1
+	selected_building_range.show()
+
+
 func _clear_selection_highlight() -> void:
+	if is_instance_valid(selected_building_range):
+		selected_building_range.hide()
 	for mesh_variant: Variant in selected_mesh_overlays.keys():
 		if not is_instance_valid(mesh_variant):
 			continue

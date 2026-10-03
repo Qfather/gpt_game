@@ -5,4 +5,6 @@
 [ext_resource type="Resource" path="res://data/wildlife/boar.tres" id="4"]
 [resource]
 script = ExtResource("1")
+minimum_base_distance = 15.0
+maximum_base_distance = 35.0
 prey_pool = Array[Resource]([ExtResource("2"), ExtResource("3"), ExtResource("4")])

@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="BuildingData" format=3]
+[gd_resource type="Resource" script_class="BuildingData" format=3 uid="uid://cpgjcnkrq82bd"]
 
-[ext_resource type="Script" path="res://Script/building_data.gd" id="1_data"]
-[ext_resource type="PackedScene" path="res://Scene/building/base.tscn" id="2_scene"]
+[ext_resource type="Script" uid="uid://b2vt2lwsdilgf" path="res://Script/building_data.gd" id="1_data"]
+[ext_resource type="PackedScene" uid="uid://ds5iuq38leawb" path="res://Scene/building/base.tscn" id="2_scene"]
 
 [resource]
 script = ExtResource("1_data")
@@ -12,6 +12,7 @@ building_scene = ExtResource("2_scene")
 max_health = 1000.0
 storage_capacities = Dictionary[StringName, float]({
 &"grain": 1000.0,
+&"meat": 1000.0,
 &"stone": 1000.0,
 &"wood": 1000.0
 })

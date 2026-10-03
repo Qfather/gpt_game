@@ -180,6 +180,17 @@ func get_health_regen() -> float:
 	return get_stat(StatModifier.StatType.HEALTH_REGEN)
 
 
+func _process(delta: float) -> void:
+	if is_dead():
+		return
+	var amount: float = maxf(get_health_regen(), 0.0) * delta
+	if health_component != null:
+		health_component.heal(amount)
+	elif amount > 0.0 and health < get_max_health():
+		health = minf(health + amount, get_max_health())
+		health_changed.emit(health, get_max_health())
+
+
 func get_move_speed() -> float:
 	return get_stat(StatModifier.StatType.MOVE_SPEED)
 

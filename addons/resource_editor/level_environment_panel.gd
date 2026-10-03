@@ -32,7 +32,7 @@ const LABELS: Dictionary = {
 	"near_distance_max": "近处最大距离", "far_distance_min": "远处最小距离",
 	"base_weight": "基础权重", "altitude_weight": "每层海拔权重增量",
 	"cliff_foot_bonus": "崖脚权重加成", "cliff_top_bonus": "崖顶权重加成",
-	"unlock_population": "阶段起始人口（历史最高）", "weight": "抽取权重",
+	"unlock_population": "阶段起始人口（当前人口）", "weight": "抽取权重",
 	"food_tag": "食物标签（空表示任意食物）", "food_amount": "所需食物库存",
 	"required_buildings": "必须已建成的建筑", "min_group_size": "每批最少人数",
 	"max_group_size": "每批最多人数", "arrival_interval": "到达间隔（秒）",
@@ -137,7 +137,7 @@ func _init() -> void:
 	immigration_column.name = "移民需求池"
 	resource_tabs.add_child(immigration_column)
 	var immigration_help := Label.new()
-	immigration_help.text = "按历史最高人口使用最新阶段，同阶段按权重抽取。刷新冷却60秒游戏时间。\n食物标签检查库存，不额外扣除；来者携带本组标签。建议每阶段保留容易满足的组。\n空池使用初始资源与人口页的固定规则。"
+	immigration_help.text = "按当前人口使用对应阶段，人口跨阶段时自动更新，同阶段按权重抽取。刷新冷却60秒游戏时间。\n食物标签检查库存，不额外扣除；来者携带本组标签。建议每阶段保留容易满足的组。\n空池使用初始资源与人口页的固定规则。"
 	immigration_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	immigration_column.add_child(immigration_help)
 	var immigration_toolbar := HBoxContainer.new()

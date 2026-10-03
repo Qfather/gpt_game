@@ -15,6 +15,9 @@ func _ready() -> void:
 
 
 func refresh() -> void:
+	if not is_instance_valid(current_building):
+		close_panel_immediately()
+		return
 	var enemy: EnemyBase = current_building as EnemyBase
 	if not is_instance_valid(enemy):
 		close_panel_immediately()

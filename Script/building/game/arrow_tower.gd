@@ -16,6 +16,12 @@ func dispatch_available_swordsmen() -> void:
 		if not has_free_garrison_slot(): return
 		if unit.get_combat_role() != CombatRole.Type.ARCHER: continue
 		var previous: Node = unit.garrisoned_in
+		if previous == null and unit.is_idle() and unit.state == unit.State.MOVE_TO_BARRACKS and not is_instance_valid(unit.resupply_barracks):
+			var reserved: Node = unit.garrison_target
+			if is_instance_valid(reserved) and not reserved.has_method("allows_garrison_attacks"):
+				reserved.remove_unit_from_rosters(unit)
+				unit.garrison_target = null
+				unit.state = unit.State.IDLE
 		if is_instance_valid(previous) and not previous.has_method("allows_garrison_attacks"):
 			previous.remove_unit_from_rosters(unit)
 			unit.leave_garrison()
@@ -42,3 +48,10 @@ func can_start_patrol() -> bool:
 
 func dispatch_base_defenders(_attacker: Node3D) -> void:
 	pass
+
+func _before_destroyed() -> void:
+	if is_destroyed():
+		for unit: Node in garrisoned_units:
+			if is_instance_valid(unit) and unit.garrisoned_in == self and unit.get_combat_role() == CombatRole.Type.ARCHER and not unit.is_dead():
+				unit.stun_from_tower_fall()
+	super._before_destroyed()

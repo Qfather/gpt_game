@@ -1,11 +1,10 @@
 [gd_scene format=3]
 
+[ext_resource type="PackedScene" path="res://Scene/building/visual/farm_visual.tscn" id="visual_detail"]
+
 [ext_resource type="Script" path="res://Script/building/game/farm.gd" id="1_farm"]
 [ext_resource type="Script" path="res://Script/resource/ResourceStorage.gd" id="2_storage"]
 [ext_resource type="Script" path="res://Script/building/game/farm_field.gd" id="3_field"]
-
-[sub_resource type="StandardMaterial3D" id="Material_FarmHouse"]
-albedo_color = Color(0.48, 0.32, 0.18, 1)
 
 [sub_resource type="StandardMaterial3D" id="Material_FieldA"]
 albedo_color = Color(0.34, 0.22, 0.12, 1)
@@ -15,10 +14,6 @@ albedo_color = Color(0.42, 0.28, 0.14, 1)
 
 [sub_resource type="StandardMaterial3D" id="Material_FieldC"]
 albedo_color = Color(0.30, 0.25, 0.16, 1)
-
-[sub_resource type="BoxMesh" id="Mesh_FarmHouse"]
-material = SubResource("Material_FarmHouse")
-size = Vector3(2, 0.8, 2)
 
 [sub_resource type="BoxMesh" id="Mesh_FieldA"]
 material = SubResource("Material_FieldA")
@@ -34,6 +29,9 @@ size = Vector3(2, 0.12, 2)
 
 [sub_resource type="BoxShape3D" id="Shape_Farm"]
 size = Vector3(4, 1, 4)
+
+[sub_resource type="BoxShape3D" id="Shape_Shed"]
+size = Vector3(1.72, 1.3, 1.72)
 
 [node name="Farm" type="Node3D" groups=["resource_buildings"]]
 script = ExtResource("1_farm")
@@ -70,10 +68,6 @@ field_id = "C"
 position = Vector3(0, 0.06, 0)
 mesh = SubResource("Mesh_FieldC")
 
-[node name="FarmHouse" type="MeshInstance3D" parent="."]
-position = Vector3(1, 0.4, 1)
-mesh = SubResource("Mesh_FarmHouse")
-
 [node name="ClickArea" type="Area3D" parent="."]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="ClickArea"]
@@ -85,3 +79,12 @@ script = ExtResource("2_storage")
 wood_capacity = 0.0
 stone_capacity = 0.0
 food_capacity = 50.0
+
+[node name="VisualDetail" parent="." instance=ExtResource("visual_detail")]
+
+[node name="StaticBody3D" type="StaticBody3D" parent="."]
+input_ray_pickable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D"]
+position = Vector3(1, 0.65, 1)
+shape = SubResource("Shape_Shed")

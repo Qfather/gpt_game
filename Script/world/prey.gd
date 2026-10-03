@@ -1,5 +1,7 @@
 extends Node3D
 
+signal prey_clicked(prey: Node3D)
+
 var data: Resource
 var health: float
 var claimed_by: Node
@@ -10,6 +12,25 @@ var corpse_time: float = 60.0
 func _ready() -> void:
 	add_to_group("wildlife")
 	health = data.health
+	var area := Area3D.new()
+	area.name = "ClickArea"
+	area.position.y = 0.3
+	area.process_mode = Node.PROCESS_MODE_ALWAYS
+	area.collision_layer = 2
+	area.collision_mask = 0
+	area.monitoring = false
+	area.monitorable = false
+	var collider := CollisionShape3D.new()
+	var shape := SphereShape3D.new()
+	shape.radius = 0.55
+	collider.shape = shape
+	area.add_child(collider)
+	add_child(area)
+	area.input_event.connect(_on_input_event)
+	var main: Node = get_tree().current_scene
+	if main != null and main.has_method("register_prey"):
+		main.register_prey(self)
+
 
 func claim(hunter: Node) -> bool:
 	if is_instance_valid(claimed_by) and claimed_by != hunter: return false
@@ -46,3 +67,10 @@ func _physics_process(delta: float) -> void:
 	if NavigationServer3D.map_get_iteration_id(map) == 0: return
 	var ground: Vector3 = NavigationServer3D.map_get_closest_point(map, next)
 	if ground.distance_to(next) < 0.7: global_position = ground
+
+func _on_input_event(_camera: Node, event: InputEvent, _position: Vector3, _normal: Vector3, _shape: int) -> void:
+	if bool(get_meta("fog_hidden", false)) or is_queued_for_deletion():
+		return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		prey_clicked.emit(self)
+		get_viewport().set_input_as_handled()

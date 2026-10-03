@@ -23,7 +23,7 @@ func _unit(role: int = CombatRole.Type.NONE) -> Node3D:
 	var unit: Node3D = load("res://Scene/unit/villager.tscn").instantiate()
 	main.add_child(unit)
 	unit.set_combat_role(role)
-	unit.global_position = base.global_position + Vector3(3, 0, 3)
+	unit.global_position = base.global_position + Vector3(3, 0, 6)
 	unit.hunger_rate = 0.0
 	unit.fatigue_rate = 0.0
 	return unit
@@ -49,6 +49,10 @@ func _run() -> void:
 	for i: int in range(30):
 		await physics_frame
 		await process_frame
+	var map_runtime: MapGenerateRuntime = get_first_node_in_group("map_generate_runtime")
+	await create_timer(1.0).timeout
+	while map_runtime._navigation_baking or map_runtime._navigation_update_queued:
+		await physics_frame
 	base = get_first_node_in_group("bases")
 	for existing: Node in get_nodes_in_group("villagers"):
 		existing.set_physics_process(false)
@@ -107,7 +111,23 @@ func _run() -> void:
 	_check(await _wait(func() -> bool: return hunter.hunting.prey_count == 3, 900), "实际收集三只猎物")
 	_check(get_nodes_in_group("wildlife").size() == 1, "满载后留下第四只猎物")
 	_check(await _wait(func() -> bool: return house.get_resource_amount(&"meat") >= 9, 1200), "三只猎物整批处理")
+	for animal: Node in get_nodes_in_group("wildlife"): animal.free()
+	# 复现满仓且背着三只猎物：必须自行腾库、实际送到据点并继续处理。
+	house.deposit_resource(&"meat", 30.0)
+	var base_meat_before: float = base.storage.get_amount(&"meat")
+	base.storage.capacities[&"meat"] = base_meat_before + 2.0
+	hunter.hunting.prey_count = 3
+	hunter.hunting.raw_meat = 9.0
+	hunter.hunting.update_bundle(hunter)
+	house.processing_min = 1.0
+	house.processing_max = 1.0
+	hunter.hunting.request_return(hunter)
+	_check(await _wait(func() -> bool: return base.storage.get_amount(&"meat") > base_meat_before, 1800), "小屋满仓时猎户自行运肉到据点")
+	_check(hunter.carried_amount == 3.0 and hunter.hunting.raw_meat == 9.0, "据点满仓时保留未卸下的肉与剩余猎物")
 	house.remove_worker(hunter)
+	base.storage.capacities[&"meat"] = 1000.0
+	_check(await _wait(func() -> bool: return hunter.hunting.prey_count == 0 and hunter.carried_amount == 0.0, 2400), "搬运后回屋完成剩余猎物处理")
+	_check(is_equal_approx(house.get_resource_amount(&"meat") + base.storage.get_amount(&"meat") - base_meat_before, 39.0), "满仓搬运与处理不丢失肉类")
 	await _wait(func() -> bool: return hunter.job == hunter.Job.NONE, 300)
 	_check(hunter.unit_data.id == &"resident", "解雇后恢复普通居民配置")
 	var barracks: Node3D = _building("res://data/buildings/BarracksData.tres", Vector3(-6, 0, 0))

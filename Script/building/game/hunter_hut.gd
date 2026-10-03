@@ -4,6 +4,15 @@ extends ResourceBuildingBase
 @export_range(1, 60, 0.1) var processing_min: float = 5.0
 @export_range(1, 60, 0.1) var processing_max: float = 15.0
 
+func has_gatherable_resources() -> bool:
+	var base: Node3D = get_tree().get_first_node_in_group("bases") as Node3D
+	var center: Vector3 = base.global_position if base != null else global_position
+	for animal: Node3D in get_tree().get_nodes_in_group("wildlife"):
+		if not animal.is_queued_for_deletion() and not animal.is_dead() and center.distance_to(animal.global_position) <= work_radius:
+			return true
+	return false
+
+
 func get_worker_job() -> int:
 	return 4
 

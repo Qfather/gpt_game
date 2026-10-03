@@ -8,6 +8,8 @@ var extent: Vector2
 var explored: Image
 var visibility_map: Image
 var visual_map: Image
+var fully_visible_pixels: PackedByteArray = []
+var merging_visibility: bool = false
 var mask_texture: ImageTexture
 var overlay: MeshInstance3D
 var timer: float = 0.0
@@ -63,7 +65,7 @@ func _process(delta: float) -> void:
 	var camera: Camera3D = get_viewport().get_camera_3d()
 	if camera != null:
 		overlay.global_position = camera.global_position - camera.global_basis.z
-	timer += delta
+	timer += delta / maxf(Engine.time_scale, 0.001)
 	if timer >= 0.1:
 		timer = 0.0
 		refresh_visibility()
@@ -110,24 +112,34 @@ func refresh_visibility() -> void:
 	refresh_queued = false
 	visibility_map.copy_from(explored)
 	visual_map.fill(Color(0.0, 1.0, 0.0, 0.0))
+	fully_visible_pixels.resize(RESOLUTION * RESOLUTION)
+	fully_visible_pixels.fill(0)
+	merging_visibility = true
+	var tree_occluders: Array[Vector3] = _collect_tree_occluders()
 	for unit: Node in get_tree().get_nodes_in_group("villagers"):
 		if not unit is Node3D or not unit.is_visible_in_tree() or (unit.has_method("is_dead") and unit.is_dead()):
 			continue
 		if not unit.has_method("get_faction") or unit.get_faction() != EnemyData.Faction.SETTLEMENT:
 			continue
-		_reveal_at(unit.global_position)
+		_reveal_at(unit.global_position, SIGHT_RADIUS, tree_occluders)
 	for building: Node in get_tree().get_nodes_in_group("buildings"):
 		if not building is Node3D or building is ConstructionSite or building.is_queued_for_deletion() or not building.is_visible_in_tree():
 			continue
 		if building.has_method("get_health") and building.get_health() <= 0.0:
 			continue
 		var radius: float = building.get_sight_radius() if building.has_method("get_sight_radius") else SIGHT_RADIUS
-		_reveal_at(building.global_position, radius)
+		_reveal_at(building.global_position, radius, tree_occluders)
+	for camp: Node in get_tree().get_nodes_in_group("treasure_camps"):
+		if camp is TreasureCamp and camp.cleared and not camp.is_queued_for_deletion():
+			_reveal_at(camp.global_position, SIGHT_RADIUS, tree_occluders)
+	merging_visibility = false
 	_reveal_visible_tree_canopies()
 	mask_texture.update(visual_map)
-	for group: String in ["enemies", "migrants", "resources", "buildings", "villagers", "vegetation", "treasure_camps", "wildlife"]:
+	for group: String in ["enemies", "migrants", "resources", "buildings", "villagers", "vegetation", "treasure_camps", "wildlife", "loot_bundles"]:
 		for object: Node in get_tree().get_nodes_in_group(group):
 			if not object is Node3D or object.is_queued_for_deletion():
+				continue
+			if group == "loot_bundles" and object is TreasureCamp:
 				continue
 			var visible_now: bool = is_visible_at(object.global_position) or (
 				object is ConstructionSite
@@ -163,27 +175,37 @@ func refresh_visibility() -> void:
 			main.clear_selection()
 
 
-func _reveal_at(point: Vector3, sight_radius: float = SIGHT_RADIUS) -> void:
+func _reveal_at(point: Vector3, sight_radius: float = SIGHT_RADIUS, tree_occluders: Array[Vector3] = []) -> void:
 	sight_radius *= visibility_multiplier
 	var center: Vector2i = _pixel(point)
 	var radius := Vector2i(Vector2.ONE * sight_radius / extent * RESOLUTION) + Vector2i.ONE
 	var origin := Vector2(point.x, point.z)
-	var sight_limits: PackedFloat32Array = _tree_sight_limits(origin, sight_radius)
+	var sight_limits: PackedFloat32Array = _tree_sight_limits(origin, sight_radius, tree_occluders)
 	var visual_limits: PackedFloat32Array = _smooth_sight_limits(sight_limits)
 	for y: int in range(maxi(0, center.y - radius.y), mini(RESOLUTION, center.y + radius.y + 1)):
 		for x: int in range(maxi(0, center.x - radius.x), mini(RESOLUTION, center.x + radius.x + 1)):
+			# 当前刷新中已被其他视野源完全照亮的像素，后续合并不会再改变结果。
+			var pixel_index: int = y * RESOLUTION + x
+			if merging_visibility and fully_visible_pixels[pixel_index] == 1:
+				continue
 			var world: Vector2 = ((Vector2(x, y) + Vector2.ONE * 0.5) / RESOLUTION - Vector2.ONE * 0.5) * extent
 			var offset: Vector2 = world - origin
 			var distance: float = offset.length()
 			if distance > sight_radius:
 				continue
-			var angle_index: int = posmod(floori((offset.angle() + PI) / TAU * ANGLE_SAMPLES), ANGLE_SAMPLES)
+			var old_pixel: Color = visual_map.get_pixel(x, y)
+			if old_pixel.r == 1.0 and visibility_map.get_pixel(x, y).r == 1.0:
+				if merging_visibility:
+					fully_visible_pixels[pixel_index] = 1
+				continue
+			var angle: float = (offset.angle() + PI) / TAU * ANGLE_SAMPLES
+			var angle_index: int = posmod(floori(angle), ANGLE_SAMPLES)
 			var visible_distance: float = sight_limits[angle_index]
 			if distance <= visible_distance:
 				visibility_map.set_pixel(x, y, Color.WHITE)
 				explored.set_pixel(x, y, Color(0.35, 0.35, 0.35))
 			# 判定仍使用中心射线；画面使用预先平滑的树后边缘。
-			var visual_angle: float = (offset.angle() + PI) / TAU * ANGLE_SAMPLES - 0.5
+			var visual_angle: float = angle - 0.5
 			var visual_index: int = floori(visual_angle)
 			var visual_limit: float = lerpf(
 				visual_limits[posmod(visual_index, ANGLE_SAMPLES)],
@@ -194,14 +216,13 @@ func _reveal_at(point: Vector3, sight_radius: float = SIGHT_RADIUS) -> void:
 				1.0 - smoothstep(sight_radius - 2.0, sight_radius, distance),
 				1.0 - smoothstep(maxf(0.0, visual_limit - 0.4), visual_limit + 1.2, distance)
 			)
-			var old_pixel: Color = visual_map.get_pixel(x, y)
 			visual_map.set_pixel(x, y, Color(maxf(old_pixel.r, strength), old_pixel.g, old_pixel.b, 1.0))
+			if merging_visibility and strength >= 1.0 and distance <= visible_distance:
+				fully_visible_pixels[pixel_index] = 1
 
 
-func _tree_sight_limits(origin: Vector2, sight_radius: float = SIGHT_RADIUS) -> PackedFloat32Array:
-	var limits := PackedFloat32Array()
-	limits.resize(ANGLE_SAMPLES)
-	limits.fill(sight_radius)
+func _collect_tree_occluders() -> Array[Vector3]:
+	var occluders: Array[Vector3] = []
 	for node: Node in get_tree().get_nodes_in_group("resources"):
 		if node.get_script() != TREE_SCRIPT or node.is_queued_for_deletion():
 			continue
@@ -209,9 +230,20 @@ func _tree_sight_limits(origin: Vector2, sight_radius: float = SIGHT_RADIUS) -> 
 		if bounds.size == Vector3.ZERO:
 			continue
 		var tree_center := Vector2(bounds.get_center().x, bounds.get_center().z)
-		var offset: Vector2 = tree_center - origin
-		var distance: float = offset.length()
 		var tree_radius: float = maxf(bounds.size.x, bounds.size.z) * 0.5
+		occluders.append(Vector3(tree_center.x, tree_center.y, tree_radius))
+	return occluders
+
+
+func _tree_sight_limits(origin: Vector2, sight_radius: float = SIGHT_RADIUS, tree_occluders: Array[Vector3] = []) -> PackedFloat32Array:
+	var limits := PackedFloat32Array()
+	limits.resize(ANGLE_SAMPLES)
+	limits.fill(sight_radius)
+	if tree_occluders.is_empty(): tree_occluders = _collect_tree_occluders()
+	for tree: Vector3 in tree_occluders:
+		var offset: Vector2 = Vector2(tree.x, tree.y) - origin
+		var distance: float = offset.length()
+		var tree_radius: float = tree.z
 		if distance <= tree_radius + 0.15 or distance > sight_radius + tree_radius:
 			continue
 		var center_index: int = floori((offset.angle() + PI) / TAU * ANGLE_SAMPLES)
@@ -230,13 +262,22 @@ func _tree_sight_limits(origin: Vector2, sight_radius: float = SIGHT_RADIUS) -> 
 
 
 func _smooth_sight_limits(limits: PackedFloat32Array) -> PackedFloat32Array:
+	# 原三角权重 13-|offset| 等价于两次长度 13 的环形滑动求和。
+	var sums := PackedFloat64Array()
+	sums.resize(ANGLE_SAMPLES)
+	for index: int in range(ANGLE_SAMPLES): sums[index] = limits[index]
+	for pass_index: int in range(2):
+		var next := PackedFloat64Array()
+		next.resize(ANGLE_SAMPLES)
+		var total: float = 0.0
+		for offset: int in range(-6, 7): total += sums[posmod(offset, ANGLE_SAMPLES)]
+		for index: int in range(ANGLE_SAMPLES):
+			next[index] = total
+			total += sums[posmod(index + 7, ANGLE_SAMPLES)] - sums[posmod(index - 6, ANGLE_SAMPLES)]
+		sums = next
 	var smoothed := PackedFloat32Array()
 	smoothed.resize(ANGLE_SAMPLES)
-	for index: int in range(ANGLE_SAMPLES):
-		var total: float = 0.0
-		for offset: int in range(-12, 13):
-			total += limits[posmod(index + offset, ANGLE_SAMPLES)] * float(13 - absi(offset))
-		smoothed[index] = total / 169.0
+	for index: int in range(ANGLE_SAMPLES): smoothed[index] = sums[index] / 169.0
 	return smoothed
 
 
@@ -252,6 +293,7 @@ func _reveal_visible_tree_canopies() -> void:
 		var center: Vector2i = _pixel(node.global_position)
 		var radius := Vector2i(Vector2.ONE * fade_radius / extent * RESOLUTION) + Vector2i.ONE
 		var origin := Vector2(node.global_position.x, node.global_position.z)
+		var crown_height: float = clampf((node.global_position.y + 0.65 * visual.global_basis.get_scale().y) / 32.0, 0.0, 1.0)
 		for y: int in range(maxi(0, center.y - radius.y), mini(RESOLUTION, center.y + radius.y + 1)):
 			for x: int in range(maxi(0, center.x - radius.x), mini(RESOLUTION, center.x + radius.x + 1)):
 				var world: Vector2 = ((Vector2(x, y) + Vector2.ONE * 0.5) / RESOLUTION - Vector2.ONE * 0.5) * extent
@@ -259,5 +301,4 @@ func _reveal_visible_tree_canopies() -> void:
 				if strength <= 0.0:
 					continue
 				var old_pixel: Color = visual_map.get_pixel(x, y)
-				var crown_height: float = clampf((node.global_position.y + 0.65 * visual.global_basis.get_scale().y) / 32.0, 0.0, 1.0)
 				visual_map.set_pixel(x, y, Color(old_pixel.r, minf(old_pixel.g, crown_height), maxf(old_pixel.b, strength), 1.0))

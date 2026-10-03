@@ -49,7 +49,7 @@ const STATE_DISPLAY_NAMES: PackedStringArray = [
 	"前往战利品",
 	"狩猎／回屋处理"
 ]
-const TASK_DISPLAY_NAMES: PackedStringArray = ["运输建造材料", "建筑施工", "训练剑士", "回收战利品"]
+const TASK_DISPLAY_NAMES: PackedStringArray = ["运输建造材料", "建筑施工", "训练剑士", "回收战利品", "维修建筑"]
 
 @onready var health_label: Label = %HealthLabel
 @onready var move_speed_label: Label = %MoveSpeedLabel
@@ -101,6 +101,7 @@ func refresh():
 		+ str(round(current_unit.get_health()))
 		+ " / "
 		+ str(round(current_unit.get_max_health()))
+		+ "\n每秒回血：%.1f" % current_unit.get_health_regen()
 	)
 
 	move_speed_label.text = (
@@ -131,6 +132,17 @@ func refresh():
 	state_label.text = "状态：" + _get_display_name(STATE_DISPLAY_NAMES, state_index)
 	if state_index == villager.State.HUNTING:
 		state_label.text = "状态：回屋处理" if villager.hunting.returning else "状态：狩猎"
+	if state_index == villager.State.RETREAT_TO_BASE:
+		state_label.text = "状态：边射击边撤退" if villager.is_hunter() else "状态：逃回据点"
+	if state_index == villager.State.MOVE_TO_RELOCATED_BUILDING:
+		state_label.text = "状态：前往搬迁后的建筑"
+	if state_index == villager.State.MOVE_TO_REPAIR:
+		state_label.text = "状态：前往维修"
+	elif state_index == villager.State.REPAIRING:
+		var repair_task: GameTask = villager.current_task as GameTask
+		state_label.text = "状态：等待维修材料" if repair_task != null and repair_task.data.get("waiting_resources", false) else "状态：维修中"
+	if villager.is_stunned():
+		state_label.text = "状态：晕眩（%.1f 秒）" % villager.stun_remaining
 	task_label.text = "当前任务：" + _get_task_text(villager)
 	workplace_label.text = "工作地点：" + _get_node_name(villager.get("workplace") as Node)
 	_update_needs_bar(hunger_bar, float(villager.call("get_hunger")))
@@ -139,6 +151,8 @@ func refresh():
 	var carried_amount: float = float(villager.call("get_carried_amount"))
 	if villager.is_hunter() and villager.hunting.prey_count > 0:
 		carry_label.text = "携带：猎物 %d / 3（处理后产肉%d）" % [villager.hunting.prey_count, villager.hunting.raw_meat]
+		if carried_amount > 0.0:
+			carry_label.text += "；运肉 %.1f" % carried_amount
 	elif carried_amount <= 0.0:
 		carry_label.text = "携带：无"
 	else:

@@ -1,6 +1,8 @@
 class_name ResourceBuildingBase
 extends BuildingBase
 var destroyed: bool = false
+var resource_warning: Label3D
+var resource_warning_timer: float = 0.0
 
 
 # ============================================================
@@ -50,6 +52,7 @@ func _ready() -> void:
 
 	super._ready()
 	add_to_group("resource_buildings")
+	_create_resource_warning()
 	current_health = maxf(max_health, 1.0)
 	health_changed.emit(current_health, max_health)
 
@@ -57,6 +60,46 @@ func _ready() -> void:
 		push_warning(
 			"ResourceBuildingBase：%s 没有找到 ResourceStorage" % name
 		)
+
+
+func _create_resource_warning() -> void:
+	resource_warning = Label3D.new()
+	resource_warning.name = "ResourceWarning"
+	resource_warning.text = "!"
+	resource_warning.modulate = Color(1.0, 0.85, 0.1)
+	resource_warning.outline_modulate = Color(0.2, 0.15, 0.02)
+	resource_warning.outline_size = 12
+	resource_warning.font_size = 128
+	resource_warning.pixel_size = 0.008
+	resource_warning.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	resource_warning.no_depth_test = true
+	var top: float = 2.0
+	for mesh: MeshInstance3D in find_children("*", "MeshInstance3D", true, false):
+		var bounds: AABB = (global_transform.affine_inverse() * mesh.global_transform) * mesh.get_aabb()
+		top = maxf(top, bounds.end.y)
+	resource_warning.position.y = top + 0.6
+	resource_warning.visible = false
+	resource_warning.set_meta("fog_visible", false)
+	add_child(resource_warning)
+
+
+func _process(delta: float) -> void:
+	super._process(delta)
+	resource_warning_timer -= delta
+	if resource_warning_timer > 0.0:
+		return
+	resource_warning_timer = 1.0
+	var active: bool = not is_destroyed() and not is_demolition_in_progress() and not has_gatherable_resources()
+	resource_warning.set_meta("fog_visible", active)
+	resource_warning.visible = active and not bool(get_meta("fog_hidden", false))
+
+
+func has_gatherable_resources() -> bool:
+	for resource: Node in get_tree().get_nodes_in_group("resources"):
+		if resource is ResourceBase and not resource.is_queued_for_deletion():
+			if resource.get_resource_id() == production_resource_id and resource.resource_amount > 0 and is_position_in_work_range(resource.global_position):
+				return true
+	return false
 
 
 func get_max_health() -> float:
@@ -117,8 +160,17 @@ func resume_worker(worker: Node) -> bool:
 # ============================================================
 
 func get_worker_count() -> int:
-
+	_prune_workers()
 	return workers.size()
+
+
+func _prune_workers() -> void:
+	for index in range(workers.size() - 1, -1, -1):
+		var worker: Variant = workers[index]
+		if not is_instance_valid(worker) or worker.is_queued_for_deletion() or (worker.has_method("is_dead") and worker.is_dead()):
+			workers.remove_at(index)
+			if is_instance_valid(worker) and worker.get("workplace") == self and worker.has_method("release_target_field"):
+				worker.release_target_field()
 
 
 func get_max_worker_count() -> int:
@@ -131,8 +183,7 @@ func get_max_worker_count() -> int:
 # ============================================================
 
 func has_free_slot() -> bool:
-
-	return workers.size() < max_workers
+	return get_worker_count() < max_workers
 
 
 # ============================================================
@@ -224,6 +275,7 @@ func remove_worker(worker: Node) -> bool:
 
 
 func release_all_workers() -> void:
+	_prune_workers()
 	var current_workers: Array[Node] = workers.duplicate()
 	for worker: Node in current_workers:
 		if is_instance_valid(worker):

@@ -92,8 +92,15 @@ enum State {
 	MOVE_TO_FIELD,
 	WORKING_FIELD,
 	MOVE_TO_LOOT,
-	HUNTING
+	HUNTING,
+	MOVE_TO_REPAIR,
+	REPAIRING,
+	RETREAT_TO_BASE,
+	MOVE_TO_RELOCATED_BUILDING
 }
+
+var relocated_building: BuildingBase
+var relocation_resumes_training: bool = false
 
 var gather_previous_target_desired_distance: float = 1.5
 var gather_previous_path_desired_distance: float = 0.5
@@ -155,6 +162,7 @@ var combat_resume_state: int = -1
 var combat_resume_target_position: Vector3 = Vector3.ZERO
 var combat_resume_navigation_target: Vector3 = Vector3.ZERO
 var combat_attack_cooldown: float = 0.0
+var stun_remaining: float = 0.0
 
 enum Job {
 	NONE,
@@ -288,7 +296,7 @@ func update_needs(delta: float) -> void:
 
 func get_activity_level() -> ActivityLevel:
 	match state:
-		State.HUNTING:
+		State.HUNTING, State.RETREAT_TO_BASE:
 			return ActivityLevel.WORKING
 		State.FIND_RESOURCE, State.MOVE_TO_RESOURCE, State.GATHER_RESOURCE:
 			return ActivityLevel.WORKING
@@ -310,7 +318,7 @@ func get_activity_level() -> ActivityLevel:
 			return ActivityLevel.RESTING
 		State.FIND_TASK_SOURCE, State.MOVE_TO_TASK_SOURCE:
 			return ActivityLevel.WORKING
-		State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.BUILDING, State.FIND_FIELD_WORK, State.MOVE_TO_FIELD, State.WORKING_FIELD:
+		State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.BUILDING, State.FIND_FIELD_WORK, State.MOVE_TO_FIELD, State.WORKING_FIELD, State.MOVE_TO_REPAIR, State.REPAIRING:
 			return ActivityLevel.WORKING
 		State.RESTING:
 			return ActivityLevel.RESTING
@@ -425,7 +433,6 @@ func evaluate_needs() -> void:
 		return
 	if not is_hungry() and not is_tired():
 		return
-	if job == Job.HUNTER: hunting.release_target(self)
 	if current_task != null:
 		_release_current_task_for_needs()
 		if current_task != null:
@@ -458,6 +465,7 @@ func move_to_eat() -> void:
 func begin_resting() -> void:
 	if target_base == null or not is_instance_valid(target_base):
 		return
+	if job == Job.HUNTER: hunting.release_target(self)
 	_remember_garrison_state_before_needs()
 	_remember_patrol_state_before_needs()
 	if is_instance_valid(target_resource) and target_resource.has_method("release"):
@@ -490,6 +498,7 @@ func begin_eating() -> bool:
 	selected_food_id = choose_food(base_storage)
 	if selected_food_id.is_empty():
 		return false
+	if job == Job.HUNTER: hunting.release_target(self)
 
 	if is_instance_valid(target_resource) and target_resource.has_method("release"):
 		target_resource.release(self)
@@ -632,6 +641,7 @@ var is_transporting: bool = false
 # 当前公共任务
 var current_task: Object = null
 var loot_bundle_target: Node3D = null
+var loot_pickup_position: Vector3 = Vector3.INF
 var task_source: ResourceStorage = null
 var task_site: Node3D = null
 var task_resource_wait_timer: float = 0.0
@@ -783,16 +793,27 @@ func start():
 # ============================================================
 
 func _physics_process(delta):
+	if is_stunned():
+		stun_remaining = maxf(stun_remaining - delta, 0.0)
+		velocity = Vector3.ZERO
+		update_needs(delta)
+		return
 	if external_force.length_squared() > 0.01:
 		velocity = external_force
 		move_and_slide()
 		external_force = external_force.move_toward(Vector3.ZERO, 20.0 * delta)
+		return
+	if _process_civilian_retreat(delta):
 		return
 	if _process_combat(delta):
 		return
 	if is_instance_valid(treasure_camp):
 		update_needs(delta)
 		_process_treasure_hunt()
+		return
+	if is_instance_valid(relocated_building) and state not in [State.MOVE_TO_BASE, State.DEPOSIT_TO_BASE, State.NEED_EAT, State.MOVE_TO_EAT, State.EATING, State.NEED_REST, State.MOVE_TO_REST, State.RESTING]:
+		update_needs(delta)
+		_process_building_relocation()
 		return
 	update_needs(delta)
 	evaluate_needs()
@@ -808,6 +829,8 @@ func _physics_process(delta):
 		_start_current_task()
 
 	match state:
+		State.MOVE_TO_REPAIR, State.REPAIRING:
+			_process_building_repair(delta)
 		State.HUNTING:
 			hunting.process(self, delta)
 
@@ -960,7 +983,7 @@ func _update_unreachable_warning(delta: float) -> void:
 		State.MOVE_TO_RESOURCE, State.MOVE_TO_FIELD,
 		State.MOVE_TO_BASE, State.MOVE_TO_DEMOLITION_BASE,
 		State.MOVE_TO_TRAINING, State.MOVE_TO_BARRACKS,
-		State.MOVE_TO_LOOT, State.RETURN_TO_IDLE
+		State.MOVE_TO_LOOT, State.RETURN_TO_IDLE, State.MOVE_TO_REPAIR
 	]
 	if not moving_to_work or is_dead():
 		_set_unreachable_warning(false)
@@ -1059,7 +1082,10 @@ func _process_combat(delta: float) -> bool:
 	var distance: float = global_position.distance_to(flat_target)
 	if distance > combat_attack_range:
 		state = State.COMBAT_MOVE
-		velocity = global_position.direction_to(flat_target) * get_move_speed()
+		if navigation_agent.target_position.distance_squared_to(target_position) > 0.25:
+			navigation_agent.target_position = target_position
+		var next_position: Vector3 = navigation_agent.get_next_path_position()
+		velocity = global_position.direction_to(next_position) * get_move_speed()
 		move_and_slide()
 		return true
 
@@ -1094,7 +1120,7 @@ func _find_nearest_hostile(search_range: float = -1.0) -> Node3D:
 			continue
 		if not candidate.is_visible_in_tree():
 			continue
-		if candidate.has_method("get_faction") and int(candidate.get_faction()) == get_faction():
+		if candidate.has_method("get_faction") and not EnemyData.are_factions_hostile(get_faction(), int(candidate.get_faction())):
 			continue
 		var candidate_node: Node3D = candidate as Node3D
 		var distance: float = Vector2(global_position.x, global_position.z).distance_to(Vector2(candidate_node.global_position.x, candidate_node.global_position.z))
@@ -1105,11 +1131,107 @@ func _find_nearest_hostile(search_range: float = -1.0) -> Node3D:
 
 
 func fire_arrow(target: Node3D) -> void:
-	ARROW_SCRIPT.launch(self, target, global_position + Vector3.UP, combat_damage, unit_data.arrow_speed)
+	var damage: float = ARCHER_DATA.damage * 0.5 if is_hunter() and target.is_in_group("enemies") else combat_damage
+	ARROW_SCRIPT.launch(self, target, global_position + Vector3.UP, damage, unit_data.arrow_speed)
 
 
 func is_hunter() -> bool:
 	return job == Job.HUNTER
+
+
+func get_damage_protector() -> Node3D:
+	if (
+		is_instance_valid(garrisoned_in)
+		and not garrisoned_in.is_queued_for_deletion()
+		and not garrisoned_in.is_destroyed()
+		and garrisoned_in.has_method("allows_garrison_attacks")
+		and garrisoned_in.allows_garrison_attacks()
+	):
+		return garrisoned_in as Node3D
+	return null
+
+
+func take_damage(amount: float, source: Node = null) -> float:
+	if get_damage_protector() != null:
+		return 0.0
+	var damage: float = super.take_damage(amount, source)
+	if damage > 0.0 and not is_dead() and not has_combat_role():
+		_begin_civilian_retreat()
+	return damage
+
+
+func _begin_civilian_retreat() -> void:
+	if state == State.RETREAT_TO_BASE:
+		return
+	find_base()
+	if not is_instance_valid(target_base):
+		return
+	var previous_site: Node = task_site
+	_release_current_task_for_needs()
+	if is_instance_valid(previous_site) and previous_site.has_method("remove_construction_worker"):
+		previous_site.remove_construction_worker(self)
+	if is_instance_valid(construction_cancellation_target) and not construction_cancellation_target.cancellation_carriers.has(self):
+		construction_cancellation_target.cancellation_workers.erase(self)
+		construction_cancellation_target.returning_cancellation_workers.erase(self)
+		construction_cancellation_target = null
+	if is_instance_valid(demolition_target):
+		# 已装载的拆除返料保留归属，回到据点后继续原来的卸货流程。
+		var is_carrier: bool = demolition_target.cancellation_carriers.has(self) if demolition_target is ConstructionSite else demolition_target.demolition_carrier == self
+		if not is_carrier:
+			demolition_target.demolition_workers.erase(self)
+			demolition_target = null
+	if is_instance_valid(target_resource):
+		target_resource.release(self)
+		target_resource = null
+	release_target_field()
+	hunting.release_target(self)
+	loot_bundle_target = null
+	navigation_agent.target_position = NavigationServer3D.map_get_closest_point(
+		navigation_agent.get_navigation_map(), target_base.get_interaction_position(self)
+	)
+	state = State.RETREAT_TO_BASE
+
+
+func _process_civilian_retreat(delta: float) -> bool:
+	if has_combat_role() or is_dead():
+		return false
+	var threat: Node3D = null
+	if is_hunter() or state == State.RETREAT_TO_BASE:
+		threat = _find_nearest_hostile()
+	if is_hunter() and threat != null:
+		_begin_civilian_retreat()
+	if state != State.RETREAT_TO_BASE:
+		return false
+	update_needs(delta)
+	combat_attack_cooldown = maxf(combat_attack_cooldown - delta, 0.0)
+	if is_hunter() and combat_attack_cooldown <= 0.0:
+		var target: Node3D = _find_nearest_hostile(combat_attack_range)
+		if target != null:
+			fire_arrow(target)
+			combat_attack_cooldown = combat_attack_interval
+	if not is_instance_valid(target_base):
+		velocity = Vector3.ZERO
+		find_base()
+		if is_instance_valid(target_base):
+			navigation_agent.target_position = target_base.get_interaction_position(self)
+		return true
+	var offset: Vector3 = navigation_agent.target_position - global_position
+	offset.y = 0.0
+	if offset.length() > navigation_agent.target_desired_distance + 0.5:
+		move_along_navigation()
+		return true
+	velocity = Vector3.ZERO
+	if threat != null:
+		return true
+	if is_instance_valid(demolition_target):
+		state = State.DEPOSIT_DEMOLITION_TO_BASE
+	elif carried_amount > 0.0:
+		state = State.DEPOSIT_TO_BASE
+	elif is_hunter() and is_instance_valid(workplace):
+		hunting.request_return(self)
+	else:
+		return_to_idle()
+	return true
 
 
 func _process_tower_combat(delta: float) -> void:
@@ -1164,7 +1286,7 @@ func _finish_combat() -> void:
 
 func can_accept_treasure_hunt() -> bool:
 	return (
-		has_combat_role() and not is_dead() and not is_instance_valid(treasure_camp)
+		has_combat_role() and not is_dead() and not is_stunned() and not is_instance_valid(treasure_camp)
 		and current_task == null and carried_amount <= 0.0
 		and not is_quitting_job and not abandoning_work
 		and state in [State.IDLE, State.RETURN_TO_IDLE, State.GARRISONED,
@@ -1182,7 +1304,7 @@ func begin_treasure_hunt(camp: Node3D) -> bool:
 	}
 	if is_instance_valid(garrisoned_in):
 		garrisoned_in.unregister_garrison(self)
-		if garrisoned_in.has_method("get_garrison_position"):
+		if garrisoned_in.has_method("get_garrison_entrance_position"):
 			global_position = garrisoned_in.get_garrison_entrance_position(self)
 		garrisoned_in = null
 		garrison_target = null
@@ -1248,6 +1370,16 @@ func _start_current_task() -> void:
 	if task == null:
 		return
 
+	if task.type == GameTask.TaskType.REPAIR_BUILDING:
+		task.state = GameTask.State.IN_PROGRESS
+		task_site = task.target as Node3D
+		if not is_instance_valid(task_site):
+			_release_current_task()
+			return
+		_set_task_site_navigation_target()
+		state = State.MOVE_TO_REPAIR
+		return
+
 	if task.type == GameTask.TaskType.BUILD:
 		task.state = GameTask.State.IN_PROGRESS
 		task_site = task.target as Node3D
@@ -1276,7 +1408,10 @@ func _start_current_task() -> void:
 		if not is_instance_valid(loot_bundle_target):
 			_release_current_task()
 			return
-		navigation_agent.target_position = loot_bundle_target.global_position
+		loot_pickup_position = NavigationServer3D.map_get_closest_point(
+			navigation_agent.get_navigation_map(), loot_bundle_target.global_position
+		)
+		navigation_agent.target_position = loot_pickup_position
 		state = State.MOVE_TO_LOOT
 		return
 
@@ -1646,6 +1781,10 @@ func move_to_barracks() -> void:
 		garrison_target = null
 		return_to_idle()
 		return
+	var entrance: Vector3 = garrison_target.get_garrison_entrance_position(self)
+	if navigation_agent.target_position.distance_squared_to(entrance) > 0.01:
+		navigation_agent.target_position = entrance
+	navigation_agent.get_next_path_position()
 	if not _has_reached_garrison_entry(garrison_target):
 		if navigation_agent.is_navigation_finished():
 			_repath_current_navigation_target()
@@ -1828,7 +1967,7 @@ func _load_barracks_resupply_from_base() -> void:
 	carried_amount = taken
 	carried_resource_changed.emit()
 	garrison_target = resupply_barracks
-	navigation_agent.target_position = resupply_barracks.get_interaction_position(self)
+	navigation_agent.target_position = resupply_barracks.get_garrison_entrance_position(self)
 	state = State.MOVE_TO_BARRACKS
 
 
@@ -1861,6 +2000,7 @@ func finish_barracks_resupply() -> void:
 func leave_garrison_for_defense(barracks: Node, attacker: Node3D) -> bool:
 	if garrisoned_in != barracks or not has_combat_role() or is_dead():
 		return false
+	global_position = barracks.get_garrison_entrance_position(self)
 	garrisoned_in = null
 	garrison_target = barracks
 	visible = true
@@ -1879,6 +2019,7 @@ func leave_garrison_for_defense(barracks: Node, attacker: Node3D) -> bool:
 func leave_garrison_for_patrol(barracks: Node, assemble_position: Vector3) -> bool:
 	if garrisoned_in != barracks:
 		return false
+	global_position = barracks.get_garrison_entrance_position(self)
 	garrisoned_in = null
 	garrison_target = null
 	patrol_barracks = barracks
@@ -1996,6 +2137,13 @@ func start_return_to_patrol_barracks() -> void:
 
 
 func return_to_patrol_barracks() -> void:
+	if not is_instance_valid(patrol_barracks):
+		return_to_idle()
+		return
+	var entrance: Vector3 = patrol_barracks.get_garrison_entrance_position(self)
+	if navigation_agent.target_position.distance_squared_to(entrance) > 0.01:
+		navigation_agent.target_position = entrance
+	navigation_agent.get_next_path_position()
 	if not _has_reached_garrison_entry(patrol_barracks):
 		if navigation_agent.is_navigation_finished():
 			_repath_current_navigation_target()
@@ -2006,8 +2154,18 @@ func return_to_patrol_barracks() -> void:
 		patrol_barracks.receive_patrol_return(self)
 
 
+func stun_from_tower_fall() -> void:
+	stun_remaining = 2.0
+	velocity = Vector3.ZERO
+	external_force = Vector3.ZERO
+
+
+func is_stunned() -> bool:
+	return stun_remaining > 0.0
+
+
 func leave_garrison() -> void:
-	if is_instance_valid(garrisoned_in) and garrisoned_in.has_method("get_garrison_position"):
+	if is_instance_valid(garrisoned_in) and garrisoned_in.has_method("get_garrison_entrance_position"):
 		global_position = garrisoned_in.get_garrison_entrance_position(self)
 	garrisoned_in = null
 	garrison_target = null
@@ -2559,6 +2717,10 @@ func deposit_to_base():
 				carried_resource_changed.emit()
 
 
+	# 猎户在据点满仓时保留货物等待，避免每帧重复打印卸货日志。
+	if job == Job.HUNTER and carried_amount > 0.0:
+		return
+
 	print(
 		"📦 向据点卸货完成，剩余携带：",
 		carried_amount,
@@ -2569,6 +2731,10 @@ func deposit_to_base():
 	# Base 满仓时只扣除实际存入的数量，剩余资源继续保留。
 	if carried_amount > 0.0:
 		print("⚠️ Base 已满，居民仍携带：", carried_amount)
+		return
+	if job == Job.HUNTER and hunting.prey_count > 0:
+		is_transporting = false
+		hunting.request_return(self)
 		return
 
 	if returning_resupply_surplus and is_instance_valid(resupply_barracks):
@@ -2907,20 +3073,75 @@ func deposit_demolition_to_base() -> void:
 
 
 func move_to_loot_bundle() -> void:
-	if not is_instance_valid(loot_bundle_target):
+	if not is_instance_valid(loot_bundle_target) or loot_bundle_target.is_queued_for_deletion():
 		_release_current_task()
 		return
+	# 更新路径后再判断是否抵达，拾取点沿用导航表面而非掉落物的原始高度。
+	navigation_agent.get_next_path_position()
 	if not navigation_agent.is_navigation_finished():
 		move_along_navigation()
 		return
-	if global_position.distance_to(loot_bundle_target.global_position) > 1.5:
-		navigation_agent.target_position = loot_bundle_target.global_position
+	var loot_offset: Vector3 = loot_pickup_position - loot_bundle_target.global_position
+	loot_offset.y = 0.0
+	if global_position.distance_to(loot_pickup_position) > 1.5 or loot_offset.length() > 1.5:
+		velocity = Vector3.ZERO
 		return
 	velocity = Vector3.ZERO
 	if loot_bundle_target.has_method("pick_up"):
-		loot_bundle_target.pick_up(self)
+		if not loot_bundle_target.pick_up(self):
+			_release_current_task()
 	else:
 		_release_current_task()
+
+
+func is_repairing_building(building: Node) -> bool:
+	var task: GameTask = current_task as GameTask
+	return task != null and task.type == GameTask.TaskType.REPAIR_BUILDING and task.target == building and state in [State.MOVE_TO_REPAIR, State.REPAIRING]
+
+
+func _process_building_repair(delta: float) -> void:
+	var task: GameTask = current_task as GameTask
+	var building: BuildingBase = task_site as BuildingBase
+	if task == null or not is_instance_valid(building) or building.is_queued_for_deletion() or building.is_destroyed() or building.is_demolition_in_progress():
+		_release_current_task()
+		return
+	if state == State.MOVE_TO_REPAIR:
+		navigation_agent.get_next_path_position()
+		if not _has_reached_task_site_navigation_target():
+			move_along_navigation()
+			return
+		state = State.REPAIRING
+	velocity = Vector3.ZERO
+	var missing: float = building.get_max_health() - building.get_health()
+	var remaining: float = float(task.data["remaining_health"])
+	if missing <= 0.001 or remaining <= 0.001:
+		get_tree().call_group("task_manager", "complete_task", task)
+		building._queue_repair()
+		return_to_idle()
+		return
+	var data: BuildingData = building.building_data
+	var restored: float = minf(missing, remaining)
+	if data.construction_time > 0.0:
+		restored = minf(restored, building.get_max_health() / data.construction_time * delta * get_work_speed())
+	var costs: Dictionary[StringName, float] = {}
+	var storages: Array[Node] = get_tree().get_nodes_in_group("resource_storages")
+	for resource_id: StringName in data.construction_cost:
+		var cost: float = float(data.construction_cost[resource_id]) * restored / building.get_max_health()
+		var available: float = 0.0
+		for storage: ResourceStorage in storages:
+			available += storage.get_amount(resource_id)
+		if available + 0.000001 < cost:
+			task.data["waiting_resources"] = true
+			return
+		costs[resource_id] = cost
+	task.data["waiting_resources"] = false
+	for resource_id: StringName in costs:
+		var needed: float = costs[resource_id]
+		for storage: ResourceStorage in storages:
+			needed -= storage.take(resource_id, needed)
+			if needed <= 0.000001: break
+	building.repair(restored)
+	task.data["remaining_health"] = maxf(remaining - restored, 0.0)
 
 
 func receive_loot(resource_id: StringName, amount: float) -> bool:
@@ -2971,6 +3192,86 @@ func finish_demolition_pickup() -> void:
 # ============================================================
 # 分配工作
 # ============================================================
+
+func on_building_relocated(building: BuildingBase, old_transform: Transform3D) -> void:
+	if is_dead():
+		return
+	if garrisoned_in == building:
+		var old_entrance: Vector3 = old_transform * building.to_local(building.get_garrison_entrance_position(self))
+		building.remove_unit_from_rosters(self)
+		leave_garrison()
+		global_position = old_entrance
+		if is_instance_valid(garrison_target):
+			garrison_target.remove_unit_from_rosters(self)
+		garrison_target = null
+		try_assign_to_barracks(building)
+		return
+	if garrison_target == building and state in [State.MOVE_TO_BARRACKS, State.RETURN_TO_BARRACKS]:
+		navigation_agent.target_position = building.get_garrison_entrance_position(self)
+	if task_site == building and state in [State.TRAINING, State.MOVE_TO_TRAINING]:
+		relocated_building = building
+		relocation_resumes_training = state == State.TRAINING
+		if relocation_resumes_training:
+			global_position = old_transform * building.to_local(building.get_interaction_position(self))
+			visible = true
+			collision_layer = 2
+			collision_mask = 3
+		state = State.MOVE_TO_RELOCATED_BUILDING
+		return
+	if task_site == building and state in [State.MOVE_TO_REPAIR, State.REPAIRING]:
+		state = State.MOVE_TO_REPAIR
+		navigation_agent.target_position = building.get_interaction_position(self)
+	elif is_instance_valid(task_source) and task_source.get_parent() == building and state == State.MOVE_TO_TASK_SOURCE:
+		navigation_agent.target_position = building.get_interaction_position(self)
+	elif task_site == building and state == State.MOVE_TO_TASK_SITE:
+		navigation_agent.target_position = building.get_interaction_position(self)
+	if workplace == building and building is ResourceBuildingBase and not is_quitting_job and current_task == null:
+		if is_instance_valid(target_resource):
+			target_resource.release(self)
+		target_resource = null
+		release_target_field()
+		if is_hunter():
+			hunting.release_target(self)
+			hunting.return_destination = Vector3.INF
+		relocated_building = building
+	elif target_base == building and job == Job.NONE and current_task == null and state in [State.IDLE, State.RETURN_TO_IDLE]:
+		return_to_idle()
+	elif target_base == building and state in [State.MOVE_TO_BASE, State.MOVE_TO_EAT, State.MOVE_TO_REST]:
+		navigation_agent.target_position = building.get_interaction_position(self)
+
+
+func _process_building_relocation() -> void:
+	if relocated_building.is_destroyed() or (relocation_resumes_training and task_site != relocated_building) or (not relocation_resumes_training and workplace != relocated_building and task_site != relocated_building):
+		relocated_building = null
+		relocation_resumes_training = false
+		return_to_idle()
+		return
+	state = State.MOVE_TO_RELOCATED_BUILDING
+	var destination: Vector3 = relocated_building.get_interaction_position(self)
+	destination = NavigationServer3D.map_get_closest_point(navigation_agent.get_navigation_map(), destination)
+	if navigation_agent.target_position.distance_squared_to(destination) > 0.01:
+		navigation_agent.target_position = destination
+	var offset: Vector3 = destination - global_position
+	offset.y = 0.0
+	if offset.length() > 1.8:
+		move_along_navigation()
+		return
+	var building: BuildingBase = relocated_building
+	relocated_building = null
+	velocity = Vector3.ZERO
+	if relocation_resumes_training:
+		relocation_resumes_training = false
+		building.begin_training(self)
+	elif task_site == building and current_task != null:
+		navigation_agent.target_position = building.get_training_position(self)
+		state = State.MOVE_TO_TRAINING
+	elif is_hunter():
+		hunting.request_return(self)
+	elif carried_amount > 0.0:
+		go_to_workplace()
+	else:
+		start_current_job()
+
 
 func assign_job(
 	new_job: Job,
@@ -3059,10 +3360,12 @@ func assign_job(
 func is_idle() -> bool:
 	#没有职业，并且也没有处于离职处理中，才算真正空闲。
 	return (
-		job == Job.NONE
+		not is_stunned()
+		and job == Job.NONE
 		and current_task == null
 		and not is_quitting_job
 		and not abandoning_work
+		and state != State.RETREAT_TO_BASE
 		and garrisoned_in == null
 		and not is_instance_valid(construction_cancellation_target)
 		and carried_amount <= 0.0
@@ -3589,9 +3892,8 @@ func try_transport_workplace_resource(
 	# 先回工作建筑
 	# --------------------------------------------------------
 
-	var distance = global_position.distance_to(
-		workplace.global_position
-	)
+	var pickup_position: Vector3 = workplace.get_interaction_position(self)
+	var distance = global_position.distance_to(pickup_position)
 
 
 	if distance > 1.5:
@@ -3600,9 +3902,7 @@ func try_transport_workplace_resource(
 
 		print("📦 准备运输，先返回工作建筑取货")
 
-		navigation_agent.target_position = (
-			workplace.global_position
-		)
+		navigation_agent.target_position = pickup_position
 
 		state = State.MOVE_TO_WORKPLACE
 
@@ -3813,6 +4113,10 @@ func abandon_current_work() -> void:
 func quit_job():
 	if job == Job.HUNTER:
 		is_quitting_job = true
+		if carried_amount > 0.0:
+			hunting.release_target(self)
+			go_to_base()
+			return
 		hunting.request_return(self)
 		return
 
@@ -3832,6 +4136,7 @@ func quit_job():
 
 	# 身上还有木材
 	# 不能马上清空 workplace，因为还要知道送到哪里
+	release_target_field()
 	if state == State.MOVE_TO_BASE:
 		return
 	if carried_amount > 0.0:
@@ -3875,6 +4180,7 @@ func can_take_task(_task: Object) -> bool:
 		and current_task == null
 		and not is_quitting_job
 		and not abandoning_work
+		and state != State.RETREAT_TO_BASE
 		and not has_combat_role()
 		and not is_instance_valid(construction_cancellation_target)
 		and carried_amount <= 0.0
@@ -3894,12 +4200,16 @@ func clear_current_task() -> void:
 		collision_mask = 3
 	var was_training: bool = (
 		state == State.MOVE_TO_TRAINING or state == State.TRAINING
+		or (is_instance_valid(relocated_building) and task_site == relocated_building and current_task != null)
 	)
+	if was_training:
+		relocated_building = null
+		relocation_resumes_training = false
 	current_task = null
 	if state == State.MOVE_TO_LOOT:
 		loot_bundle_target = null
 		state = State.IDLE
-	if state == State.BUILDING or was_training:
+	if state == State.BUILDING or state == State.MOVE_TO_REPAIR or state == State.REPAIRING or was_training:
 		task_site = null
 		if was_training:
 			return_to_idle()

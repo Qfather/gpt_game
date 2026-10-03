@@ -71,7 +71,7 @@ func get_state_text() -> String:
 
 
 func can_claim() -> bool:
-	if claimed_worker != null and not is_instance_valid(claimed_worker):
+	if not is_instance_valid(claimed_worker):
 		_restore_claimed_state()
 		claimed_worker = null
 	return (

@@ -1,12 +1,11 @@
 [gd_scene format=3 uid="uid://ds5iuq38leawb"]
 
+[ext_resource type="PackedScene" path="res://Scene/building/visual/base_visual.tscn" id="visual_detail"]
+
 [ext_resource type="Script" uid="uid://2v134eyjfwa5" path="res://Script/building/game/base.gd" id="1_d3q2k"]
 [ext_resource type="Script" uid="uid://c8iasvdn8ygnl" path="res://Script/resource/ResourceStorage.gd" id="2_7lj54"]
 [ext_resource type="Script" path="res://Script/building/building_durability.gd" id="3_durability"]
 [ext_resource type="Script" path="res://Script/combat/health_bar_3d.gd" id="4_health_bar"]
-
-[sub_resource type="BoxMesh" id="BoxMesh_t2dwb"]
-size = Vector3(2, 2, 3)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_click"]
 size = Vector3(2, 2, 3)
@@ -14,10 +13,6 @@ size = Vector3(2, 2, 3)
 [node name="Base" type="Node3D" unique_id=513460057 groups=["bases"]]
 script = ExtResource("1_d3q2k")
 base_housing_capacity = 5
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1945692895]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
-mesh = SubResource("BoxMesh_t2dwb")
 
 [node name="ClickArea" type="Area3D" parent="."]
 
@@ -39,3 +34,5 @@ script = ExtResource("4_health_bar")
 bar_color = Color(0.9, 0.2, 0.15, 1)
 bar_width = 1.8
 bar_height = 0.14
+
+[node name="VisualDetail" parent="." instance=ExtResource("visual_detail")]

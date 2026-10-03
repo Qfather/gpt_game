@@ -51,10 +51,12 @@ var interaction_positions: Dictionary = {}
 
 func _ready() -> void:
 	add_to_group("buildings")
+	health_changed.connect(_queue_repair)
 	current_health = max_health
 	if building_data != null:
 		_apply_building_data()
 	_create_health_bar()
+	_setup_solid_collision()
 
 	if click_area == null:
 		push_warning(
@@ -66,6 +68,34 @@ func _ready() -> void:
 	click_area.input_event.connect(
 		_on_click_area_input_event
 	)
+
+
+func _setup_solid_collision() -> void:
+	# 蓝图可施工、城门保留通道；农场只阻挡工具屋，不阻挡田地。
+	if self is ConstructionSite or self is Gate:
+		return
+	var body: StaticBody3D = get_node_or_null("StaticBody3D") as StaticBody3D
+	if body == null:
+		var click_shape: CollisionShape3D = get_node_or_null("ClickArea/CollisionShape3D") as CollisionShape3D
+		if click_shape == null or click_shape.shape == null:
+			return
+		body = StaticBody3D.new()
+		body.name = "StaticBody3D"
+		body.input_ray_pickable = false
+		add_child(body)
+		var collision := CollisionShape3D.new()
+		collision.name = "CollisionShape3D"
+		collision.shape = click_shape.shape
+		body.add_child(collision)
+		collision.transform = click_shape.transform
+	add_to_group("navigation_solid_buildings")
+	tree_exiting.connect(_request_navigation_update)
+	# 建造系统在 add_child 后才设置最终位置和旋转。
+	call_deferred("_request_navigation_update")
+
+
+func _request_navigation_update() -> void:
+	get_tree().call_group("map_generate_runtime", "request_navigation_update")
 
 
 func _create_health_bar() -> void:
@@ -124,7 +154,12 @@ func get_interaction_position(worker: Node) -> Vector3:
 	if not interaction_positions.has(worker_id):
 		var slot_index: int = interaction_positions.size()
 		var angle: float = float(slot_index) * 2.399963
-		var radius: float = 2.0 + float(slot_index % 3) * 0.35
+		var radius: float = 2.0
+		var collision: CollisionShape3D = get_node_or_null("StaticBody3D/CollisionShape3D") as CollisionShape3D
+		if collision != null and collision.shape != null:
+			var bounds: AABB = collision.transform * collision.shape.get_debug_mesh().get_aabb()
+			radius = maxf(radius, maxf(maxf(absf(bounds.position.x), absf(bounds.end.x)), maxf(absf(bounds.position.z), absf(bounds.end.z))) + 0.9)
+		radius += float(slot_index % 3) * 0.35
 		interaction_positions[worker_id] = Vector3(
 			cos(angle) * radius,
 			0.0,
@@ -204,6 +239,24 @@ func _before_destroyed() -> void:
 	pass
 
 
+func _queue_repair(_health: float = 0.0, _maximum: float = 0.0) -> void:
+	if self is ConstructionSite or building_data == null or is_destroyed() or is_queued_for_deletion():
+		return
+	if get_health() <= 0.0 or get_health() >= get_max_health() or is_demolition_in_progress():
+		return
+	get_tree().call_group_flags(SceneTree.GROUP_CALL_DEFERRED, "task_manager", "create_repair_task", self)
+
+
+func repair(amount: float) -> float:
+	if is_destroyed() or amount <= 0.0:
+		return 0.0
+	var restored: float = minf(amount, max_health - current_health)
+	current_health += restored
+	if restored > 0.0:
+		health_changed.emit(current_health, max_health)
+	return restored
+
+
 func set_build_grid_occupancy(
 	grid_position: Vector2i,
 	grid_size: Vector2i,
@@ -238,6 +291,59 @@ func release_build_grid_area() -> bool:
 
 func get_building_data() -> BuildingData:
 	return building_data
+
+
+func can_be_moved() -> bool:
+	return building_data != null and (self is ResourceBuildingBase or building_data.id in [&"swordsman_camp", &"archer_camp", &"barracks", &"house"]) and not self is ConstructionSite and not is_destroyed() and not is_queued_for_deletion() and demolition_state == DemolitionState.NONE
+
+
+func get_relocation_cost(new_position: Vector3) -> Dictionary[StringName, float]:
+	var cost: Dictionary[StringName, float] = {}
+	var distance: float = Vector2(global_position.x, global_position.z).distance_to(Vector2(new_position.x, new_position.z))
+	var ratio: float = lerpf(0.1, 0.5, clampf(distance / 30.0, 0.0, 1.0))
+	for resource_id: StringName in building_data.construction_cost:
+		if building_data.construction_cost[resource_id] > 0.0:
+			cost[resource_id] = ceilf(snappedf(building_data.construction_cost[resource_id] * ratio, 0.000001))
+	return cost
+
+
+func can_pay_relocation_cost(new_position: Vector3) -> bool:
+	var cost := get_relocation_cost(new_position)
+	var base: Node = get_tree().get_first_node_in_group("bases")
+	if not is_instance_valid(base):
+		return cost.is_empty()
+	for resource_id: StringName in cost:
+		if base.get_resource(resource_id) < cost[resource_id]:
+			return false
+	return true
+
+
+func relocate(grid: BuildGrid, new_grid_position: Vector2i, new_rotation_step: int, mirrored: bool, new_transform: Transform3D) -> bool:
+	if not can_be_moved():
+		return false
+	var old_cells: Array[Vector2i] = []
+	if build_grid_area_registered:
+		old_cells = grid._get_area_cells(build_grid_position, build_grid_size, build_grid_rotation_step)
+	if not grid.is_area_free(new_grid_position, building_data.grid_size, new_rotation_step, building_data.id == &"wall", true, old_cells):
+		return false
+	if not can_pay_relocation_cost(new_transform.origin):
+		return false
+	var cost := get_relocation_cost(new_transform.origin)
+	var base: Node = get_tree().get_first_node_in_group("bases")
+	for resource_id: StringName in cost:
+		base.take_resource(resource_id, cost[resource_id])
+	if build_grid_area_registered:
+		grid.release_area(build_grid_position, build_grid_size, build_grid_rotation_step)
+	grid.occupy_area(new_grid_position, building_data.grid_size, new_rotation_step, building_data.id == &"wall", true)
+	set_build_grid_occupancy(new_grid_position, building_data.grid_size, new_rotation_step)
+	var old_transform: Transform3D = global_transform
+	global_transform = new_transform
+	rotation.y = float(new_rotation_step) * PI * 0.5
+	scale.x = -1.0 if mirrored else 1.0
+	interaction_positions.clear()
+	_request_navigation_update()
+	get_tree().call_group("villagers", "on_building_relocated", self, old_transform)
+	return true
 
 
 func can_be_demolished() -> bool:

@@ -7,7 +7,7 @@ const FOLDERS: Array[String] = ["res://data/units/", "res://data/enemies/raid/",
 const LABELS: Dictionary = {
 	"uses_arrows": "使用箭矢攻击", "arrow_speed": "箭矢速度（米/秒）",
 	"id": "稳定ID", "display_name": "名称", "description": "说明", "visual_scene": "外观模型场景",
-	"visual_tint": "模型颜色", "max_health": "生命上限", "health_regen": "生命恢复基础值",
+	"visual_tint": "模型颜色", "max_health": "生命上限", "health_regen": "每秒回血量（生命/秒）",
 	"move_speed": "移动速度", "work_speed": "工作速度倍率", "gather_speed": "采集速度倍率",
 	"carry_capacity": "资源携带容量", "chop_amount": "每次采集数量", "chop_interval": "采集间隔（秒）",
 	"damage": "攻击伤害", "attack_range": "攻击距离", "attack_interval": "攻击间隔（秒）",

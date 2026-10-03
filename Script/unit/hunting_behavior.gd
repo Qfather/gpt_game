@@ -4,6 +4,7 @@ var target: Node3D
 var prey_count: int = 0
 var raw_meat: float = 0.0
 var returning: bool = false
+var return_destination: Vector3 = Vector3.INF
 var processing_time: float = -1.0
 var roam_time: float = 0.0
 var bundle: MeshInstance3D
@@ -15,6 +16,7 @@ func release_target(hunter: Node) -> void:
 func request_return(hunter: Node) -> void:
 	release_target(hunter)
 	returning = true
+	return_destination = Vector3.INF
 	hunter.state = hunter.State.HUNTING
 
 func process(hunter: Node3D, delta: float) -> void:
@@ -29,7 +31,11 @@ func process(hunter: Node3D, delta: float) -> void:
 		return
 	hunter.combat_attack_cooldown = maxf(hunter.combat_attack_cooldown - delta, 0.0)
 	if returning:
-		var destination: Vector3 = house.get_interaction_position(hunter)
+		if return_destination == Vector3.INF:
+			return_destination = NavigationServer3D.map_get_closest_point(
+				hunter.navigation_agent.get_navigation_map(), house.get_interaction_position(hunter)
+			)
+		var destination: Vector3 = return_destination
 		if Vector2(hunter.global_position.x, hunter.global_position.z).distance_to(Vector2(destination.x, destination.z)) > 1.8:
 			move(hunter, destination)
 			return
@@ -40,15 +46,19 @@ func process(hunter: Node3D, delta: float) -> void:
 			if processing_time > 0.0: return
 			var amount: float = house.deposit_resource(&"meat", raw_meat)
 			raw_meat -= amount
-			# 库存满时保留处理后的肉，等待腾出空间。
-			if raw_meat > 0.0: return
+			# 满仓时自行搬运库存，为尚未存入的肉腾出空间。
+			if raw_meat > 0.0:
+				transport_meat(hunter, house)
+				return
 			prey_count = 0
 			processing_time = -1.0
 			clear_bundle()
+		if house.is_storage_full() and transport_meat(hunter, house): return
 		returning = false
 		if hunter.is_quitting_job:
 			hunter.finish_quit_job()
 			return
+		return
 	if is_instance_valid(target):
 		if target.is_dead():
 			if hunter.global_position.distance_to(target.global_position) > 1.8:
@@ -78,7 +88,7 @@ func process(hunter: Node3D, delta: float) -> void:
 		request_return(hunter)
 		return
 	roam_time -= delta
-	if roam_time <= 0.0 or hunter.navigation_agent.is_navigation_finished():
+	if roam_time <= 0.0:
 		roam_time = 5.0
 		var base: Node3D = hunter.target_base
 		var center: Vector3 = base.global_position if is_instance_valid(base) else house.global_position
@@ -87,8 +97,22 @@ func process(hunter: Node3D, delta: float) -> void:
 	hunter.move_along_navigation()
 
 func move(hunter: Node, destination: Vector3) -> void:
-	hunter.navigation_agent.target_position = destination
+	# 静止目标只设置一次；移动猎物走出半米后才更新路径。
+	if hunter.navigation_agent.target_position.distance_squared_to(destination) > 0.25:
+		hunter.navigation_agent.target_position = destination
 	hunter.move_along_navigation()
+
+func transport_meat(hunter: Node, house: Node) -> bool:
+	if not is_instance_valid(hunter.target_base): hunter.find_base()
+	if not is_instance_valid(hunter.target_base): return false
+	var amount: float = house.take_resource(&"meat", hunter.carry_capacity)
+	if amount <= 0.0: return false
+	hunter.carried_resource_id = &"meat"
+	hunter.carried_amount = amount
+	hunter.carried_resource_changed.emit()
+	hunter.is_transporting = true
+	hunter.go_to_base()
+	return true
 
 func update_bundle(hunter: Node) -> void:
 	if not is_instance_valid(bundle):

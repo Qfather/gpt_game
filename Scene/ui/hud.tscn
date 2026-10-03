@@ -45,15 +45,30 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "谷物：0"
 
+[node name="MeatLabel" type="Label" parent="PanelContainer/VBoxContainer/HBoxContainer2"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "肉类：0"
+
 [node name="PopulationLabel" type="Label" parent="PanelContainer/VBoxContainer/HBoxContainer2"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "人口：0 / 0"
 
+[node name="ResidentLabel" type="Label" parent="PanelContainer/VBoxContainer/HBoxContainer2"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "居民：0"
+
 [node name="SwordsmanLabel" type="Label" parent="PanelContainer/VBoxContainer/HBoxContainer2"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "剑士：0"
+
+[node name="ArcherLabel" type="Label" parent="PanelContainer/VBoxContainer/HBoxContainer2"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "弓箭手：0"
 
 [node name="ImmigrationPanel" type="PanelContainer" parent="." unique_id=1924680001]
 anchors_preset = 1

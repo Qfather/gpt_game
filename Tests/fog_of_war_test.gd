@@ -54,17 +54,17 @@ func _run() -> void:
 	_expect(enemy.is_visible_in_tree() and enemy.get_meta("fog_hidden"), "隐藏干扰了AI节点可见性")
 	_expect(not enemy.get_node("ClickArea").input_ray_pickable, "迷雾中敌人仍可点击")
 	for mesh: Node in migrant.find_children("*", "GeometryInstance3D", true, false):
-		_expect(mesh.layers == 0, "视野外移民未隐藏")
+		_expect(not mesh.visible, "视野外移民未隐藏")
 	for mesh: Node in tree.find_children("*", "GeometryInstance3D", true, false):
-		_expect(mesh.layers != 0, "迷雾中树木被隐藏")
+		_expect(mesh.visible, "迷雾中树木被隐藏")
 	for mesh: Node in stone.find_children("*", "GeometryInstance3D", true, false):
-		_expect(mesh.layers == 0, "迷雾中石头仍显示")
+		_expect(not mesh.visible, "迷雾中石头仍显示")
 	units[0].global_position = far
 	fog.refresh_visibility()
 	_expect(fog.is_visible_at(far) and not enemy.get_meta("fog_hidden"), "己方到达后没有显露敌人")
 	_expect(enemy.get_node("ClickArea").input_ray_pickable, "显露后不能点击")
 	for mesh: Node in stone.find_children("*", "GeometryInstance3D", true, false):
-		_expect(mesh.layers != 0, "进入视野后石头未恢复显示")
+		_expect(mesh.visible, "进入视野后石头未恢复显示")
 	_expect(fog.is_visible_at(far + Vector3(1, 0, 0)), "树前方错误遮挡视野")
 	_expect(fog.is_visible_at(tree.global_position), "可见树木的中心被自身挡住")
 	_expect(not fog.is_visible_at(far + Vector3(8, 0, 0)), "树后方没有形成阴影")
@@ -122,7 +122,7 @@ func _run() -> void:
 	fog.refresh_visibility()
 	_expect(not fog.is_visible_at(wall_position), "未完工工地错误提供视野")
 	for mesh: Node in site.find_children("*", "GeometryInstance3D", true, false):
-		_expect(mesh.layers == 0, "迷雾中工地仍显示")
+		_expect(not mesh.visible, "迷雾中工地仍显示")
 	site.queue_free()
 	for unit: Node3D in units:
 		unit.global_position = start

@@ -21,6 +21,7 @@ const PARAMETERS: Dictionary = {
 
 @export_category("生命与移动")
 @export_range(1, 100000, 1) var max_health: float = 100.0
+## 每游戏秒恢复的生命量，0 表示关闭；死亡角色不会回血。
 @export_range(0, 1000, 0.1) var health_regen: float = 1.0
 @export_range(0.1, 100, 0.1) var move_speed: float = 3.0
 
