@@ -311,8 +311,9 @@ scene = ExtResource("9_bfu8i")
 distribution = 0
 count = 520
 nearby_ratio = 0.6
-minimum_spacing = 1.1
-neighbor_distance_max = 1.8
+minimum_spacing = 0.10000000000000007
+neighbor_distance_max = 0.8
+spacing_version = 1
 cluster_radius = 13.0
 cluster_separation = 10.0
 near_distance_min = 15.0
@@ -327,8 +328,9 @@ cliff_top_bonus = 0.0
 script = ExtResource("8_0v8oa")
 display_name = "石头"
 scene = ExtResource("10_2veba")
-minimum_spacing = 0.1
-neighbor_distance_max = 0.30000000000000004
+minimum_spacing = 0.0
+neighbor_distance_max = 0.0
+spacing_version = 1
 
 [sub_resource type="Resource" id="Resource_lfbav"]
 script = ExtResource("12_2veba")
@@ -449,9 +451,9 @@ groups = Array[ExtResource("12_2veba")]([SubResource("Resource_lfbav"), SubResou
 
 [sub_resource type="Resource" id="Resource_swnqa"]
 script = ExtResource("13_af0xk")
-initial_wood = 200.0
-initial_stone = 200.0
-initial_grain = 200.0
+initial_wood = 50.0
+initial_stone = 50.0
+initial_grain = 50.0
 initial_villagers = 3
 immigration_rules = SubResource("Resource_af0xk")
 

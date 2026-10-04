@@ -7,6 +7,7 @@ signal enemy_clicked(enemy: EnemyBase)
 signal health_changed(current_health: float, max_health: float)
 
 @export var enemy_data: EnemyData
+var character_name: String = ""
 
 var max_health: float = 0.0
 var current_health: float = 0.0
@@ -17,6 +18,7 @@ var attack_interval: float = 0.0
 var detection_range: float = 0.0
 var raid_steal_timer: float = 0.0
 var target: Node3D = null
+var blocking_wall: Wall
 var repair_priority_target: Node3D
 var repair_priority_building: Node3D
 var attack_cooldown: float = 0.0
@@ -48,6 +50,9 @@ func _ready() -> void:
 	health_component.connect("health_changed", _on_health_changed)
 	health_component.connect("died", _on_health_died)
 	_apply_enemy_data()
+	if character_name.is_empty() and enemy_data != null:
+		var names = preload("res://Script/unit/character_names.gd")
+		character_name = names.assign(self, names.BOSS_POOL if enemy_data.is_boss else names.ENEMY_POOL, enemy_data.fixed_name)
 	_create_aggro_range_display()
 	call_deferred("_register_with_main")
 
@@ -87,11 +92,17 @@ func _physics_process(delta: float) -> void:
 	if distance > _get_target_attack_range():
 		_move_toward_navigation_target(target_position)
 		return
+	if attack_cooldown <= 0.0:
+		var wall: Wall = _find_blocking_wall(target_position)
+		if wall != null and wall != target:
+			_move_toward_navigation_target(target_position, true)
+			return
 
 	velocity = Vector3.ZERO
 	if (
 		_has_raid_objective(EnemyData.RaidObjective.STEAL_RESOURCES)
 		and not raid_retreating
+		and not target.is_in_group("villagers")
 		and _is_stealable_target(target)
 	):
 		raid_steal_timer = maxf(raid_steal_timer - maxf(delta, 0.0), 0.0)
@@ -122,26 +133,37 @@ func _physics_process(delta: float) -> void:
 	attack_cooldown = attack_interval
 
 
-func _move_toward_navigation_target(target_position: Vector3) -> void:
+func _move_toward_navigation_target(target_position: Vector3, close_approach: bool = false) -> void:
 	if navigation_agent == null:
 		velocity = Vector3.ZERO
 		return
 	var navigation_target: Vector3 = target_position
-	navigation_agent.target_desired_distance = maxf(
+	var previous_distance: float = navigation_agent.target_desired_distance
+	navigation_agent.target_desired_distance = 0.4 if close_approach else maxf(
 		_get_target_attack_range() - 0.35,
 		0.4
 	)
-	if navigation_agent.target_position.distance_to(navigation_target) > 0.5:
+	if navigation_agent.target_position.distance_to(navigation_target) > 0.5 or (close_approach and previous_distance != 0.4):
 		navigation_agent.target_position = navigation_target
 	# 先更新路径，导航变化后即使上一条路径已经结束也能重新规划。
 	var next_position: Vector3 = navigation_agent.get_next_path_position()
 	if navigation_agent.is_navigation_finished():
 		velocity = Vector3.ZERO
+		if not navigation_agent.is_target_reachable():
+			_try_target_blocking_wall(target_position)
 		return
 
 	var direction: Vector3 = next_position - global_position
 	velocity = direction.normalized() * move_speed
 	move_and_slide()
+	for index: int in range(get_slide_collision_count()):
+		var collider: Object = get_slide_collision(index).get_collider()
+		if collider is StaticBody3D and collider.get_parent() is Wall:
+			var wall: Wall = collider.get_parent()
+			if not wall.is_queued_for_deletion() and wall.get_health() > 0.0:
+				blocking_wall = wall
+				_set_target(wall)
+				return
 
 	var moved_distance: float = global_position.distance_to(raid_last_position)
 	if raid_last_position == Vector3.ZERO or moved_distance > 0.02:
@@ -152,6 +174,31 @@ func _move_toward_navigation_target(target_position: Vector3) -> void:
 	if raid_stuck_time >= 1.5:
 		raid_stuck_time = 0.0
 		navigation_agent.target_position = navigation_target
+
+
+func _find_blocking_wall(destination: Vector3) -> Wall:
+	var from: Vector3 = global_position + Vector3.UP * 0.2
+	var to := Vector3(destination.x, from.y, destination.z)
+	var query := PhysicsRayQueryParameters3D.create(from, to, 1)
+	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty(): return null
+	var collider: Object = hit.collider
+	if not collider is StaticBody3D or not collider.get_parent() is Wall: return null
+	var wall: Wall = collider.get_parent()
+	return wall if not wall.is_queued_for_deletion() and wall.get_health() > 0.0 else null
+
+
+func _try_target_blocking_wall(destination: Vector3) -> bool:
+	if is_instance_valid(blocking_wall) and target == blocking_wall: return false
+	var wall: Wall = _find_blocking_wall(destination)
+	if wall == null or wall == target: return false
+	var collision: CollisionShape3D = wall.get_node("StaticBody3D/CollisionShape3D")
+	var bounds: AABB = collision.global_transform * collision.shape.get_debug_mesh().get_aabb()
+	var nearest: Vector3 = global_position.clamp(bounds.position, bounds.end)
+	if global_position.distance_to(nearest) > maxf(attack_range + 0.75, 1.5): return false
+	blocking_wall = wall
+	_set_target(wall)
+	return true
 
 
 func _get_target_attack_range() -> float:
@@ -264,7 +311,7 @@ func update_targeting() -> void:
 	for candidate: Node in candidates:
 		if not candidate is Node3D or candidate == self:
 			continue
-		if not _is_legal_target(candidate):
+		if not _is_legal_target(candidate, true):
 			continue
 
 		var candidate_node: Node3D = candidate as Node3D
@@ -299,7 +346,10 @@ func update_targeting() -> void:
 	if is_instance_valid(repair_priority_building) and not repair_priority_building.is_queued_for_deletion() and not repair_priority_building.is_destroyed():
 		_set_target(repair_priority_building)
 	repair_priority_building = null
-	if _try_target_repair_worker(target):
+	if is_instance_valid(target) and _try_target_repair_worker(target):
+		return
+	if nearest_combat_target != null:
+		_set_target(nearest_combat_target)
 		return
 
 	var nearest_target: Node3D = nearest_combat_target
@@ -311,7 +361,7 @@ func update_targeting() -> void:
 		)
 		if not kill_candidates.is_empty():
 			nearest_target = (
-				target if target in kill_candidates else kill_candidates.pick_random()
+				target if is_instance_valid(target) and target in kill_candidates else kill_candidates.pick_random()
 			)
 		else:
 			nearest_target = _find_nearest_building_target(false, true)
@@ -398,7 +448,7 @@ func _find_nearest_building_target(
 	var target_pool: Array[Node3D] = (
 		preferred_targets if not preferred_targets.is_empty() else valid_buildings
 	)
-	if not nearest_only and target in target_pool:
+	if not nearest_only and is_instance_valid(target) and target in target_pool:
 		return target
 	if nearest_only:
 		var nearest_building: Node3D = null
@@ -681,6 +731,16 @@ func _set_target(next_target: Node3D) -> void:
 		var protector: Node3D = next_target.get_damage_protector()
 		if protector != null:
 			next_target = protector
+	if is_instance_valid(blocking_wall) and not blocking_wall.is_queued_for_deletion():
+		if next_target == null:
+			blocking_wall = null
+		elif next_target != blocking_wall:
+			if _find_blocking_wall(next_target.global_position) == blocking_wall:
+				next_target = blocking_wall
+			else:
+				blocking_wall = null
+	else:
+		blocking_wall = null
 	if target == next_target:
 		return
 	target = next_target
@@ -806,7 +866,7 @@ func _apply_visual_tint() -> void:
 		var tinted_material: Material = material.duplicate()
 		if tinted_material is StandardMaterial3D:
 			(tinted_material as StandardMaterial3D).albedo_color *= enemy_data.visual_tint
-			mesh_instance.set_surface_override_material(0, tinted_material)
+			mesh_instance.material_override = tinted_material
 
 
 func get_enemy_id() -> StringName:
@@ -819,6 +879,10 @@ func get_display_name() -> String:
 	if enemy_data == null:
 		return "未配置敌人"
 	return enemy_data.display_name
+
+
+func get_named_display_name() -> String:
+	return "%s · %s" % [character_name, get_display_name()] if not character_name.is_empty() else get_display_name()
 
 
 func get_abilities() -> Array[Resource]:

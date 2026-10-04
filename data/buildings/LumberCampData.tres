@@ -13,7 +13,7 @@ building_scene = ExtResource("2_lumber_camp")
 storage_capacities = Dictionary[StringName, float]({
 &"wood": 20.0
 })
-grid_size = Vector2i(3, 2)
+grid_size = Vector2i(2, 2)
 construction_cost = Dictionary[StringName, float]({
 &"wood": 20.0
 })

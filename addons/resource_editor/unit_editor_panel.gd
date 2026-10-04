@@ -1,5 +1,5 @@
 @tool
-extends HSplitContainer
+extends TabContainer
 
 const UnitDataResource = preload("res://Script/unit/unit_data.gd")
 
@@ -7,6 +7,7 @@ const FOLDERS: Array[String] = ["res://data/units/", "res://data/enemies/raid/",
 const LABELS: Dictionary = {
 	"uses_arrows": "使用箭矢攻击", "arrow_speed": "箭矢速度（米/秒）",
 	"id": "稳定ID", "display_name": "名称", "description": "说明", "visual_scene": "外观模型场景",
+	"fixed_name": "固定名字（留空按类别随机）",
 	"visual_tint": "模型颜色", "max_health": "生命上限", "health_regen": "每秒回血量（生命/秒）",
 	"move_speed": "移动速度", "work_speed": "工作速度倍率", "gather_speed": "采集速度倍率",
 	"carry_capacity": "资源携带容量", "chop_amount": "每次采集数量", "chop_interval": "采集间隔（秒）",
@@ -26,12 +27,16 @@ var preview: Control
 var status: Label
 var current: Resource
 var data_path: String
+var name_panel: Control
 
 func _init() -> void:
 	custom_minimum_size = Vector2(900, 420)
+	var details := HSplitContainer.new()
+	details.name = "单位详情"
+	add_child(details)
 	var left := VBoxContainer.new()
 	left.custom_minimum_size.x = 230
-	add_child(left)
+	details.add_child(left)
 	for action: String in ["刷新单位列表", "保存单位配置"]:
 		var button := Button.new()
 		button.text = action
@@ -45,19 +50,30 @@ func _init() -> void:
 	left.add_child(unit_list)
 	var right := VBoxContainer.new()
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	add_child(right)
+	details.add_child(right)
 	status = Label.new()
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	right.add_child(status)
 	inspector = EditorInspector.new()
 	inspector.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	right.add_child(inspector)
+	name_panel = TabContainer.new()
+	name_panel.name = "名称"
+	add_child(name_panel)
+	for category: String in ["怪物名称", "人类名称", "BOSS名称"]:
+		var page := preload("res://addons/resource_editor/name_editor_panel.gd").new()
+		page.name = category
+		name_panel.add_child(page)
+		page.edit_pool("res://data/names/" + {"怪物名称": "EnemyNames.tres", "人类名称": "HumanNames.tres", "BOSS名称": "BossNames.tres"}[category])
 	inspector.property_edited.connect(func(key: String) -> void:
 		if key in ["visual_scene", "visual_tint"]: _update_preview()
 		call_deferred("_translate_labels")
 	)
 	visibility_changed.connect(func() -> void:
 		if is_visible_in_tree(): call_deferred("_translate_labels")
+	)
+	details.visibility_changed.connect(func() -> void:
+		if details.is_visible_in_tree(): call_deferred("_translate_labels")
 	)
 
 func _ready() -> void:

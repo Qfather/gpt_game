@@ -16,6 +16,11 @@ var timer: float = 0.0
 var initialized: bool = false
 var refresh_queued: bool = false
 var visibility_multiplier: float = 1.0
+var last_visibility_inputs: Array = []
+var static_visibility_inputs: Array = []
+var static_visible_pixels: PackedInt32Array = []
+var static_fully_visible_pixels: PackedByteArray = []
+var static_visual_map: Image
 
 
 func _ready() -> void:
@@ -110,31 +115,72 @@ func is_area_visible(center: Vector3, radius: float) -> bool:
 
 func refresh_visibility() -> void:
 	refresh_queued = false
-	visibility_map.copy_from(explored)
-	visual_map.fill(Color(0.0, 1.0, 0.0, 0.0))
-	fully_visible_pixels.resize(RESOLUTION * RESOLUTION)
-	fully_visible_pixels.fill(0)
-	merging_visibility = true
 	var tree_occluders: Array[Vector3] = _collect_tree_occluders()
+	var moving_sources: Array[Vector4] = []
+	var fixed_sources: Array[Vector4] = []
 	for unit: Node in get_tree().get_nodes_in_group("villagers"):
 		if not unit is Node3D or not unit.is_visible_in_tree() or (unit.has_method("is_dead") and unit.is_dead()):
 			continue
 		if not unit.has_method("get_faction") or unit.get_faction() != EnemyData.Faction.SETTLEMENT:
 			continue
-		_reveal_at(unit.global_position, SIGHT_RADIUS, tree_occluders)
+		var point: Vector3 = unit.global_position
+		moving_sources.append(Vector4(point.x, point.y, point.z, SIGHT_RADIUS))
 	for building: Node in get_tree().get_nodes_in_group("buildings"):
 		if not building is Node3D or building is ConstructionSite or building.is_queued_for_deletion() or not building.is_visible_in_tree():
 			continue
 		if building.has_method("get_health") and building.get_health() <= 0.0:
 			continue
 		var radius: float = building.get_sight_radius() if building.has_method("get_sight_radius") else SIGHT_RADIUS
-		_reveal_at(building.global_position, radius, tree_occluders)
+		var point: Vector3 = building.global_position
+		fixed_sources.append(Vector4(point.x, point.y, point.z, radius))
 	for camp: Node in get_tree().get_nodes_in_group("treasure_camps"):
 		if camp is TreasureCamp and camp.cleared and not camp.is_queued_for_deletion():
-			_reveal_at(camp.global_position, SIGHT_RADIUS, tree_occluders)
-	merging_visibility = false
-	_reveal_visible_tree_canopies()
-	mask_texture.update(visual_map)
+			var point: Vector3 = camp.global_position
+			fixed_sources.append(Vector4(point.x, point.y, point.z, SIGHT_RADIUS))
+	# 树冠高度和缩放影响画面修补，即使遮挡轮廓未变化也需要更新。
+	var tree_visuals: Array[Transform3D] = []
+	for tree: Node in get_tree().get_nodes_in_group("resources"):
+		if tree.get_script() != TREE_SCRIPT or tree.is_queued_for_deletion():
+			continue
+		var visual: Node3D = tree.get_node_or_null("meshs") as Node3D
+		if visual != null:
+			tree_visuals.append(visual.global_transform)
+	var fixed_inputs: Array = [extent, visibility_multiplier, fixed_sources, tree_occluders]
+	var inputs: Array = [fixed_inputs, moving_sources, tree_visuals]
+	if inputs != last_visibility_inputs:
+		if fixed_inputs != static_visibility_inputs:
+			visibility_map.fill(Color.BLACK)
+			visual_map.fill(Color(0.0, 1.0, 0.0, 0.0))
+			fully_visible_pixels.resize(RESOLUTION * RESOLUTION)
+			fully_visible_pixels.fill(0)
+			merging_visibility = true
+			for source: Vector4 in fixed_sources:
+				_reveal_at(Vector3(source.x, source.y, source.z), source.w, tree_occluders)
+			static_visual_map = visual_map.duplicate()
+			static_fully_visible_pixels = fully_visible_pixels.duplicate()
+			static_visible_pixels.clear()
+			var fixed_pixels: PackedByteArray = visibility_map.get_data()
+			for index: int in range(fixed_pixels.size()):
+				if fixed_pixels[index] == 255:
+					static_visible_pixels.append(index)
+			static_visibility_inputs = fixed_inputs
+		var pixels: PackedByteArray = explored.get_data()
+		for index: int in static_visible_pixels:
+			pixels[index] = 255
+		visibility_map.set_data(RESOLUTION, RESOLUTION, false, Image.FORMAT_L8, pixels)
+		visual_map.copy_from(static_visual_map)
+		fully_visible_pixels = static_fully_visible_pixels.duplicate()
+		merging_visibility = true
+		for source: Vector4 in moving_sources:
+			_reveal_at(Vector3(source.x, source.y, source.z), source.w, tree_occluders)
+		merging_visibility = false
+		_reveal_visible_tree_canopies()
+		mask_texture.update(visual_map)
+		last_visibility_inputs = inputs
+	_refresh_object_visibility()
+
+
+func _refresh_object_visibility() -> void:
 	for group: String in ["enemies", "migrants", "resources", "buildings", "villagers", "vegetation", "treasure_camps", "wildlife", "loot_bundles"]:
 		for object: Node in get_tree().get_nodes_in_group(group):
 			if not object is Node3D or object.is_queued_for_deletion():

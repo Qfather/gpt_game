@@ -71,6 +71,7 @@ const TASK_DISPLAY_NAMES: PackedStringArray = ["运输建造材料", "建筑施�
 func _ready():
 
 	super._ready()
+	unit_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	remove_button.pressed.connect(_on_remove_pressed)
 	_configure_needs_bars()
 
@@ -94,8 +95,9 @@ func refresh():
 	# 基础状态
 	# ========================================================
 
-	var display_name: String = villager.get_display_name() if villager.has_method("get_display_name") else String(villager.name)
-	unit_name.text = "%s  #%d" % [display_name, villager.get_instance_id()]
+	var display_name: String = villager.get_named_display_name() if villager.has_method("get_named_display_name") else String(villager.name)
+	unit_name.text = villager.character_name if not villager.character_name.is_empty() else display_name
+	unit_name.tooltip_text = display_name
 	health_label.text = (
 		"生命："
 		+ str(round(current_unit.get_health()))

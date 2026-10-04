@@ -18,6 +18,12 @@ func _run() -> void:
 	root.add_child(grid)
 	var tree: ResourceBase = load("res://Scene/resource/tree.tscn").instantiate() as ResourceBase
 	root.add_child(tree)
+	tree.position = Vector3(1.4, 0, 1.4)
+	_expect(grid.is_area_free(Vector2i.ZERO, Vector2i.ONE), "树木圆形边缘未碰到建筑，不能因外接矩形角落而阻挡")
+	_expect(grid.occupy_area(Vector2i.ZERO, Vector2i.ONE), "靠近圆形资源的合法预览也必须允许最终摆放")
+	grid.release_area(Vector2i.ZERO, Vector2i.ONE)
+	tree.position = Vector3(1.52, 0, 0.5)
+	_expect(grid.is_area_free(Vector2i.ZERO, Vector2i.ONE), "建筑与树木之间有2厘米间隙时允许摆放")
 	tree.position = Vector3(0.9, 0, 0.9)
 	_expect(not grid.is_area_free(Vector2i.ZERO, Vector2i.ONE), "树木没有阻挡预览合法性")
 	_expect(not grid.occupy_area(Vector2i.ZERO, Vector2i.ONE), "最终占地没有拦截资源重叠")
@@ -41,6 +47,18 @@ func _run() -> void:
 	_expect(grid.is_area_free(Vector2i(1, 1), Vector2i(2, 4)), "未旋转建筑错误阻挡")
 	_expect(not grid.is_area_free(Vector2i(1, 1), Vector2i(2, 4), 1), "旋转建筑遗漏资源重叠")
 	stone.gather(stone.resource_amount)
+	await process_frame
+	var rotated_stone: ResourceBase = load("res://Scene/resource/stone.tscn").instantiate()
+	root.add_child(rotated_stone)
+	var shape := BoxShape3D.new()
+	shape.size = Vector3.ONE
+	rotated_stone.get_node("StaticBody3D/CollisionShape3D").shape = shape
+	rotated_stone.position = Vector3(1.65, 0, 1.65)
+	rotated_stone.rotation.y = PI / 4
+	_expect(grid.is_area_free(Vector2i.ZERO, Vector2i.ONE), "旋转石头的外接矩形角落不应阻挡没有重叠的建筑")
+	rotated_stone.position = Vector3(1.2, 0, 1.2)
+	_expect(not grid.is_area_free(Vector2i.ZERO, Vector2i.ONE), "旋转石头真实边缘重叠仍禁止摆放")
+	rotated_stone.queue_free()
 	await process_frame
 	_expect(grid.occupy_area(Vector2i(1, 1), Vector2i(2, 4), 1), "石头采完后仍无法最终放置")
 	grid.free()

@@ -424,9 +424,9 @@ func _horizontal_distance(a: Vector3, b: Vector3) -> float:
 	return Vector2(a.x, a.z).distance_to(Vector2(b.x, b.z))
 
 
-func _get_mouse_world_position(camera: Camera3D) -> Vector3:
+func _get_mouse_world_position(camera: Camera3D, screen_position: Vector2 = Vector2.INF) -> Vector3:
 
-	var mouse_position := get_viewport().get_mouse_position()
+	var mouse_position: Vector2 = get_viewport().get_mouse_position() if screen_position == Vector2.INF else screen_position
 	var ray_origin := camera.project_ray_origin(mouse_position)
 	var ray_direction := camera.project_ray_normal(mouse_position)
 

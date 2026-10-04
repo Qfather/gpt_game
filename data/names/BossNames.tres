@@ -1,0 +1,9 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://Script/unit/name_pool.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+display_name = "BOSS名称"
+mode = 1
+full_names = PackedStringArray("裂隙之主", "噬骨暴君", "深渊织母", "焚城魔王", "血牙统领", "枯骨君王", "永夜领主", "灾厄之眼")

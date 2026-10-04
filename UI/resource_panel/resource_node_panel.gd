@@ -38,6 +38,8 @@ func refresh() -> void:
 		if current_resource.is_reserved()
 		else "预约状态：未预约"
 	)
+	if not current_resource.is_mature():
+		reserved_label.text = "生长中：%d%%（成熟后可采集）" % floori(current_resource.growth_progress * 100.0)
 func _process(_delta: float) -> void:
 	if visible:
 		refresh()

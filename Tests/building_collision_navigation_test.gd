@@ -25,6 +25,9 @@ func _run() -> void:
 	worker.set_physics_process(false)
 	worker.position = Vector3(-5,0,0)
 	assert(house.has_node("StaticBody3D/CollisionShape3D") and house.is_in_group("navigation_solid_buildings"))
+	var solid: CollisionShape3D = house.get_node("StaticBody3D/CollisionShape3D")
+	var click: CollisionShape3D = house.get_node("ClickArea/CollisionShape3D")
+	assert(is_equal_approx(solid.scale.x, 0.85) and is_equal_approx(click.scale.x, 1.0))
 	var mesh: NavigationMesh = runtime._new_navigation_mesh()
 	NavigationServer3D.bake_from_source_geometry_data(mesh, runtime._navigation_geometry())
 	region.navigation_mesh = mesh
@@ -46,7 +49,7 @@ func _run() -> void:
 		assert(absf(worker.position.x) >= 1.0 or absf(worker.position.z) >= 1.0)
 		if worker.position.distance_to(Vector3(5,0,0)) < 1.6: break
 		await physics_frame
-	assert(worker.position.distance_to(Vector3(5,0,0)) < 1.6 and maximum_detour > 1.5)
+	assert(worker.position.distance_to(Vector3(5,0,0)) < 1.6 and maximum_detour > 1.3)
 	worker.set_combat_role(CombatRole.Type.SWORDSMAN)
 	var enemy: EnemyBase = load("res://Scene/unit/enemy_base.tscn").instantiate()
 	world.add_child(enemy)
@@ -62,7 +65,7 @@ func _run() -> void:
 		assert(absf(worker.position.x) >= 1.0 or absf(worker.position.z) >= 1.0)
 		if worker.position.distance_to(enemy.position) <= 1.6: break
 		await physics_frame
-	assert(worker.position.distance_to(enemy.position) <= 1.6 and maximum_detour > 1.5)
+	assert(worker.position.distance_to(enemy.position) <= 1.6 and maximum_detour > 1.3)
 	worker.set_combat_role(CombatRole.Type.NONE)
 	enemy.queue_free()
 	var revision: int = runtime.navigation_revision
@@ -75,6 +78,32 @@ func _run() -> void:
 	var path: PackedVector3Array = NavigationServer3D.map_get_path(region.get_navigation_map(), Vector3(-5,0,0),Vector3(5,0,0),true)
 	assert(path.size() >= 2)
 	for point: Vector3 in path: assert(absf(point.z) < 0.1)
+	# 生长资源同时从导航障碍中移除，成熟后才恢复绕行。
+	var resources := Node3D.new()
+	resources.name = "GeneratedResources"
+	runtime.add_child(resources)
+	var tree: ResourceBase = load("res://Scene/resource/tree.tscn").instantiate()
+	tree.growth_duration = 1.0
+	resources.add_child(tree)
+	tree.position = Vector3(0,0,6)
+	tree.set_process(false)
+	mesh = runtime._new_navigation_mesh()
+	NavigationServer3D.bake_from_source_geometry_data(mesh, runtime._navigation_geometry())
+	region.navigation_mesh = mesh
+	for frame in range(10): await physics_frame
+	path = NavigationServer3D.map_get_path(region.get_navigation_map(), Vector3(-5,0,6), Vector3(5,0,6), true)
+	assert(path.size() >= 2)
+	for point: Vector3 in path: assert(absf(point.z - 6.0) < 0.1)
+	tree._process(1.0)
+	mesh = runtime._new_navigation_mesh()
+	NavigationServer3D.bake_from_source_geometry_data(mesh, runtime._navigation_geometry())
+	region.navigation_mesh = mesh
+	for frame in range(10): await physics_frame
+	path = NavigationServer3D.map_get_path(region.get_navigation_map(), Vector3(-5,0,6), Vector3(5,0,6), true)
+	var resource_detour: float = 0.0
+	for point: Vector3 in path: resource_detour = maxf(resource_detour, absf(point.z - 6.0))
+	assert(resource_detour > 0.5)
+	tree.queue_free()
 	# 全建筑碰撞与功能区域：农场只挡工具屋，城门保留通道。
 	for id: String in ["base", "lumber_camp", "quarry", "hunter_hut", "swordsman_camp", "archer_camp", "barracks", "arrow_tower", "torch", "farm", "wall", "gate"]:
 		var scene_path: String = "res://Scene/building/base.tscn" if id == "base" else "res://Scene/building/game/%s.tscn" % id

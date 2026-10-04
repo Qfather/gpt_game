@@ -44,6 +44,8 @@ func _enter_tree() -> void:
 
 var world_object_clicked: bool = false
 var selected_object: Node3D = null
+var road_manager: Node
+var road_tool: Node
 var selected_mesh_overlays: Dictionary = {}
 var selection_outline_material: ShaderMaterial
 var selected_building_range: MeshInstance3D
@@ -99,6 +101,13 @@ func _ready():
 	enemy_panel.close_button.pressed.connect(_clear_selection_highlight)
 
 	_apply_level_config()
+	road_manager = preload("res://Script/world/road_manager.gd").new()
+	road_manager.name = "RoadManager"
+	add_child(road_manager)
+	road_tool = preload("res://Script/ui/road_tool.gd").new()
+	road_tool.name = "RoadTool"
+	road_tool.manager = road_manager
+	add_child(road_tool)
 	_spawn_initial_villagers()
 	if level_preset != null and level_preset.wildlife_config != null:
 		var wildlife := Node3D.new()
@@ -424,6 +433,7 @@ func _on_resource_building_clicked(building):
 
 
 func _on_building_move_requested(building: BuildingBase) -> void:
+	road_tool.close()
 	_cancel_enemy_placement()
 	clear_selection()
 	building_ghost.select_moving_building(building)

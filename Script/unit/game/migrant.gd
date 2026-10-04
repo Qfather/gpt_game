@@ -9,8 +9,15 @@ signal arrived(migrant: Node3D, base: Node3D)
 
 var target_base: Node3D
 var resident_traits: Array[UnitTrait] = []
+var character_name: String = ""
 var _arrival_notified: bool = false
 var _navigation_target_ready: bool = false
+
+
+func _ready() -> void:
+	var names = preload("res://Script/unit/character_names.gd")
+	var data = preload("res://data/units/ResidentData.tres")
+	character_name = names.assign(self, names.HUMAN_POOL, data.fixed_name)
 
 
 func setup(base: Node3D) -> void:

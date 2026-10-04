@@ -15,6 +15,7 @@ const PARAMETERS: Dictionary = {
 @export_category("单位标识与外观")
 @export var id: StringName
 @export var display_name: String = ""
+@export var fixed_name: String = ""
 @export_multiline var description: String = ""
 @export var visual_scene: PackedScene
 @export var visual_tint: Color = Color.WHITE

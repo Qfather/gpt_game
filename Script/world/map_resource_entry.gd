@@ -30,6 +30,16 @@ extends Resource
 @export var cliff_foot_bonus: float = 1.0
 @export var cliff_top_bonus: float = 0.4
 
+@export_group("生长与再生")
+@export var regrowth_enabled: bool = true
+@export_enum("原地再生", "簇内随机再生") var regrowth_mode: int = 1
+@export_range(0, 3600, 1) var regrowth_wait_min: float = 60.0
+@export_range(0, 3600, 1) var regrowth_wait_max: float = 60.0
+@export_range(0.1, 3600, 1) var growth_time_min: float = 180.0
+@export_range(0.1, 3600, 1) var growth_time_max: float = 300.0
+@export_range(0.1, 5, 0.05) var mature_scale_min: float = 0.5
+@export_range(0.1, 5, 0.05) var mature_scale_max: float = 1.5
+
 
 func migrate_spacing() -> void:
 	if spacing_version >= 1 or scene == null:
@@ -56,6 +66,12 @@ func validation_error() -> String:
 		return "据点附近最大距离不能小于最小距离"
 	if minimum_spacing < 0 or cluster_radius <= 0 or cluster_size < 1 or count < 0:
 		return "间距、半径、簇数量或总数量无效"
+	if regrowth_wait_min < 0 or regrowth_wait_max < regrowth_wait_min:
+		return "再生等待时间范围无效"
+	if growth_time_min <= 0 or growth_time_max < growth_time_min:
+		return "生长时间范围无效"
+	if mature_scale_min <= 0 or mature_scale_max < mature_scale_min:
+		return "成熟缩放范围无效"
 	return ""
 
 

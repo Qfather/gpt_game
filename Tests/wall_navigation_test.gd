@@ -35,7 +35,8 @@ func _run() -> void:
 	var base: Node3D = get_first_node_in_group("bases") as Node3D
 	var center: Vector3 = base.global_position + Vector3(0, 0, -3)
 	var start: Vector3 = center + Vector3(0, 0, -3)
-	var finish: Vector3 = center + Vector3(0, 0, 3)
+	# 终点放在据点旁的可行走位置，不能放进据点实体碰撞内。
+	var finish: Vector3 = center + Vector3(2, 0, 3)
 	var revision: int = runtime.navigation_revision
 	var wall: Wall = load("res://Scene/building/game/wall.tscn").instantiate() as Wall
 	scene.add_child(wall)
@@ -82,6 +83,7 @@ func _run() -> void:
 		if Vector2(enemy.global_position.x - finish.x, enemy.global_position.z - finish.z).length() < 1.0:
 			break
 	_expect(Vector2(enemy.global_position.x - finish.x, enemy.global_position.z - finish.z).length() < 1.0, "敌人未实际绕墙抵达")
+	_expect(wall.get_health() == wall.get_max_health(), "存在可绕行路径时不应攻击城墙")
 	enemy.queue_free()
 	target.queue_free()
 	revision = runtime.navigation_revision

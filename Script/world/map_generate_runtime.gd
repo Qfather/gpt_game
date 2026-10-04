@@ -42,6 +42,9 @@ var _terrain_demo: Node
 var _resource_points: Array[Vector3] = []
 var _resource_rng := RandomNumberGenerator.new()
 var _visual_rng := RandomNumberGenerator.new()
+var _regrowth_rng := RandomNumberGenerator.new()
+var _regrowth_centers: Array[Vector3] = []
+var _pending_regrowth: Array[Dictionary] = []
 # 地图格 -> Vector2(树木权重, 石头权重)。
 var _resource_terrain_weights: Dictionary = {}
 var _cliff_foot_distances: Dictionary = {}
@@ -56,6 +59,7 @@ var navigation_revision: int = 0
 
 
 func _ready() -> void:
+	set_process(false)
 	var started: int = Time.get_ticks_msec()
 	add_to_group("map_generate_runtime")
 	if level_config == null:
@@ -69,6 +73,7 @@ func _ready() -> void:
 		_resource_rng.seed = settlement_seed
 	print("据点资源布局种子：", _resource_rng.seed)
 	_visual_rng.seed = _resource_rng.seed
+	_regrowth_rng.seed = _resource_rng.seed
 	map_data = level_config.generate_map()
 	generation_timings_ms["地形数据"] = Time.get_ticks_msec() - started
 	if map_data == null:
@@ -213,6 +218,7 @@ func _spawn_resources() -> void:
 			_spawn_resource_type(resource_root, suitable, entry.scene, nearby, entry.cluster_size, base, true)
 			_spawn_resource_type(resource_root, suitable, entry.scene, entry.count - nearby, entry.cluster_size, base, false)
 	_active_resource = null
+	_regrowth_centers.clear()
 
 
 func _build_resource_passages() -> void:
@@ -282,7 +288,7 @@ func _prepare_resource_spec(entry: MapResourceEntry) -> bool:
 func _geometry(scene: PackedScene, position: Vector3, yaw: float) -> Dictionary:
 	var center := Vector2(position.x, position.z)
 	var spec: Vector2 = _resource_specs[scene]
-	return {"center": center, "radius": spec.y, "circle": _scene_circles[scene], "outline": ResourceSpacing.transformed(_scene_outlines[scene], center, yaw)}
+	return {"center": center, "height": position.y, "radius": spec.y, "circle": _scene_circles[scene], "outline": ResourceSpacing.transformed(_scene_outlines[scene], center, yaw)}
 
 
 func _edge_gap(a: Dictionary, b: Dictionary) -> float:
@@ -432,6 +438,7 @@ func _spawn_forest(root: Node3D, available: Array[Vector2i], base: Node3D) -> vo
 
 
 func _grow_forest(root: Node3D, available: Array[Vector2i], base: Node3D, grove_centers: Array[Vector3], noise: FastNoiseLite, count: int) -> void:
+	_regrowth_centers = grove_centers
 	var candidates: Array[Vector2i] = available.duplicate()
 	# 格子中心的密度与地形权重在本次生成中不变，只计算一次。
 	var cell_weights: Dictionary = {}
@@ -515,10 +522,12 @@ func _spawn_resource_type(root: Node3D, available: Array[Vector2i], scene: Packe
 		var center_index: int = _pick_resource_cell(centers)
 		var center: Vector2i = centers[center_index]
 		centers.remove_at(center_index)
+		_regrowth_centers = [_cell_world_position(center)]
 		if not _try_place_resource(root, scene, center, base):
 			continue
 		spawned += 1
 		var members: Array[Vector3] = [_resource_points.back()]
+		_regrowth_centers = [members[0]]
 		for other: Vector2i in centers.duplicate():
 			if _horizontal_distance(_cell_world_position(other), members[0]) < _active_resource.cluster_separation:
 				centers.erase(other)
@@ -551,7 +560,7 @@ func _try_place_resource(root: Node3D, scene: PackedScene, cell: Vector2i, base:
 	return _place_resource_at(root, scene, position, base)
 
 
-func _place_resource_at(root: Node3D, scene: PackedScene, position: Vector3, base: Node3D, yaw: float = NAN) -> bool:
+func _place_resource_at(root: Node3D, scene: PackedScene, position: Vector3, base: Node3D, yaw: float = NAN, regrowth: Dictionary = {}) -> bool:
 	if not _resource_specs.has(scene):
 		return false
 	var spec: Vector2 = _resource_specs[scene]
@@ -570,6 +579,8 @@ func _place_resource_at(root: Node3D, scene: PackedScene, position: Vector3, bas
 		yaw = _resource_rng.randf_range(0.0, TAU)
 	var spacing: float = _active_resource.minimum_spacing if _active_resource != null else 0.0
 	var geometry: Dictionary = _geometry(scene, position, yaw)
+	if not regrowth.is_empty() and _overlaps_regrowth_building(geometry):
+		return false
 	for other: Vector3 in _resource_points:
 		var required: float = maxf(spacing, float(_point_spacings[other])) + 0.0001
 		var previous: Dictionary = _point_geometry[other]
@@ -580,6 +591,11 @@ func _place_resource_at(root: Node3D, scene: PackedScene, position: Vector3, bas
 	var instance: Node3D = scene.instantiate() as Node3D
 	if instance is ResourceBase:
 		(instance as ResourceBase).visual_seed = _visual_rng.randi()
+		if _active_resource != null:
+			instance.visual_scale_min = _active_resource.mature_scale_min
+			instance.visual_scale_max = _active_resource.mature_scale_max
+		if not regrowth.is_empty():
+			instance.growth_duration = _regrowth_rng.randf_range(_active_resource.growth_time_min, _active_resource.growth_time_max)
 	root.add_child(instance)
 	instance.global_position = position
 	instance.rotation.y = yaw
@@ -587,7 +603,89 @@ func _place_resource_at(root: Node3D, scene: PackedScene, position: Vector3, bas
 	_point_spacings[position] = spacing
 	_point_geometry[position] = geometry
 	instance.tree_exiting.connect(_on_resource_removed.bind(position))
+	if _active_resource != null and _active_resource.regrowth_enabled:
+		var slot: Dictionary = regrowth
+		if slot.is_empty():
+			var center: Vector3 = position
+			var nearest: float = _active_resource.cluster_radius
+			for candidate: Vector3 in _regrowth_centers:
+				var distance: float = _horizontal_distance(position, candidate)
+				if distance <= nearest:
+					nearest = distance
+					center = Vector3(candidate.x, position.y, candidate.z)
+			slot = {"entry": _active_resource, "center": center, "original": position}
+		instance.tree_exiting.connect(_queue_resource_regrowth.bind(slot))
+	if not regrowth.is_empty(): request_navigation_update()
 	return true
+
+
+func _queue_resource_regrowth(slot: Dictionary) -> void:
+	if is_queued_for_deletion() or not is_inside_tree() or not slot.entry.regrowth_enabled:
+		return
+	slot["wait"] = _regrowth_rng.randf_range(slot.entry.regrowth_wait_min, slot.entry.regrowth_wait_max)
+	_pending_regrowth.append(slot)
+	set_process(true)
+
+
+func _process(delta: float) -> void:
+	var attempts: int = 0
+	for index: int in range(_pending_regrowth.size() - 1, -1, -1):
+		var slot: Dictionary = _pending_regrowth[index]
+		slot.wait -= delta
+		if slot.wait > 0.0 or attempts >= 2:
+			continue
+		attempts += 1
+		if _try_regrow_resource(slot):
+			_pending_regrowth.remove_at(index)
+		else:
+			slot.wait = 5.0
+	if _pending_regrowth.is_empty(): set_process(false)
+
+
+func _try_regrow_resource(slot: Dictionary) -> bool:
+	var entry: MapResourceEntry = slot.entry
+	if not entry.regrowth_enabled:
+		return true
+	var resource_root: Node3D = get_node("GeneratedResources")
+	var base: Node3D = get_tree().get_first_node_in_group("bases") as Node3D
+	_active_resource = entry
+	var placed: bool = false
+	for attempt: int in range(16 if entry.regrowth_mode == 1 else 1):
+		var position: Vector3 = slot.original
+		if entry.regrowth_mode == 1:
+			var angle: float = _regrowth_rng.randf_range(0.0, TAU)
+			var radius: float = sqrt(_regrowth_rng.randf()) * entry.cluster_radius
+			position = slot.center + Vector3(cos(angle), 0.0, sin(angle)) * radius
+		var yaw: float = _regrowth_rng.randf_range(0.0, TAU)
+		if _place_resource_at(resource_root, entry.scene, position, base, yaw, slot):
+			placed = true
+			break
+	_active_resource = null
+	return placed
+
+
+func _overlaps_regrowth_building(geometry: Dictionary) -> bool:
+	var roads: Node = get_tree().get_first_node_in_group("road_manager")
+	if roads != null and roads.overlaps_resource(geometry): return true
+	for node: Node in get_tree().get_nodes_in_group("buildings"):
+		if not is_instance_valid(node) or node.is_queued_for_deletion() or not node is BuildingBase:
+			continue
+		var bounds: AABB
+		var transform: Transform3D = node.global_transform
+		if node.building_data != null:
+			var size := Vector3(node.building_data.grid_size.x, 1.0, node.building_data.grid_size.y)
+			bounds = AABB(-size * 0.5, size)
+		else:
+			var collision: CollisionShape3D = node.get_node_or_null("ClickArea/CollisionShape3D")
+			if collision == null or collision.shape == null: continue
+			bounds = collision.shape.get_debug_mesh().get_aabb()
+			transform = collision.global_transform
+		if absf(node.global_position.y - float(geometry.height)) > 1.0:
+			continue
+		var footprint: PackedVector2Array = ResourceSpacing.projected_box(bounds, transform)
+		var gap: float = ResourceSpacing.circle_gap(geometry.center, geometry.radius, footprint) if geometry.circle else ResourceSpacing.gap(geometry.outline, footprint)
+		if gap <= 0.05: return true
+	return false
 
 
 func _horizontal_distance(a: Vector3, b: Vector3) -> float:
@@ -639,6 +737,9 @@ func _navigation_geometry() -> NavigationMeshSourceGeometryData3D:
 		obstacles.append_array(resources.get_children())
 	for resource: Node in obstacles:
 		if resource.is_queued_for_deletion():
+			continue
+		var body: StaticBody3D = resource.get_node_or_null("StaticBody3D") as StaticBody3D
+		if resource is ResourceBase and body != null and (body.collision_layer & 1) == 0:
 			continue
 		var collision: CollisionShape3D = resource.get_node_or_null("StaticBody3D/CollisionShape3D") as CollisionShape3D
 		if collision == null or collision.shape == null or collision.disabled:

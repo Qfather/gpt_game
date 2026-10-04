@@ -97,7 +97,7 @@ func _process(delta: float) -> void:
 func has_gatherable_resources() -> bool:
 	for resource: Node in get_tree().get_nodes_in_group("resources"):
 		if resource is ResourceBase and not resource.is_queued_for_deletion():
-			if resource.get_resource_id() == production_resource_id and resource.resource_amount > 0 and is_position_in_work_range(resource.global_position):
+			if resource.get_resource_id() == production_resource_id and resource.can_gather() and is_position_in_work_range(resource.global_position):
 				return true
 	return false
 

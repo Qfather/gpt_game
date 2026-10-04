@@ -5,6 +5,7 @@ extends Resource
 @export_category("敌人标识")
 @export var id: StringName = &""
 @export var display_name: String = ""
+@export var fixed_name: String = ""
 @export var visual_scene: PackedScene
 @export var visual_tint: Color = Color.WHITE
 @export var abilities: Array[Resource] = []

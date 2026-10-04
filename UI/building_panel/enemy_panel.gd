@@ -3,7 +3,7 @@ extends BuildingPanelBase
 
 
 @onready var enemy_type_label: Label = %EnemyTypeLabel
-@onready var health_label: Label = %HealthLabel
+@onready var health_label: Label = %EnemyHealthLabel
 @onready var damage_label: Label = %DamageLabel
 @onready var movement_label: Label = %MovementLabel
 @onready var combat_range_label: Label = %CombatRangeLabel
@@ -12,6 +12,7 @@ extends BuildingPanelBase
 
 func _ready() -> void:
 	super._ready()
+	building_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 
 func refresh() -> void:
@@ -23,7 +24,8 @@ func refresh() -> void:
 		close_panel_immediately()
 		return
 
-	building_name.text = enemy.get_display_name()
+	building_name.text = enemy.character_name if not enemy.character_name.is_empty() else enemy.get_display_name()
+	building_name.tooltip_text = enemy.get_named_display_name()
 	enemy_type_label.text = "敌人 ID：%s" % str(enemy.get_enemy_id())
 	health_label.text = "生命：%.0f / %.0f" % [
 		enemy.current_health,

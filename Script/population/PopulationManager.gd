@@ -458,6 +458,7 @@ func _on_migrant_arrived(migrant: Node3D, base: Node3D) -> void:
 		villager_container = get_tree().current_scene
 
 	var villager: Node3D = VILLAGER_SCENE.instantiate() as Node3D
+	villager.character_name = migrant.character_name
 	for entry: UnitTrait in migrant.resident_traits:
 		villager.traits.append(entry.duplicate(true))
 	villager_container.add_child(villager)

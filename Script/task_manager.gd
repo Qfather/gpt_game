@@ -410,9 +410,11 @@ func create_construction_build_tasks(
 			or existing_task.state == GameTask.State.CLAIMED
 			or existing_task.state == GameTask.State.IN_PROGRESS
 		):
-			var assigned_worker: Node = existing_task.data.get("preferred_worker") as Node
+			var assigned_worker: Variant = existing_task.data.get("preferred_worker")
 			if is_instance_valid(assigned_worker):
 				assigned_workers.append(assigned_worker)
+			else:
+				existing_task.data["preferred_worker"] = null
 
 	var worker_index: int = 0
 	while active_count < max_workers:
@@ -448,7 +450,10 @@ func claim_task(task: GameTask, worker: Node) -> bool:
 	if worker == null or not worker.has_method("can_take_task"):
 		return false
 
-	var preferred_worker: Node = task.data.get("preferred_worker") as Node
+	var preferred_worker: Variant = task.data.get("preferred_worker")
+	if not is_instance_valid(preferred_worker):
+		task.data["preferred_worker"] = null
+		preferred_worker = null
 	if is_instance_valid(preferred_worker) and preferred_worker != worker:
 		return false
 

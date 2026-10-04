@@ -109,8 +109,11 @@ func _overlaps_resource(grid_position: Vector2i, area_size: Vector2i, rotation_s
 		var bounds: AABB = resource.get_build_obstacle_bounds()
 		if bounds.size == Vector3.ZERO:
 			continue
-		var obstacle := Rect2(Vector2(bounds.position.x, bounds.position.z), Vector2(bounds.size.x, bounds.size.z))
-		if footprint.intersects(obstacle.grow(0.05)):
+		var building_bounds := AABB(
+			Vector3(footprint.position.x, bounds.position.y, footprint.position.y),
+			Vector3(footprint.size.x, bounds.size.y, footprint.size.y)
+		)
+		if resource.overlaps_clearance_box(building_bounds, Transform3D.IDENTITY):
 			return true
 	return false
 

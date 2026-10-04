@@ -88,6 +88,12 @@ func _setup_solid_collision() -> void:
 		collision.shape = click_shape.shape
 		body.add_child(collision)
 		collision.transform = click_shape.transform
+	# 点击范围保持不变，实体只阻挡主体，给屋檐和外缘留出通行余量。
+	if not self is Wall:
+		for child: Node in body.get_children():
+			if child is CollisionShape3D:
+				child.scale.x *= 0.85
+				child.scale.z *= 0.85
 	add_to_group("navigation_solid_buildings")
 	tree_exiting.connect(_request_navigation_update)
 	# 建造系统在 add_child 后才设置最终位置和旋转。
@@ -248,6 +254,9 @@ func _queue_repair(_health: float = 0.0, _maximum: float = 0.0) -> void:
 
 
 func repair(amount: float) -> float:
+	var durability: BuildingDurability = get_node_or_null("BuildingDurability") as BuildingDurability
+	if durability != null:
+		return durability.repair(amount)
 	if is_destroyed() or amount <= 0.0:
 		return 0.0
 	var restored: float = minf(amount, max_health - current_health)

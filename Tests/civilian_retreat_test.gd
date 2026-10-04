@@ -49,9 +49,10 @@ func _run() -> void:
 	NavigationServer3D.bake_from_source_geometry_data(mesh, runtime._navigation_geometry())
 	region.navigation_mesh = mesh
 	for i in range(12): await physics_frame
-	# 未受伤居民不因看见敌人逃跑。
+	# 未受伤居民也会因发现危险主动撤退。
 	enemy.position = resident.position + Vector3(2,0,0)
-	assert(not resident._process_civilian_retreat(0.016))
+	assert(resident._process_civilian_retreat(0.016) and resident.state == resident.State.RETREAT_TO_BASE)
+	resident.state = resident.State.IDLE
 	var task := GameTask.new(&"retreat_loot", GameTask.TaskType.PICKUP_LOOT)
 	task.target = enemy
 	manager.register_task(task)

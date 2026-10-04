@@ -27,6 +27,12 @@ func get_resource_id() -> StringName:
 @export var visual_scale_min: float = 1.0
 @export var visual_scale_max: float = 1.0
 var visual_seed: int = -1
+var growth_duration: float = 0.0
+var growth_progress: float = 1.0
+var _growth_elapsed: float = 0.0
+var _mature_visual_scale: Vector3 = Vector3.ONE
+var _collision_restore_timer: float = 0.0
+var _mature_collision_layer: int = 1
 
 
 # ============================================================
@@ -121,6 +127,13 @@ func get_gather_position(from: Vector3, navigation_map: RID) -> Vector3:
 func _ready():
 	add_to_group("resources")
 	_randomize_visual()
+	var visual: Node3D = get_node_or_null("meshs") as Node3D
+	if visual != null:
+		_mature_visual_scale = visual.scale
+	if growth_duration > 0.0:
+		growth_progress = 0.0
+		if visual != null: visual.scale = Vector3.ZERO
+	set_process(growth_duration > 0.0)
 
 	resource_amount = randi_range(
 		min_amount,
@@ -129,9 +142,46 @@ func _ready():
 
 	var click_body: CollisionObject3D = get_node_or_null("StaticBody3D")
 	if click_body != null:
+		_mature_collision_layer = click_body.collision_layer
+		if growth_duration > 0.0:
+			# 保留鼠标拾取，幼苗不参与单位使用的环境碰撞层。
+			click_body.collision_layer = 4
 		click_body.process_mode = Node.PROCESS_MODE_ALWAYS
 		click_body.input_event.connect(_on_click_body_input_event)
 	call_deferred("_register_with_main")
+
+
+func _process(delta: float) -> void:
+	_growth_elapsed += delta
+	growth_progress = minf(_growth_elapsed / growth_duration, 1.0)
+	var visual: Node3D = get_node_or_null("meshs") as Node3D
+	if visual != null: visual.scale = _mature_visual_scale * growth_progress
+	if is_mature():
+		_collision_restore_timer -= delta
+		if _collision_restore_timer > 0.0:
+			return
+		_collision_restore_timer = 0.5
+		var collision: CollisionShape3D = get_node_or_null("StaticBody3D/CollisionShape3D") as CollisionShape3D
+		if collision != null:
+			var query := PhysicsShapeQueryParameters3D.new()
+			query.shape = collision.shape
+			query.transform = collision.global_transform
+			query.collision_mask = 2
+			if not get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty():
+				return
+		var body: StaticBody3D = get_node_or_null("StaticBody3D") as StaticBody3D
+		if body != null:
+			body.collision_layer = _mature_collision_layer
+		get_tree().call_group("map_generate_runtime", "request_navigation_update")
+		set_process(false)
+
+
+func is_mature() -> bool:
+	return growth_progress >= 1.0
+
+
+func can_gather() -> bool:
+	return is_mature() and resource_amount > 0 and not is_queued_for_deletion()
 
 
 func _randomize_visual() -> void:
@@ -194,7 +244,7 @@ func is_reserved() -> bool:
 
 func reserve(worker: Node) -> bool:
 
-	if is_reserved():
+	if not can_gather() or is_reserved():
 		return false
 
 	reserved_by = worker
@@ -212,6 +262,8 @@ func release(worker: Node):
 # ============================================================
 
 func gather(amount: int) -> int:
+	if not can_gather():
+		return 0
 
 	var gathered_amount: int = mini(
 		amount,

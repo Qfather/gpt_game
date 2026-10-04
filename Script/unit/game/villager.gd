@@ -5,6 +5,7 @@ signal unit_clicked(unit: UnitBase)
 const UnitDataResource = preload("res://Script/unit/unit_data.gd")
 
 @export var unit_data: UnitDataResource
+var character_name: String = ""
 const RESIDENT_DATA: UnitDataResource = preload("res://data/units/ResidentData.tres")
 const SWORDSMAN_DATA: UnitDataResource = preload("res://data/units/SwordsmanData.tres")
 const ARCHER_DATA: UnitDataResource = preload("res://data/units/ArcherData.tres")
@@ -143,6 +144,7 @@ var unreachable_state: State = State.IDLE
 var unreachable_warning: bool = false
 var unreachable_marker: Label3D
 var abandoning_work: bool = false
+var workplace_repath_msec: int = 0
 var abandoned_work_target_id: int = 0
 var garrison_resume_state: int = -1
 var garrison_resume_target_position: Vector3 = Vector3.ZERO
@@ -172,8 +174,17 @@ enum Job {
 	HUNTER
 }
 
+const JOB_CLOTHING_COLORS: Dictionary = {
+	Job.LUMBERJACK: Color(0.2, 0.65, 0.3),
+	Job.MINER: Color(0.25, 0.5, 0.9),
+	Job.FARMER: Color(0.95, 0.75, 0.2),
+	Job.HUNTER: Color(0.9, 0.35, 0.15),
+}
+
 @export_category("军事职业")
 @export_enum("无", "剑士", "弓箭手") var combat_role: int = CombatRole.Type.NONE
+var road_navigation = preload("res://Script/unit/road_navigation.gd").new()
+
 @onready var body_mesh: MeshInstance3D = get_node_or_null("MeshInstance3D")
 
 
@@ -205,6 +216,14 @@ func get_display_name() -> String:
 	return unit_data.display_name if unit_data != null else String(name)
 
 
+func get_named_display_name() -> String:
+	return "%s · %s" % [character_name, get_display_name()] if not character_name.is_empty() else get_display_name()
+
+
+func get_move_speed() -> float:
+	return super.get_move_speed() * road_navigation.speed_multiplier(self)
+
+
 func get_combat_role() -> int:
 	return combat_role
 
@@ -229,6 +248,24 @@ func _update_combat_visual() -> void:
 		visual_instance = unit_data.visual_scene.instantiate() as Node3D
 		add_child(visual_instance)
 	_apply_visual_tint(visual_instance if visual_instance != null else body_mesh)
+	_update_work_clothing()
+
+
+func _update_work_clothing() -> void:
+	if not is_instance_valid(visual_instance): return
+	var color: Color = JOB_CLOTHING_COLORS.get(job, Color.WHITE) if not has_combat_role() else Color.WHITE
+	for part: String in ["Body", "Tunic", "LeftArm", "RightArm"]:
+		var mesh: MeshInstance3D = visual_instance.get_node_or_null(part) as MeshInstance3D
+		if mesh == null: continue
+		if not mesh.has_meta("original_clothing_material"):
+			mesh.set_meta("original_clothing_material", mesh.get_active_material(0))
+		var original: Material = mesh.get_meta("original_clothing_material")
+		if color == Color.WHITE:
+			mesh.material_override = original
+		elif original is StandardMaterial3D:
+			var material: StandardMaterial3D = original.duplicate()
+			material.albedo_color = color
+			mesh.material_override = material
 
 
 func _apply_visual_tint(node: Node) -> void:
@@ -632,7 +669,10 @@ func get_job_resource_id() -> StringName:
 
 func get_job_resource_type() -> ResourceType.Type:
 	return ResourceStorage.resource_type_from_id(get_job_resource_id())
-var job: Job = Job.NONE
+var job: Job = Job.NONE:
+	set(value):
+		job = value
+		_update_work_clothing()
 # 当前工作建筑
 var workplace: Node3D = null
 # 当前是否正在执行工作建筑 → Base 的运输任务
@@ -701,6 +741,9 @@ func _ready():
 		unit_data = ARCHER_DATA if combat_role == CombatRole.Type.ARCHER else (SWORDSMAN_DATA if combat_role == CombatRole.Type.SWORDSMAN else RESIDENT_DATA)
 	_apply_unit_parameters()
 	super._ready()
+	if character_name.is_empty():
+		var names = preload("res://Script/unit/character_names.gd")
+		character_name = names.assign(self, names.HUMAN_POOL, unit_data.fixed_name)
 	idle_reposition_timer = randf_range(3.0, 10.0)
 	_update_combat_visual()
 	_create_aggro_range_display()
@@ -1084,7 +1127,7 @@ func _process_combat(delta: float) -> bool:
 		state = State.COMBAT_MOVE
 		if navigation_agent.target_position.distance_squared_to(target_position) > 0.25:
 			navigation_agent.target_position = target_position
-		var next_position: Vector3 = navigation_agent.get_next_path_position()
+		var next_position: Vector3 = road_navigation.next_position(self, navigation_agent)
 		velocity = global_position.direction_to(next_position) * get_move_speed()
 		move_and_slide()
 		return true
@@ -1193,12 +1236,11 @@ func _begin_civilian_retreat() -> void:
 
 
 func _process_civilian_retreat(delta: float) -> bool:
-	if has_combat_role() or is_dead():
+	if has_combat_role() or is_dead() or not is_visible_in_tree():
 		return false
 	var threat: Node3D = null
-	if is_hunter() or state == State.RETREAT_TO_BASE:
-		threat = _find_nearest_hostile()
-	if is_hunter() and threat != null:
+	threat = _find_nearest_hostile()
+	if threat != null:
 		_begin_civilian_retreat()
 	if state != State.RETREAT_TO_BASE:
 		return false
@@ -2322,6 +2364,8 @@ func find_nearest_resource():
 			continue
 		if resource.is_queued_for_deletion():
 			continue
+		if not resource.can_gather():
+			continue
 
 
 		# ----------------------------------------------------
@@ -2879,9 +2923,7 @@ func move_along_navigation():
 		return
 
 
-	var next_position = (
-		navigation_agent.get_next_path_position()
-	)
+	var next_position: Vector3 = road_navigation.next_position(self, navigation_agent)
 
 
 	var direction = (
@@ -2946,6 +2988,7 @@ func _update_patrol_collision_avoidance() -> void:
 
 
 func _repath_current_navigation_target() -> void:
+	road_navigation.invalidate()
 	navigation_stuck_time = 0.0
 	var target_position: Vector3 = navigation_agent.target_position
 	navigation_agent.target_position = global_position
@@ -3370,6 +3413,10 @@ func is_idle() -> bool:
 		and not is_instance_valid(construction_cancellation_target)
 		and carried_amount <= 0.0
 	)
+
+
+func is_idle_resident() -> bool:
+	return not has_combat_role() and is_idle() and state in [State.IDLE, State.RETURN_TO_IDLE] and not is_queued_for_deletion() and get_health() > 0.0
 # ============================================================
 # @feature 根据职业返回正确的待命地点
 # ============================================================
@@ -3503,9 +3550,14 @@ func try_find_available_barracks() -> bool:
 # ============================================================
 func move_to_idle_area():
 
+	var returned_after_abandoning: bool = (
+		abandoning_work and carried_amount <= 0.0 and is_instance_valid(target_base)
+		and Vector2(global_position.x, global_position.z).distance_to(Vector2(target_base.global_position.x, target_base.global_position.z)) <= target_base.idle_radius
+	)
 	var reached_idle_position: bool = (
 		(not abandoning_work and navigation_agent.is_navigation_finished())
 		or global_position.distance_to(navigation_agent.target_position) <= 0.8
+		or returned_after_abandoning
 	)
 	if reached_idle_position:
 
@@ -3532,6 +3584,10 @@ func process_idle_reposition(delta: float) -> void:
 		return
 	idle_reposition_timer -= delta
 	if idle_reposition_timer > 0.0:
+		return
+	if job in [Job.LUMBERJACK, Job.MINER] and is_instance_valid(workplace):
+		state = State.FIND_RESOURCE
+		find_nearest_resource()
 		return
 	if job != Job.NONE and workplace != null:
 		navigation_agent.target_position = get_random_idle_position(
@@ -3694,7 +3750,7 @@ func start_current_job():
 
 func go_to_workplace():
 
-	if workplace == null:
+	if not is_instance_valid(workplace):
 
 		print("❌ 没有工作建筑，无法运送木材")
 
@@ -3703,10 +3759,8 @@ func go_to_workplace():
 		return
 
 
-	var workplace_position: Vector3 = workplace.global_position
-	if workplace.has_method("get_interaction_position"):
-		workplace_position = workplace.get_interaction_position(self)
-	navigation_agent.target_position = workplace_position
+	navigation_agent.target_position = _get_reachable_workplace_position()
+	workplace_repath_msec = Time.get_ticks_msec() + 500
 
 	state = State.MOVE_TO_WORKPLACE
 
@@ -3718,14 +3772,43 @@ func go_to_workplace():
 # 移动到工作建筑
 # ============================================================
 
+func _get_reachable_workplace_position() -> Vector3:
+	var preferred: Vector3 = workplace.get_interaction_position(self)
+	var map: RID = navigation_agent.get_navigation_map()
+	if not map.is_valid() or NavigationServer3D.map_get_iteration_id(map) == 0:
+		return preferred
+	var offset := Vector2(preferred.x - workplace.global_position.x, preferred.z - workplace.global_position.z)
+	for index: int in range(16):
+		var candidate: Vector3 = preferred
+		if index > 0:
+			var direction := Vector2.from_angle(offset.angle() + float(index) * TAU / 16.0) * offset.length()
+			candidate = workplace.global_position + Vector3(direction.x, 0, direction.y)
+		var navigation_point: Vector3 = NavigationServer3D.map_get_closest_point(map, candidate)
+		if navigation_point.distance_to(candidate) > 0.75:
+			continue
+		var path := NavigationServer3D.map_get_path(map, global_position, navigation_point, true)
+		if not path.is_empty() and path[path.size() - 1].distance_to(navigation_point) <= 0.5:
+			if workplace is BuildingBase:
+				workplace.interaction_positions[get_instance_id()] = navigation_point - workplace.global_position
+			return navigation_point
+	return preferred
+
+
 func move_to_workplace():
 
-	if workplace == null:
+	if not is_instance_valid(workplace):
 
 		return_to_idle()
 
 		return
 
+	if (unreachable_warning or (navigation_agent.is_navigation_finished() and not _has_reached_task_site_navigation_target())) and Time.get_ticks_msec() >= workplace_repath_msec:
+		workplace_repath_msec = Time.get_ticks_msec() + 500
+		var approach: Vector3 = _get_reachable_workplace_position()
+		if navigation_agent.target_position.distance_to(approach) > 0.1:
+			navigation_agent.target_position = approach
+			_set_unreachable_warning(false)
+			unreachable_time = 0.0
 
 	if navigation_agent.is_navigation_finished():
 		if not _has_reached_task_site_navigation_target():
@@ -3892,7 +3975,7 @@ func try_transport_workplace_resource(
 	# 先回工作建筑
 	# --------------------------------------------------------
 
-	var pickup_position: Vector3 = workplace.get_interaction_position(self)
+	var pickup_position: Vector3 = _get_reachable_workplace_position()
 	var distance = global_position.distance_to(pickup_position)
 
 

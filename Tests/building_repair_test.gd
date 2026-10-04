@@ -55,6 +55,28 @@ func _run() -> void:
 	assert(is_equal_approx(house.get_health(), house.get_max_health()))
 	assert(is_equal_approx(storage.get_amount(&"wood"), before - 20))
 	assert(task.state == GameTask.State.COMPLETED and worker.current_task == null)
+	# 城墙／城门使用独立耐久组件，居民维修也必须增加实际血量。
+	storage.add(&"stone", 100)
+	for id: String in ["Wall", "Gate"]:
+		var building: BuildingBase = load("res://Scene/building/game/%s.tscn" % id.to_lower()).instantiate()
+		building.building_data = load("res://data/buildings/%sData.tres" % id).duplicate(true)
+		world.add_child(building)
+		building.position = Vector3(-4,0,0)
+		building.take_damage(51)
+		var repair_task: GameTask = manager.create_repair_task(building)
+		assert(manager.claim_task(repair_task, worker))
+		worker.current_task = repair_task
+		worker._start_current_task()
+		worker.position = worker.navigation_agent.target_position
+		worker.state = worker.State.REPAIRING
+		var damaged: float = building.get_health()
+		worker._process_building_repair(1.0)
+		assert(building.get_health() > damaged)
+		worker._process_building_repair(100.0)
+		worker._process_building_repair(0.0)
+		assert(is_equal_approx(building.get_health(), building.get_max_health()) and repair_task.state == GameTask.State.COMPLETED)
+		building.queue_free()
+		await process_frame
 	house.take_damage(30)
 	await process_frame
 	var unfinished: GameTask = manager.create_repair_task(house)

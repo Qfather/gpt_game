@@ -99,7 +99,7 @@ func _run() -> void:
 	worker.position = Vector3(4,0,0)
 	worker.state = worker.State.IDLE
 	enemy.update_targeting()
-	_expect(enemy.target == house, "附近闲置居民不被误判为维修者")
+	_expect(enemy.target == worker and not worker.is_repairing_building(house), "附近闲置居民也是攻击目标，但不被误判为维修者")
 	var other: BuildingBase = load("res://Scene/building/game/house.tscn").instantiate()
 	other.set_building_data(load("res://data/buildings/HouseData.tres"))
 	world.add_child(other)
@@ -111,18 +111,22 @@ func _run() -> void:
 	worker.task_site = other
 	worker.state = worker.State.REPAIRING
 	enemy.update_targeting()
-	_expect(enemy.target == house, "维修另一栋建筑的居民不触发当前建筑的转火")
+	_expect(enemy.target == worker and not worker.is_repairing_building(house), "维修另一栋建筑的居民仍因靠近敌人被攻击")
 	task.target = house
 	worker.task_site = house
 	worker.position = Vector3(30,0,0)
 	enemy.update_targeting()
-	_expect(enemy.target == house, "警戒范围外的维修居民不会被远距离锁定")
+	_expect(enemy.target in [house, other, base], "警戒范围外的维修居民不会被远距离锁定，恢复选择建筑")
 	worker.position = Vector3(4,0,0)
 	enemy.update_targeting()
 	_expect(enemy.target == worker, "维修者重新靠近后可以再次转火")
 	worker.take_damage(1000.0, enemy)
 	enemy.update_targeting()
-	_expect(worker.is_dead() and enemy.target == house, "维修者死亡后恢复拆建筑")
+	_expect(worker.is_dead() and enemy.target in [house, other, base], "维修者死亡后恢复拆建筑")
+	enemy._set_target(other)
+	other.free()
+	enemy.update_targeting()
+	_expect(is_instance_valid(enemy.target) and enemy.target in [house, base], "当前建筑目标已释放后索敌不传入失效对象，并选择其他建筑")
 	world.queue_free()
 	await process_frame
 	print("建筑攻击者优先维修居民测试", "失败" if failed else "通过")

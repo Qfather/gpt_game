@@ -26,7 +26,11 @@ func _run() -> void:
 	assert(unit.get_display_name() == "配置剑士")
 	var panel: VillagerPanel = main.get_node("UI/VillagerPanel")
 	panel.open_unit(unit)
-	assert(panel.unit_name.text.begins_with("配置剑士"))
+	assert(panel.unit_name.text == unit.character_name and panel.unit_name.tooltip_text.contains("配置剑士"))
+	if DisplayServer.get_name() != "headless":
+		await create_timer(0.4).timeout
+		await RenderingServer.frame_post_draw
+		root.get_texture().get_image().save_png("res://.godot/named_unit_preview.png")
 	assert(unit.get_max_health() == 175.0 and unit.get_health() == 175.0)
 	assert(is_equal_approx(unit.get_move_speed(), 4.4) and unit.carry_capacity == 8.0)
 	assert(unit.combat_damage == 17.0 and unit.hunger_rate == 0.25)

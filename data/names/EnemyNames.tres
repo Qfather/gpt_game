@@ -1,0 +1,9 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://Script/unit/name_pool.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+display_name = "怪物称号"
+mode = 1
+full_names = PackedStringArray("碎牙", "赤角", "灰爪", "枯灯", "裂骨", "黑鳞", "残火", "石颅", "烂耳", "凶眼", "铁颚", "血棘", "暮嚎", "毒尾", "暗蹄", "寒骨")

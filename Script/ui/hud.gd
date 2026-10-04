@@ -4,6 +4,7 @@ extends CanvasLayer
 signal build_requested(building_data: BuildingData)
 signal enemy_placement_requested(enemy_data: EnemyData)
 signal raid_requested()
+signal road_requested()
 signal unreachable_villager_clicked(villager: UnitBase)
 
 const LUMBER_CAMP_DATA: BuildingData = preload(
@@ -103,6 +104,7 @@ var game_clock: Control
 var unreachable_icons: HBoxContainer
 var unreachable_buttons: Dictionary = {}
 var fps_label: Label
+var idle_resident_label: Label
 var fps_update_msec: int = 0
 
 
@@ -310,7 +312,7 @@ func _refresh_unreachable_icons() -> void:
 			continue
 		var button := Button.new()
 		button.custom_minimum_size = Vector2(42.0, 42.0)
-		button.tooltip_text = "无法到达：点击定位并选择 " + villager.name
+		button.tooltip_text = "无法到达：点击定位并选择 " + villager.get_named_display_name()
 		var style := StyleBoxFlat.new()
 		style.bg_color = Color(0.65, 0.47, 0.18)
 		style.set_border_width_all(2)
@@ -396,6 +398,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _refresh_population_display(current_population: int, housing_capacity: int) -> void:
+	idle_resident_label.text = "空闲居民：%d" % _get_idle_resident_count()
 	population_label.text = "人口：%d / %d" % [current_population, housing_capacity]
 	resident_label.text = "居民：%d" % _get_combat_role_count(CombatRole.Type.NONE)
 	swordsman_label.text = "剑士：%d" % _get_swordsman_count()
@@ -404,6 +407,14 @@ func _refresh_population_display(current_population: int, housing_capacity: int)
 
 func _get_swordsman_count() -> int:
 	return _get_combat_role_count(CombatRole.Type.SWORDSMAN)
+
+
+func _get_idle_resident_count() -> int:
+	var count: int = 0
+	for villager: Node in get_tree().get_nodes_in_group("villagers"):
+		if is_instance_valid(villager) and villager.has_method("is_idle_resident") and villager.is_idle_resident():
+			count += 1
+	return count
 
 
 func _get_combat_role_count(role: int) -> int:
@@ -623,6 +634,13 @@ func _configure_status_layout() -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 20)
 	status_panel.add_child(row)
+	idle_resident_label = Label.new()
+	idle_resident_label.name = "IdleResidentLabel"
+	idle_resident_label.text = "空闲居民：0"
+	idle_resident_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	idle_resident_label.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	idle_resident_label.tooltip_text = "没有岗位和任务、正在待命的普通居民；不包含休息、进食、撤退和军事单位"
+	row.add_child(idle_resident_label)
 	var population := VBoxContainer.new()
 	row.add_child(population)
 	population_label.reparent(population)
@@ -767,17 +785,18 @@ func _apply_debug_villager_adjust(
 
 
 func _configure_building_menu() -> void:
-	building_tabs.tab_count = 3
+	building_tabs.tab_count = 4
 	building_tabs.set_tab_title(0, "生产建筑")
 	building_tabs.set_tab_title(1, "军事建筑")
 	building_tabs.set_tab_title(2, "战略")
+	building_tabs.set_tab_title(3, "道路")
 	if not building_tabs.tab_changed.is_connected(_on_building_tab_changed):
 		building_tabs.tab_changed.connect(_on_building_tab_changed)
 	_refresh_building_buttons()
 
 
 func _on_building_tab_changed(tab_index: int) -> void:
-	selected_building_category = clampi(tab_index, 0, 2)
+	selected_building_category = clampi(tab_index, 0, 3)
 	_refresh_building_buttons()
 
 
@@ -785,6 +804,14 @@ func _refresh_building_buttons() -> void:
 	for child: Node in build_buttons.get_children():
 		child.free()
 
+	if selected_building_category == 3:
+		var button := Button.new()
+		button.text = "道路管理 / 铺路"
+		button.custom_minimum_size = Vector2(180, 48)
+		button.focus_mode = Control.FOCUS_NONE
+		button.pressed.connect(func() -> void: road_requested.emit())
+		build_buttons.add_child(button)
+		return
 	var building_options: Array[BuildingData] = STRATEGY_BUILDINGS
 	if selected_building_category == 0:
 		building_options = PRODUCTION_BUILDINGS
