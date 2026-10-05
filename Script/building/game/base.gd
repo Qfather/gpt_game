@@ -244,3 +244,11 @@ func deposit_wood(amount: int):
 		" 当前总木材：",
 		get_resource(&"wood")
 	)
+
+
+func get_migrant_entrance_position() -> Vector3:
+	return $ImmigrationEntrance.global_position
+
+
+func get_migrant_interior_position() -> Vector3:
+	return $ImmigrationInterior.global_position

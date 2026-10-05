@@ -62,6 +62,7 @@ func _process(_delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	preload("res://Script/unit/unit_facing.gd").update(visual_root, delta)
 	if is_dead():
 		velocity = Vector3.ZERO
 		return
@@ -99,6 +100,7 @@ func _physics_process(delta: float) -> void:
 			return
 
 	velocity = Vector3.ZERO
+	preload("res://Script/unit/unit_facing.gd").face_direction(visual_root, target_position - global_position)
 	if (
 		_has_raid_objective(EnemyData.RaidObjective.STEAL_RESOURCES)
 		and not raid_retreating
@@ -155,6 +157,7 @@ func _move_toward_navigation_target(target_position: Vector3, close_approach: bo
 
 	var direction: Vector3 = next_position - global_position
 	velocity = direction.normalized() * move_speed
+	preload("res://Script/unit/unit_facing.gd").face_direction(visual_root, velocity)
 	move_and_slide()
 	for index: int in range(get_slide_collision_count()):
 		var collider: Object = get_slide_collision(index).get_collider()

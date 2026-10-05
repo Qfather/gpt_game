@@ -3,6 +3,8 @@
 [ext_resource type="PackedScene" path="res://Scene/building/game/archer_camp.tscn" id="2"]
 [resource]
 script = ExtResource("1")
+category = 1
+sort_id = 10
 id = &"archer_camp"
 display_name = "弓箭手营"
 description = "训练居民成为弓箭手。"

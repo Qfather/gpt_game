@@ -9,6 +9,7 @@
 [ext_resource type="Script" uid="uid://bb178be55hilu" path="res://addons/MapGenerate/core/level_config.gd" id="7_8masj"]
 [ext_resource type="Script" uid="uid://dimwhbjvo6um7" path="res://Script/world/map_resource_entry.gd" id="8_0v8oa"]
 [ext_resource type="PackedScene" uid="uid://bjhgmbhk67241" path="res://Scene/resource/tree.tscn" id="9_bfu8i"]
+[ext_resource type="Script" uid="uid://cidyr0y3xr730" path="res://Script/resource/resource_hit_effect.gd" id="9_y2to8"]
 [ext_resource type="PackedScene" uid="uid://b35h0wuf0qn8a" path="res://Scene/resource/stone.tscn" id="10_2veba"]
 [ext_resource type="Script" uid="uid://bkxnpn082gwig" path="res://Script/enemy/level_flow_data.gd" id="11_ir40n"]
 [ext_resource type="Script" uid="uid://dwfvohwbuihee" path="res://Script/population/immigration_group.gd" id="12_2veba"]
@@ -299,14 +300,20 @@ rift_countdown = 45.0
 
 [sub_resource type="Resource" id="Resource_f1t3b"]
 script = ExtResource("7_8masj")
+map_size = Vector2i(40, 40)
 cell_size_m = 3.0
 island_ratio_percent = 45
 center_clear_size = 8
 center_clear_circle = true
 
+[sub_resource type="Resource" id="Resource_qw5tw"]
+script = ExtResource("9_y2to8")
+kind = 1
+
 [sub_resource type="Resource" id="Resource_blmkm"]
 script = ExtResource("8_0v8oa")
 display_name = "树木"
+hit_effect = SubResource("Resource_qw5tw")
 scene = ExtResource("9_bfu8i")
 distribution = 0
 count = 520
@@ -324,9 +331,14 @@ altitude_weight = -0.1
 cliff_foot_bonus = 0.6
 cliff_top_bonus = 0.0
 
+[sub_resource type="Resource" id="Resource_uhyek"]
+script = ExtResource("9_y2to8")
+kind = 2
+
 [sub_resource type="Resource" id="Resource_lea5l"]
 script = ExtResource("8_0v8oa")
 display_name = "石头"
+hit_effect = SubResource("Resource_uhyek")
 scene = ExtResource("10_2veba")
 minimum_spacing = 0.0
 neighbor_distance_max = 0.0

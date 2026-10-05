@@ -3,6 +3,8 @@
 [ext_resource type="PackedScene" path="res://Scene/building/game/arrow_tower.tscn" id="2"]
 [resource]
 script = ExtResource("1")
+category = 1
+sort_id = 20
 id = &"arrow_tower"
 display_name = "箭塔"
 description = "两名弓箭手驻守，射程扩大1.5倍，有人驻守时视野扩大1.5倍，自动搬运军粮。"

@@ -4,6 +4,7 @@ func _init() -> void:
 func _schedule() -> void:
 	create_timer(5).timeout.connect(_run)
 func _run() -> void:
+	print("建筑编辑器：开始验证")
 	var panel: Control = load("res://addons/resource_editor/building_editor_panel.gd").new()
 	var background := PanelContainer.new()
 	root.add_child(background)
@@ -14,9 +15,40 @@ func _run() -> void:
 	background.add_child(panel)
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	await process_frame
-	assert(panel.buildings.size() == 13)
+	if "--preview-only" in OS.get_cmdline_user_args():
+		root.size = Vector2i(1440, 900)
+		panel.category_tabs.current_tab = BuildingData.Category.ROAD
+		for frame: int in range(5): await process_frame
+		RenderingServer.force_draw(false)
+		assert(root.get_texture().get_image().save_png("res://.godot/building_editor_road_preview.png") == OK)
+		panel.category_tabs.current_tab = BuildingData.Category.PRODUCTION
+		for frame: int in range(5): await process_frame
+		RenderingServer.force_draw(false)
+		assert(root.get_texture().get_image().save_png("res://.godot/building_editor_category_preview.png") == OK)
+		print("建筑编辑器分类与道路界面截图通过")
+		background.queue_free()
+		await process_frame
+		quit()
+		return
+	assert(panel.buildings.size() == 15)
+	assert(panel.category_tabs.tab_count == 5)
+	assert(load("res://data/buildings/ArcherCampData.tres").category == BuildingData.Category.MILITARY)
+	assert(load("res://data/buildings/TorchData.tres").category == BuildingData.Category.STRATEGY)
+	assert(load("res://data/buildings/HouseData.tres").sort_id == 50)
 	for index: int in range(panel.buildings.size()):
 		panel.select_building(index)
+		print("建筑编辑器：预览 ", panel.current.id)
+		if panel.current.road_kind > 0:
+			assert(panel.current.category == BuildingData.Category.ROAD and panel.preview.mesh_count == 1)
+			assert(panel.current.construction_time == (3.0 if panel.current.road_kind == 1 else 5.0))
+			var road_copy: BuildingData = panel.current.duplicate(true)
+			assert(ResourceSaver.save(road_copy, "res://.godot/building_editor_road.tres") == OK)
+			panel.data_path = "res://.godot/building_editor_road.tres"
+			panel.current.construction_time = 7.0
+			assert(panel.save_current())
+			var saved_road: BuildingData = ResourceLoader.load(panel.data_path, "", ResourceLoader.CACHE_MODE_IGNORE)
+			assert(saved_road.construction_time == 7.0)
+			continue
 		assert(panel.scene_root != null)
 		assert(panel.preview.mesh_count > 0)
 		if DisplayServer.get_name() != "headless":
@@ -40,6 +72,8 @@ func _run() -> void:
 		if panel.current.id == &"base":
 			assert(panel.field_controls.has(".:base_housing_capacity") and not panel.field_controls.has("BuildingDurability:max_health"))
 	var data: BuildingData = load("res://data/buildings/HouseData.tres")
+	var original_cost: Dictionary = data.construction_cost.duplicate()
+	print("建筑编辑器：开始隔离保存测试")
 	var packed: PackedScene = data.building_scene.duplicate()
 	assert(ResourceSaver.save(packed, "res://.godot/building_editor_house.tscn") == OK)
 	var copy: BuildingData = data.duplicate(true)
@@ -74,40 +108,47 @@ func _run() -> void:
 	row.get_child(1).value = 10.0
 	assert(panel.current.storage_capacities == {&"meat": 10.0})
 	panel.current.construction_time = 19.0
+	panel.current.category = BuildingData.Category.PROCESSING
+	panel.current.sort_id = 123
+	panel.inspector.property_edited.emit("category")
+	print("建筑编辑器：已修改分类")
+	assert(panel.current.category == BuildingData.Category.PROCESSING and panel.category_tabs.current_tab == 4)
 	panel.current.construction_cost[&"wood"] = 55.0
 	panel.field_controls[".:housing_capacity"].value = 7
 	panel.current.construction_cost[&"wood"] = -1.0
 	assert(not panel.save_current())
 	panel.current.construction_cost[&"wood"] = 55.0
 	assert(panel.save_current())
+	print("建筑编辑器：已保存分类及排序")
 	var saved: BuildingData = ResourceLoader.load("res://.godot/building_editor_house.tres", "", ResourceLoader.CACHE_MODE_IGNORE_DEEP)
 	assert(saved.max_health == 450.0 and saved.armor == 1.0 and saved.storage_capacities[&"meat"] == 10.0 and saved.model_scene != null)
 	assert(saved.construction_time == 19 and saved.construction_cost[&"wood"] == 55)
+	assert(saved.category == BuildingData.Category.PROCESSING and saved.sort_id == 123)
 	var house: Node = saved.building_scene.instantiate()
 	assert(house.housing_capacity == 7)
 	house.free()
 	var original_house: Node = data.building_scene.instantiate()
 	assert(original_house.housing_capacity == 3)
 	original_house.free()
-	assert(data.construction_cost[&"wood"] == 40)
+	assert(data.construction_cost == original_cost)
 	if DisplayServer.get_name() != "headless":
 		root.size = Vector2i(1440, 900)
 		panel.get_child(1).get_child(1).current_tab = 2
-		await create_timer(0.5).timeout
-		await RenderingServer.frame_post_draw
+		for frame: int in range(5): await process_frame
+		RenderingServer.force_draw(false)
 		root.get_texture().get_image().save_png("res://.godot/building_editor_preview.png")
 		for index: int in range(panel.buildings.size()):
 			if panel.buildings[index].id == &"base":
 				panel.select_building(index)
 				break
 		panel.get_child(1).get_child(1).current_tab = 0
-		await create_timer(0.5).timeout
-		await RenderingServer.frame_post_draw
+		for frame: int in range(5): await process_frame
+		RenderingServer.force_draw(false)
 		_check_labels(panel.inspector)
 		root.get_texture().get_image().save_png("res://.godot/building_editor_base_preview.png")
 	background.queue_free()
 	await process_frame
-	print("建筑编辑器测试通过：13种建筑统一预览、模型替换、资源下拉与容量、血量护甲、隔离保存读回")
+	print("建筑编辑器测试通过：15种建筑与道路预览、分类排序、施工配置、隔离保存读回")
 	quit()
 
 func _node_count(node: Node) -> int:

@@ -3,6 +3,7 @@ func _init() -> void:
 	call_deferred("_run")
 func _run() -> void:
 	var data: BuildingData = load("res://.godot/building_editor_house.tres")
+	var original_cost: Dictionary = load("res://data/buildings/HouseData.tres").construction_cost.duplicate()
 	assert(data.construction_time == 19 and data.construction_cost[&"wood"] == 55)
 	var main: Node3D = load("res://Scene/main.tscn").instantiate()
 	main.level_preset = main.level_preset.duplicate(true)
@@ -44,7 +45,7 @@ func _run() -> void:
 	assert(house.get_node("ClickArea") != null)
 	assert(house.get_housing_capacity() == 7 and population.get_housing_capacity() == 12)
 	assert(house.get_building_data().construction_cost[&"wood"] == 55)
-	assert(load("res://data/buildings/HouseData.tres").construction_cost[&"wood"] == 40)
+	assert(load("res://data/buildings/HouseData.tres").construction_cost == original_cost)
 	var lumber_data: BuildingData = load("res://data/buildings/LumberCampData.tres")
 	var lumber: Node3D = lumber_data.building_scene.instantiate()
 	lumber.set_building_data(lumber_data)

@@ -5,6 +5,8 @@
 
 [resource]
 script = ExtResource("1_building_data")
+category = 0
+sort_id = 30
 id = &"quarry"
 display_name = "采石场"
 description = "为居民提供采集石头的工作地点。

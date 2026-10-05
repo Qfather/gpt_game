@@ -113,6 +113,7 @@ func get_garrison_occupancy_count() -> int:
 			or (
 				unit.get("state") != unit.State.MOVE_TO_BARRACKS
 				and unit.get("combat_resume_state") != unit.State.MOVE_TO_BARRACKS
+				and unit.get("garrison_resume_state") != unit.State.MOVE_TO_BARRACKS
 			)
 		):
 			garrison_reservations.erase(unit)
@@ -315,6 +316,10 @@ func get_patrol_point_reach_radius() -> float:
 
 
 func enter_garrison(unit: Node) -> void:
+	# 恢复旧状态丢失的预约，仍检查职业和容量，不能突破驻扎上限。
+	if not garrison_reservations.has(unit) and not garrisoned_units.has(unit):
+		if unit.get("garrison_target") != self or not register_garrison(unit):
+			return
 	if garrison_reservations.has(unit):
 		garrison_reservations.erase(unit)
 		garrisoned_units.append(unit)

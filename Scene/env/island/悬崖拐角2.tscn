@@ -6,7 +6,7 @@
 [ext_resource type="Material" uid="uid://3k63kx5ola1q" path="res://assets/materials/VikingRealm.tres" id="4_mjmoo"]
 [ext_resource type="PackedScene" uid="uid://ce3d80m1bk7fo" path="res://assets/modles/env/悬崖补角.glb" id="5_mjmoo"]
 [ext_resource type="PackedScene" uid="uid://df42rqr31qfvj" path="res://assets/modles/env/悬崖接壤1.glb" id="6_6nr5h"]
-[ext_resource type="Script" uid="uid://doby6obt13jti" path="res://Script/world/悬崖接壤.gd" id="6_nhjwt"]
+[ext_resource type="Script" uid="uid://doby6obt13jti" path="res://Script/world/随机显示自己模型.gd" id="6_nhjwt"]
 [ext_resource type="PackedScene" uid="uid://brk4w7e1v7xlt" path="res://assets/modles/env/悬崖接壤2.glb" id="7_nhjwt"]
 [ext_resource type="PackedScene" uid="uid://b6vr11amtsbf8" path="res://assets/modles/env/悬崖接壤3.glb" id="8_uk3eu"]
 

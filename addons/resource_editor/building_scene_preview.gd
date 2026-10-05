@@ -49,6 +49,11 @@ func show_scene(scene: PackedScene, color: Color = Color.WHITE) -> void:
 		scene = ResourceLoader.load(scene.resource_path, "", ResourceLoader.CACHE_MODE_IGNORE) as PackedScene
 	# 只复制网格，不把建筑脚本放进预览场景树。
 	var source: Node = scene.instantiate()
+	if source is ResourceBase:
+		var variants: Node = source.get_node_or_null("meshs")
+		if variants != null:
+			for index: int in range(variants.get_child_count()):
+				if variants.get_child(index) is Node3D: variants.get_child(index).visible = index == 0
 	_copy_meshes(source, Transform3D.IDENTITY)
 	source.free()
 	if mesh_count == 0: return

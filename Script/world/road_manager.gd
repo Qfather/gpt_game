@@ -5,6 +5,7 @@ signal roads_changed
 enum Kind { DIRT = 1, STONE = 2 }
 const CHUNK_SIZE: int = 8
 const COLORS: Array[Color] = [Color.BLACK, Color(0.43, 0.28, 0.13), Color(0.55, 0.59, 0.63)]
+const ROAD_DATA: Array[BuildingData] = [null, preload("res://data/buildings/DirtRoadData.tres"), preload("res://data/buildings/StoneRoadData.tres")]
 
 class RoadGraph extends AStar3D:
 	func _estimate_cost(from_id: int, to_id: int) -> float:
@@ -21,6 +22,108 @@ var graph_inputs: Array = []
 var query_frame: int = -1
 var queries_this_frame: int = 0
 var route_queries: int = 0
+var pending: Dictionary = {}
+var dispatch_timer: float = 0.0
+var stroke_graph := AStar2D.new()
+var stroke_ids: Dictionary = {}
+var stroke_graph_inputs: Array = []
+var stroke_graph_builds: int = 0
+var stroke_resource_inputs: Array = []
+var stroke_resource_cells: Dictionary = {}
+var stroke_resource_footprints: Dictionary = {}
+var stroke_blocked: Dictionary = {}
+var construction_obstacle_frame: int = -1
+
+
+func _process(delta: float) -> void:
+	if pending.is_empty(): return
+	dispatch_timer += delta
+	if dispatch_timer < 0.5: return
+	dispatch_timer = 0.0
+	var manager: TaskManager = get_tree().get_first_node_in_group("task_manager") as TaskManager
+	if manager == null: return
+	for cell: Vector2i in pending:
+		var task: GameTask = pending[cell]
+		if task.state in [GameTask.State.CLAIMED, GameTask.State.IN_PROGRESS] and (not is_instance_valid(task.assigned_worker) or task.assigned_worker.is_dead()):
+			manager.release_task(task)
+		if task.state == GameTask.State.AVAILABLE: manager.request_dispatch()
+
+# 地形只建一次四向图，资源占地变化时才重新计算碰撞覆盖格。
+func refresh_stroke_obstacles() -> void:
+	construction_obstacle_frame = Engine.get_physics_frames()
+	var inputs: Array = []
+	var resources: Array[ResourceBase] = []
+	for node: Node in get_tree().get_nodes_in_group("resources"):
+		var resource: ResourceBase = node as ResourceBase
+		if resource == null or resource.is_queued_for_deletion(): continue
+		var bounds: AABB = resource.get_build_obstacle_bounds()
+		if bounds.size == Vector3.ZERO: continue
+		resources.append(resource)
+		inputs.append([resource.get_instance_id(), bounds, resource.global_transform])
+	if inputs == stroke_resource_inputs: return
+	stroke_resource_inputs = inputs
+	stroke_resource_cells.clear()
+	var footprints: Dictionary = {}
+	for resource: ResourceBase in resources:
+		var bounds: AABB = resource.get_build_obstacle_bounds()
+		var id: int = resource.get_instance_id()
+		var snapshot: Array = [bounds, resource.global_transform]
+		if stroke_resource_footprints.has(id) and stroke_resource_footprints[id][0] == snapshot:
+			footprints[id] = stroke_resource_footprints[id]
+			stroke_resource_cells.merge(footprints[id][1])
+			continue
+		var covered: Dictionary = {}
+		var minimum: Vector2i = grid.world_to_grid(bounds.position)
+		var maximum: Vector2i = grid.world_to_grid(bounds.end)
+		for y: int in range(minimum.y, maximum.y + 1):
+			for x: int in range(minimum.x, maximum.x + 1):
+				var cell := Vector2i(x, y)
+				var center: Vector3 = grid.grid_to_world(cell)
+				var box := AABB(Vector3(center.x - grid.cell_size * 0.5, bounds.position.y, center.z - grid.cell_size * 0.5), Vector3(grid.cell_size, bounds.size.y, grid.cell_size))
+				if resource.overlaps_clearance_box(box, Transform3D.IDENTITY): covered[cell] = true
+		footprints[id] = [snapshot, covered]
+		stroke_resource_cells.merge(covered)
+	stroke_resource_footprints = footprints
+
+func _refresh_stroke_graph() -> void:
+	var inputs: Array = [grid.grid_min, grid.grid_max, grid.cell_size, grid.global_position, grid.buildability_rule, grid.ground_height_rule]
+	if inputs != stroke_graph_inputs:
+		stroke_graph_inputs = inputs
+		stroke_graph.clear()
+		stroke_ids.clear()
+		stroke_blocked.clear()
+		stroke_resource_inputs.clear()
+		stroke_resource_cells.clear()
+		stroke_resource_footprints.clear()
+		stroke_graph_builds += 1
+		for y: int in range(grid.grid_min.y, grid.grid_max.y + 1):
+			for x: int in range(grid.grid_min.x, grid.grid_max.x + 1):
+				var cell := Vector2i(x, y)
+				if not grid.is_cell_buildable(cell, true): continue
+				var id: int = stroke_ids.size()
+				stroke_ids[cell] = id
+				stroke_graph.add_point(id, Vector2(cell))
+		for cell: Vector2i in stroke_ids:
+			for offset: Vector2i in [Vector2i.RIGHT, Vector2i.DOWN]:
+				var neighbor: Vector2i = cell + offset
+				if stroke_ids.has(neighbor) and absf(grid.get_ground_height(cell) - grid.get_ground_height(neighbor)) <= 0.1:
+					stroke_graph.connect_points(stroke_ids[cell], stroke_ids[neighbor])
+	refresh_stroke_obstacles()
+	var blocked: Dictionary = stroke_resource_cells.duplicate()
+	blocked.merge(grid.occupied_cells, true)
+	for cell: Vector2i in stroke_blocked:
+		if not blocked.has(cell) and stroke_ids.has(cell): stroke_graph.set_point_disabled(stroke_ids[cell], false)
+	for cell: Vector2i in blocked:
+		if not stroke_blocked.has(cell) and stroke_ids.has(cell): stroke_graph.set_point_disabled(stroke_ids[cell], true)
+	stroke_blocked = blocked
+
+# 不返回部分路径：两端无法连通时交给预览显示整条红色。
+func plan_stroke(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	_refresh_stroke_graph()
+	if not stroke_ids.has(from) or not stroke_ids.has(to) or stroke_blocked.has(from) or stroke_blocked.has(to): return result
+	for point: Vector2 in stroke_graph.get_point_path(stroke_ids[from], stroke_ids[to]): result.append(Vector2i(point))
+	return result
 
 func _ready() -> void:
 	add_to_group("road_manager")
@@ -29,12 +132,79 @@ func _ready() -> void:
 func can_place(cell: Vector2i) -> bool:
 	return grid.is_area_free(cell, Vector2i.ONE, 0, false, true)
 
+# 同一物理帧的全部施工居民共用资源占地；建筑占地仍逐次检查。
+func can_work_cell(cell: Vector2i) -> bool:
+	if construction_obstacle_frame != Engine.get_physics_frames(): refresh_stroke_obstacles()
+	return not stroke_resource_cells.has(cell) and grid.is_area_free(cell, Vector2i.ONE, 0, true, true)
+
 func _base() -> Node:
 	return get_tree().get_first_node_in_group("bases")
 
 func available_stone() -> int:
 	var base: Node = _base()
 	return floori(base.get_resource(&"stone")) if is_instance_valid(base) else 0
+
+func affordable_count(kind: int) -> int:
+	var count: int = 2147483647
+	var base: Node = _base()
+	for resource_id: StringName in ROAD_DATA[kind].construction_cost:
+		var amount: float = ROAD_DATA[kind].construction_cost[resource_id]
+		if amount > 0:
+			count = mini(count, floori(base.get_resource(resource_id) / amount) if is_instance_valid(base) else 0)
+	return count
+
+# 材料在标记时从据点扣除，待建状态只存数据，不生成逐格工地节点。
+func queue_cells(requested: Array[Vector2i], kind: int, require_complete: bool = true) -> int:
+	var manager: TaskManager = get_tree().get_first_node_in_group("task_manager") as TaskManager
+	if manager == null: return 0
+	var changed: Array[Vector2i] = []
+	for cell: Vector2i in requested:
+		if not can_place(cell): return 0
+		if cells.get(cell, 0) >= kind or pending.has(cell): continue
+		changed.append(cell)
+	if require_complete and affordable_count(kind) < changed.size(): return 0
+	var count: int = mini(changed.size(), affordable_count(kind))
+	changed.resize(count)
+	for cell: Vector2i in changed:
+		for resource_id: StringName in ROAD_DATA[kind].construction_cost:
+			_base().take_resource(resource_id, ROAD_DATA[kind].construction_cost[resource_id])
+		var task: GameTask = manager.create_task(GameTask.TaskType.BUILD_ROAD, self, self)
+		task.data = {"cell": cell, "position": grid.grid_to_world(cell), "kind": kind, "progress": 0.0, "duration": ROAD_DATA[kind].construction_time}
+		pending[cell] = task
+	_clear_road_decorations(changed)
+	_commit(changed)
+	manager.request_dispatch()
+	return count
+
+func work_cell(task: GameTask, worker: Node3D, delta: float) -> void:
+	var cell: Vector2i = task.data.cell
+	if pending.get(cell) != task or task.assigned_worker != worker: return
+	if not can_work_cell(cell):
+		_cancel_pending(cell)
+		_commit([cell])
+		return
+	if worker.global_position.distance_to(task.data.position) > 0.65: return
+	task.data.progress += delta
+	if task.data.progress < task.data.duration: return
+	pending.erase(cell)
+	if not cells.has(cell): placement_order.append(cell)
+	cells[cell] = task.data.kind
+	_commit([cell])
+	var manager: TaskManager = get_tree().get_first_node_in_group("task_manager") as TaskManager
+	manager.complete_task(task)
+	worker.return_to_idle()
+
+func _cancel_pending(cell: Vector2i) -> void:
+	var task: GameTask = pending[cell]
+	pending.erase(cell)
+	var manager: TaskManager = get_tree().get_first_node_in_group("task_manager") as TaskManager
+	manager.cancel_task(task)
+
+func queue_upgrade_all() -> int:
+	var requested: Array[Vector2i] = []
+	for cell: Vector2i in placement_order:
+		if cells[cell] == Kind.DIRT and can_place(cell): requested.append(cell)
+	return queue_cells(requested, Kind.STONE, false)
 
 func place_cells(requested: Array[Vector2i], kind: int) -> int:
 	var changed: Array[Vector2i] = []
@@ -46,8 +216,22 @@ func place_cells(requested: Array[Vector2i], kind: int) -> int:
 		if not cells.has(cell): placement_order.append(cell)
 		cells[cell] = kind
 		changed.append(cell)
+	_clear_road_decorations(changed)
 	_commit(changed)
 	return changed.size()
+
+func _clear_road_decorations(changed: Array[Vector2i]) -> void:
+	if changed.is_empty(): return
+	var road_cells: Dictionary = {}
+	for cell: Vector2i in changed: road_cells[cell] = true
+	# 只在确认铺设时扫描一次簇散布装饰，预览和拆路不触发。
+	for node: Node in get_tree().get_nodes_in_group("vegetation"):
+		if not node is Node3D or node is ResourceBase or node.is_queued_for_deletion(): continue
+		var decoration: Node3D = node as Node3D
+		var cell: Vector2i = grid.world_to_grid(decoration.global_position)
+		if not road_cells.has(cell) or absf(decoration.global_position.y - grid.get_ground_height(cell)) > 0.8: continue
+		decoration.hide()
+		decoration.queue_free()
 
 func upgrade_all() -> int:
 	return place_cells(placement_order.duplicate(), Kind.STONE)
@@ -55,7 +239,9 @@ func upgrade_all() -> int:
 func remove_cells(requested: Array[Vector2i]) -> void:
 	var changed: Array[Vector2i] = []
 	for cell: Vector2i in requested:
-		if not cells.erase(cell): continue
+		var had_pending: bool = pending.has(cell)
+		if had_pending: _cancel_pending(cell)
+		if not cells.erase(cell) and not had_pending: continue
 		placement_order.erase(cell)
 		changed.append(cell)
 	_commit(changed)
@@ -67,7 +253,7 @@ func speed_multiplier(position: Vector3) -> float:
 	var cell: Vector2i = grid.world_to_grid(position)
 	if not cells.has(cell) or grid.occupied_cells.has(cell): return 1.0
 	if absf(position.y - grid.get_ground_height(cell)) > 0.8: return 1.0
-	return 1.05 if cells[cell] == Kind.DIRT else 1.10
+	return ROAD_DATA[cells[cell]].road_speed_multiplier
 
 func _commit(changed: Array[Vector2i]) -> void:
 	if changed.is_empty(): return
@@ -86,13 +272,13 @@ func _rebuild_chunk(chunk: Vector2i) -> void:
 	for y: int in range(chunk.y * CHUNK_SIZE, (chunk.y + 1) * CHUNK_SIZE):
 		for x: int in range(chunk.x * CHUNK_SIZE, (chunk.x + 1) * CHUNK_SIZE):
 			var cell := Vector2i(x, y)
-			if not cells.has(cell): continue
+			if not cells.has(cell) and not pending.has(cell): continue
 			var center: Vector3 = grid.grid_to_world(cell) + Vector3.UP * 0.03
 			var corners: Array[Vector3] = [center + Vector3(-half, 0, -half), center + Vector3(half, 0, -half), center + Vector3(half, 0, half), center + Vector3(-half, 0, half)]
 			for index: int in [0, 1, 3, 1, 2, 3]:
 				vertices.append(corners[index])
 				normals.append(Vector3.UP)
-				colors.append(COLORS[cells[cell]])
+				colors.append(Color(0.8, 0.65, 0.25) if pending.has(cell) else COLORS[cells[cell]])
 	if vertices.is_empty():
 		if chunks.has(chunk):
 			chunks[chunk].queue_free()
@@ -213,7 +399,7 @@ func overlaps_resource(geometry: Dictionary) -> bool:
 	for y: int in range(minimum.y, maximum.y + 1):
 		for x: int in range(minimum.x, maximum.x + 1):
 			var cell := Vector2i(x, y)
-			if not cells.has(cell) or absf(grid.get_ground_height(cell) - float(geometry.height)) > 1.0: continue
+			if (not cells.has(cell) and not pending.has(cell)) or absf(grid.get_ground_height(cell) - float(geometry.height)) > 1.0: continue
 			var origin: Vector3 = grid.grid_to_world(cell)
 			var half: float = grid.cell_size * 0.5
 			var outline := PackedVector2Array([Vector2(origin.x - half, origin.z - half), Vector2(origin.x + half, origin.z - half), Vector2(origin.x + half, origin.z + half), Vector2(origin.x - half, origin.z + half)])

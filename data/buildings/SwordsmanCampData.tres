@@ -5,6 +5,8 @@
 
 [resource]
 script = ExtResource("1_building_data")
+category = 1
+sort_id = 30
 id = &"swordsman_camp"
 display_name = "剑士营"
 description = "为普通居民提供剑士训练场所。

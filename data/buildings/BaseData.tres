@@ -5,6 +5,8 @@
 
 [resource]
 script = ExtResource("1_data")
+category = 2
+sort_id = 0
 id = &"base"
 display_name = "据点"
 description = "开局自动生成的据点；此配置用于统一编辑场景参数，不加入玩家建造菜单。"

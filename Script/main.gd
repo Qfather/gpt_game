@@ -224,7 +224,6 @@ func _begin_enemy_placement(enemy_data: EnemyData) -> void:
 	enemy_preview = _create_enemy_preview()
 	add_child(enemy_preview)
 	enemy_placement_active = true
-	hud.set_enemy_placement_active(true)
 	_update_enemy_preview()
 
 
@@ -304,7 +303,6 @@ func _cancel_enemy_placement() -> void:
 		enemy_preview.queue_free()
 		enemy_preview = null
 	enemy_placement_active = false
-	hud.set_enemy_placement_active(false)
 
 
 func _on_raid_requested() -> void:

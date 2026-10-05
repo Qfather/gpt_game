@@ -6,6 +6,9 @@ var wildlife_inspector: EditorInspector
 var preset: LevelFlowData
 var map_inspector: EditorInspector
 var resource_inspector: EditorInspector
+var hit_inspector: EditorInspector
+var hit_preview: Control
+var hit_animator = preload("res://Script/resource/resource_hit_animation.gd").new()
 var resource_list: ItemList
 var seed_spin: SpinBox
 var rift_distance_spin: SpinBox
@@ -24,6 +27,10 @@ const LABELS: Dictionary = {
 	"lake_size_percent": "湖泊大小（%）", "lake_protrusion_percent": "湖泊突出程度（%）",
 	"allowed_height_layers": "允许高台层数", "highland_ratio_percent": "高地占比（%）",
 	"height_level_weights": "各海拔层权重", "high_stairs": "高阶梯", "model_library": "地图模型库",
+	"hit_effect": "受击动效配置", "kind": "动效类型",
+	"rotation_angle": "倾斜角度（度）", "rotation_hit_time": "旋转受击时间（秒）", "rotation_return_time": "旋转恢复时间（秒）",
+	"translation_distance": "位移距离（米）", "translation_hit_time": "位移受击时间（秒）", "translation_return_time": "位移恢复时间（秒）",
+	"scale_compression": "纵向压缩比例", "scale_hit_time": "缩放受击时间（秒）", "scale_return_time": "缩放恢复时间（秒）",
 	"enabled": "启用生成", "display_name": "名称", "scene": "资源场景", "distribution": "分布模式",
 	"count": "总数量", "nearby_ratio": "据点附近比例", "minimum_spacing": "最小边缘留空",
 	"neighbor_distance_max": "簇内最大边缘留空", "cluster_size": "每簇数量上限",
@@ -191,6 +198,24 @@ func _init() -> void:
 	resource_list.custom_minimum_size.y = 90
 	resource_list.item_selected.connect(_select_resource)
 	resource_column.add_child(resource_list)
+	var hit_row := HBoxContainer.new()
+	resource_column.add_child(hit_row)
+	hit_preview = preload("res://addons/resource_editor/building_scene_preview.gd").new()
+	hit_preview.custom_minimum_size = Vector2(180,180)
+	hit_row.add_child(hit_preview)
+	var hit_column := VBoxContainer.new()
+	hit_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hit_column.add_theme_constant_override("separation", 8)
+	hit_row.add_child(hit_column)
+	var hit_button := Button.new()
+	hit_button.text = "预览受击（从左侧击打）"
+	hit_button.pressed.connect(_preview_hit)
+	hit_column.add_child(hit_button)
+	hit_inspector = EditorInspector.new()
+	hit_inspector.custom_minimum_size.y = 180
+	hit_inspector.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	hit_column.add_child(hit_inspector)
+	hit_inspector.property_edited.connect(func(_property: String) -> void: call_deferred("_translate_labels"))
 	var help := Label.new()
 	help.custom_minimum_size.x = 500
 	help.text = "间距表示碰撞轮廓边缘之间的留空（米），不是中心距离；不同资源取较大留空。\n树林模式：近处三片、远处最多四片林区，半径为软性影响范围。\n紧密簇模式：数量上限与半径限制单簇规模；空间不足不强行重叠。\n地形权重＝基础＋海拔层×增量＋崖脚/崖顶加成，零权重不生成。"
@@ -209,10 +234,14 @@ func _init() -> void:
 		var selected: PackedInt32Array = resource_list.get_selected_items()
 		if not selected.is_empty():
 			resource_list.set_item_text(selected[0], preset.map_resources[selected[0]].display_name)
+			if _property in ["scene", "hit_effect"]: _refresh_hit_preview(selected[0])
 	)
 
 
 func edit_preset(value: LevelFlowData) -> void:
+	hit_animator.reset()
+	hit_inspector.edit(null)
+	hit_preview.show_scene(null)
 	resource_inspector.edit(null)
 	preset = value
 	wildlife_inspector.edit(preset.wildlife_config)
@@ -244,8 +273,29 @@ func _refresh_list() -> void:
 
 
 func _select_resource(index: int) -> void:
+	_refresh_hit_preview(index)
 	resource_inspector.edit(preset.map_resources[index])
 	call_deferred("_translate_labels")
+
+
+func _refresh_hit_preview(index: int) -> void:
+	hit_animator.reset()
+	var entry: MapResourceEntry = preset.map_resources[index]
+	if entry.hit_effect == null:
+		if entry.scene != null:
+			var state: SceneState = entry.scene.get_state()
+			for property: int in range(state.get_node_property_count(0)):
+				if state.get_node_property_name(0, property) == &"hit_effect":
+					var effect: ResourceHitEffect = state.get_node_property_value(0, property)
+					if effect != null: entry.hit_effect = effect.duplicate(true)
+		if entry.hit_effect == null: entry.hit_effect = ResourceHitEffect.new()
+	hit_inspector.edit(entry.hit_effect)
+	hit_preview.show_scene(entry.scene)
+
+func _preview_hit() -> void:
+	var selected: PackedInt32Array = resource_list.get_selected_items()
+	if selected.is_empty(): return
+	hit_animator.play(hit_preview.model, preset.map_resources[selected[0]].hit_effect, hit_preview.model.global_position + Vector3.LEFT * 3.0)
 
 
 func _refresh_immigration_list(index: int = 0) -> void:
@@ -262,7 +312,7 @@ func _refresh_immigration_list(index: int = 0) -> void:
 func _translate_labels() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
-	for inspector: EditorInspector in [map_inspector, resource_inspector, immigration_inspector, wildlife_inspector]:
+	for inspector: EditorInspector in [map_inspector, resource_inspector, immigration_inspector, wildlife_inspector, hit_inspector]:
 		_translate_node(inspector)
 
 
@@ -291,6 +341,9 @@ func _remove_resource() -> void:
 	var selected: PackedInt32Array = resource_list.get_selected_items()
 	if selected.is_empty():
 		return
+	hit_animator.reset()
+	hit_inspector.edit(null)
+	hit_preview.show_scene(null)
 	resource_inspector.edit(null)
 	preset.map_resources.remove_at(selected[0])
 	_refresh_list()

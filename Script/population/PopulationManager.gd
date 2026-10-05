@@ -461,8 +461,12 @@ func _on_migrant_arrived(migrant: Node3D, base: Node3D) -> void:
 	villager.character_name = migrant.character_name
 	for entry: UnitTrait in migrant.resident_traits:
 		villager.traits.append(entry.duplicate(true))
+	var exits_through_door: bool = is_instance_valid(base) and base.has_method("get_migrant_entrance_position")
+	villager.leaving_immigration_base = exits_through_door
 	villager_container.add_child(villager)
 	villager.global_position = migrant.global_position
+	if exits_through_door:
+		villager.walk_out_of_immigration_base(base)
 
 	var resource_manager: Node = get_tree().get_first_node_in_group(
 		"resource_manager"

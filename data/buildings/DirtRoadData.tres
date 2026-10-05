@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BuildingData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Script/building_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"dirt_road"
+display_name = "土路"
+description = "免费标记道路，由居民逐格施工，建成后提供移速加成。"
+category = 3
+sort_id = 10
+road_kind = 1
+road_speed_multiplier = 1.05
+construction_time = 3.0
+allow_rotation = false
+allow_mirror = false

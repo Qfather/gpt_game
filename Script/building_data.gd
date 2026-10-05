@@ -2,11 +2,21 @@
 class_name BuildingData
 extends Resource
 
+enum Category { PRODUCTION, MILITARY, STRATEGY, ROAD, PROCESSING }
+const CATEGORY_NAMES: Array[String] = ["生产", "军事", "战略", "道路", "加工"]
+
 @export_category("建筑标识")
 @export var id: StringName
 @export var display_name: String = ""
 @export_multiline var description: String = ""
 @export_storage var function_text: String = ""
+@export_enum("生产", "军事", "战略", "道路", "加工") var category: int = Category.PRODUCTION
+@export var sort_id: int = 0
+@export_enum("普通建筑", "土路", "石路") var road_kind: int = 0
+@export_range(1.0, 3.0, 0.01) var road_speed_multiplier: float = 1.0
+
+static func menu_less(a: BuildingData, b: BuildingData) -> bool:
+	return a.sort_id < b.sort_id if a.sort_id != b.sort_id else str(a.id).naturalnocasecmp_to(str(b.id)) < 0
 
 @export_category("建筑场景")
 @export var building_scene: PackedScene

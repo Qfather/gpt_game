@@ -18,11 +18,13 @@
 [ext_resource type="PackedScene" uid="uid://bc8vndl0xp11" path="res://assets/modles/env/tree_014.glb" id="15_gk5od"]
 [ext_resource type="PackedScene" uid="uid://bnr75prvvygsp" path="res://assets/modles/env/tree_015.glb" id="16_i5bd0"]
 [ext_resource type="PackedScene" uid="uid://equt50i5iovr" path="res://assets/modles/env/tree_016.glb" id="17_4403x"]
+[ext_resource type="Resource" path="res://data/resource_effects/TreeHit.tres" id="hit_effect"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_t2dwb"]
 
 [node name="Tree" type="Node3D" unique_id=180976486 groups=["resources"]]
 script = ExtResource("1_1i8wt")
+hit_effect = ExtResource("hit_effect")
 visual_scale_min = 0.5
 visual_scale_max = 1.5
 
@@ -31,98 +33,98 @@ visual_scale_max = 1.5
 [node name="tree_0012" parent="meshs" unique_id=691729818 instance=ExtResource("2_06ltb")]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="tree_001" parent="meshs/tree_0012" index="0" unique_id=77699317]
+[node name="tree_001" parent="meshs/tree_0012" index="0" unique_id=120913903]
 material_override = ExtResource("3_yn3el")
 surface_material_override/0 = ExtResource("3_yn3el")
 
 [node name="tree_0022" parent="meshs" unique_id=1393159158 instance=ExtResource("3_15vpp")]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="tree_002" parent="meshs/tree_0022" index="0" unique_id=391333001]
+[node name="tree_002" parent="meshs/tree_0022" index="0" unique_id=1580244521]
 material_override = ExtResource("3_yn3el")
 
 [node name="tree_0032" parent="meshs" unique_id=568217417 instance=ExtResource("4_yn3el")]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="tree_003" parent="meshs/tree_0032" index="0" unique_id=1140322256]
+[node name="tree_003" parent="meshs/tree_0032" index="0" unique_id=23101711]
 material_override = ExtResource("3_yn3el")
 
 [node name="tree_0042" parent="meshs" unique_id=274210775 instance=ExtResource("5_ig7xv")]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="tree_004" parent="meshs/tree_0042" index="0" unique_id=1470459969]
+[node name="tree_004" parent="meshs/tree_0042" index="0" unique_id=959741099]
 material_override = ExtResource("3_yn3el")
 
 [node name="tree_0052" parent="meshs" unique_id=1981103364 instance=ExtResource("6_8kwlu")]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="tree_005" parent="meshs/tree_0052" index="0" unique_id=871940598]
+[node name="tree_005" parent="meshs/tree_0052" index="0" unique_id=2040068976]
 material_override = ExtResource("3_yn3el")
 
 [node name="tree_0062" parent="meshs" unique_id=114190451 instance=ExtResource("7_bmk6y")]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="tree_006" parent="meshs/tree_0062" index="0" unique_id=605932235]
+[node name="tree_006" parent="meshs/tree_0062" index="0" unique_id=1123271854]
 material_override = ExtResource("3_yn3el")
 
 [node name="tree_0072" parent="meshs" unique_id=1398222230 instance=ExtResource("8_qa7k8")]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="tree_007" parent="meshs/tree_0072" index="0" unique_id=1031789920]
+[node name="tree_007" parent="meshs/tree_0072" index="0" unique_id=1567230735]
 material_override = ExtResource("3_yn3el")
 
 [node name="tree_0082" parent="meshs" unique_id=1810916632 instance=ExtResource("9_33rsh")]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="tree_008" parent="meshs/tree_0082" index="0" unique_id=2031030811]
+[node name="tree_008" parent="meshs/tree_0082" index="0" unique_id=400465081]
 material_override = ExtResource("3_yn3el")
 
 [node name="tree_0092" parent="meshs" unique_id=355415312 instance=ExtResource("10_b0cpa")]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="tree_009" parent="meshs/tree_0092" index="0" unique_id=1501750212]
+[node name="tree_009" parent="meshs/tree_0092" index="0" unique_id=348327703]
 material_override = ExtResource("3_yn3el")
 
 [node name="tree_0102" parent="meshs" unique_id=920144896 instance=ExtResource("11_3o1ik")]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="tree_010" parent="meshs/tree_0102" index="0" unique_id=249845908]
+[node name="tree_010" parent="meshs/tree_0102" index="0" unique_id=1828133774]
 material_override = ExtResource("3_yn3el")
 
 [node name="tree_0112" parent="meshs" unique_id=621220395 instance=ExtResource("12_17ks1")]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="tree_011" parent="meshs/tree_0112" index="0" unique_id=1803247557]
+[node name="tree_011" parent="meshs/tree_0112" index="0" unique_id=359215613]
 material_override = ExtResource("3_yn3el")
 
 [node name="tree_0122" parent="meshs" unique_id=90668617 instance=ExtResource("13_leo5k")]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="tree_012" parent="meshs/tree_0122" index="0" unique_id=959595764]
+[node name="tree_012" parent="meshs/tree_0122" index="0" unique_id=532661969]
 material_override = ExtResource("3_yn3el")
 
 [node name="tree_0132" parent="meshs" unique_id=130603768 instance=ExtResource("14_atanx")]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="tree_013" parent="meshs/tree_0132" index="0" unique_id=195295902]
+[node name="tree_013" parent="meshs/tree_0132" index="0" unique_id=26740453]
 material_override = ExtResource("3_yn3el")
 
 [node name="tree_0142" parent="meshs" unique_id=511723481 instance=ExtResource("15_gk5od")]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="tree_014" parent="meshs/tree_0142" index="0" unique_id=690409127]
+[node name="tree_014" parent="meshs/tree_0142" index="0" unique_id=375674412]
 material_override = ExtResource("3_yn3el")
 
 [node name="tree_0152" parent="meshs" unique_id=1459408566 instance=ExtResource("16_i5bd0")]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="tree_015" parent="meshs/tree_0152" index="0" unique_id=1898926848]
+[node name="tree_015" parent="meshs/tree_0152" index="0" unique_id=113698104]
 material_override = ExtResource("3_yn3el")
 
 [node name="tree_0162" parent="meshs" unique_id=1975676823 instance=ExtResource("17_4403x")]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 
-[node name="tree_016" parent="meshs/tree_0162" index="0" unique_id=1845315531]
+[node name="tree_016" parent="meshs/tree_0162" index="0" unique_id=1839447584]
 material_override = ExtResource("3_yn3el")
 
 [node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=1716066164]

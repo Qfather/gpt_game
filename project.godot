@@ -24,7 +24,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/MapGenerate/plugin.cfg", "res://addons/flow_nodes_editor/plugin.cfg", "res://addons/raid_group_editor/plugin.cfg", "res://addons/resource_editor/plugin.cfg", "res://addons/stylized_day_night/plugin.cfg", "res://addons/trait_editor/plugin.cfg", "res://addons/water_material_inspector/plugin.cfg", "res://addons/曲爸爸工具/材质/plugin.cfg")
+enabled=PackedStringArray("res://addons/MapGenerate/plugin.cfg", "res://addons/raid_group_editor/plugin.cfg", "res://addons/resource_editor/plugin.cfg", "res://addons/stylized_day_night/plugin.cfg", "res://addons/trait_editor/plugin.cfg", "res://addons/water_material_inspector/plugin.cfg", "res://addons/曲爸爸工具/材质/plugin.cfg")
 
 [physics]
 

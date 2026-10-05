@@ -6,6 +6,11 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	if Engine.is_editor_hint():
+		for frame: int in range(3): await process_frame
+		assert(not get_nodes_in_group("raid_editor_panels").is_empty(), "关卡插件必须注册实际面板")
+		assert(not ProjectSettings.get_setting("editor_plugins/enabled").has("res://addons/flow_nodes_editor/plugin.cfg"))
+		print("关卡插件已注册，Flow Nodes 已移除")
 	var panel: Control = load("res://addons/resource_editor/raid_editor_panel.gd").new()
 	root.add_child(panel)
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

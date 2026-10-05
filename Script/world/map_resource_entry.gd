@@ -5,6 +5,7 @@ extends Resource
 @export_group("关卡资源")
 @export var enabled: bool = true
 @export var display_name: String = "新地图资源"
+@export var hit_effect: ResourceHitEffect
 @export var scene: PackedScene
 @export_enum("树林噪声", "紧密资源簇") var distribution: int = 1:
 	set(value):

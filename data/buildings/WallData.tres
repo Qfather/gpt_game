@@ -5,6 +5,8 @@
 
 [resource]
 script = ExtResource("1_data")
+category = 1
+sort_id = 50
 id = &"wall"
 display_name = "城墙"
 description = "阻挡敌人前进的基础防御建筑。

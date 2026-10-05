@@ -3,6 +3,7 @@ extends HSplitContainer
 
 const BUILDING_FOLDER: String = "res://data/buildings/"
 const LABELS: Dictionary = {
+	"category": "建筑分类", "sort_id": "排序ID（越小越靠前）", "road_kind": "道路类型", "road_speed_multiplier": "道路移速倍率",
 	"training_role": "训练兵种（1剑士／2弓箭手）", "processing_min": "处理最短时间（秒）", "processing_max": "处理最长时间（秒）",
 	"attack_range_multiplier": "驻塔射程倍率", "base_sight_radius": "基础视野（米）", "occupied_sight_multiplier": "驻塔视野倍率",
 	"id": "稳定ID", "display_name": "名称", "description": "说明", "function_text": "功能说明",
@@ -34,6 +35,7 @@ var preview: Control
 var model_picker: EditorResourcePicker
 var storage_fields: VBoxContainer
 var resources: Array[ResourceData] = []
+var category_tabs: TabBar
 
 
 func _init() -> void:
@@ -49,6 +51,11 @@ func _init() -> void:
 		button.pressed.connect(refresh if action == "刷新建筑列表" else save_current)
 	preview = preload("res://addons/resource_editor/building_scene_preview.gd").new()
 	left.add_child(preview)
+	category_tabs = TabBar.new()
+	category_tabs.clip_tabs = false
+	for title: String in BuildingData.CATEGORY_NAMES: category_tabs.add_tab(title)
+	category_tabs.tab_changed.connect(func(_index: int) -> void: _refresh_building_list())
+	left.add_child(category_tabs)
 	var model_label := Label.new()
 	model_label.text = "外观模型（留空使用功能场景外观）"
 	model_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -63,7 +70,7 @@ func _init() -> void:
 	left.add_child(model_picker)
 	building_list = ItemList.new()
 	building_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	building_list.item_selected.connect(select_building)
+	building_list.item_selected.connect(func(index: int) -> void: select_building(building_list.get_item_metadata(index)))
 	left.add_child(building_list)
 	var right := VBoxContainer.new()
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -80,6 +87,11 @@ func _init() -> void:
 	inspector.property_edited.connect(func(property: String) -> void:
 		if property == "building_scene":
 			_load_scene()
+		if property in ["category", "sort_id", "display_name"]:
+			category_tabs.set_block_signals(true)
+			category_tabs.current_tab = current.category
+			category_tabs.set_block_signals(false)
+			_refresh_building_list(false)
 		call_deferred("_translate_labels")
 	)
 	var scroll := ScrollContainer.new()
@@ -121,10 +133,44 @@ func refresh() -> void:
 			var data: BuildingData = load(BUILDING_FOLDER + file) as BuildingData
 			if data != null:
 				buildings.append(data)
-				building_list.add_item(data.display_name)
-	if not buildings.is_empty():
+	_refresh_building_list()
+
+
+func _refresh_building_list(select_first: bool = true) -> void:
+	if building_list == null: return
+	building_list.clear()
+	var indices: Array[int] = []
+	for index: int in range(buildings.size()):
+		var data: BuildingData = current if current != null and buildings[index].resource_path == data_path else buildings[index]
+		if data.category == category_tabs.current_tab: indices.append(index)
+	indices.sort_custom(func(a: int, b: int) -> bool:
+		var first: BuildingData = current if current != null and buildings[a].resource_path == data_path else buildings[a]
+		var second: BuildingData = current if current != null and buildings[b].resource_path == data_path else buildings[b]
+		return BuildingData.menu_less(first, second)
+	)
+	for index: int in indices:
+		var data: BuildingData = current if current != null and buildings[index].resource_path == data_path else buildings[index]
+		building_list.add_item("%d  %s" % [data.sort_id, data.display_name])
+		building_list.set_item_metadata(building_list.item_count - 1, index)
+		if current != null and buildings[index].resource_path == data_path:
+			building_list.select(building_list.item_count - 1)
+	if select_first and not indices.is_empty():
 		building_list.select(0)
-		select_building(0)
+		select_building(indices[0])
+	elif select_first:
+		current = null
+		inspector.edit(null)
+		preview.show_scene(null)
+		model_picker.edited_resource = null
+		if scene_root != null:
+			scene_root.free()
+			scene_root = null
+		for fields: VBoxContainer in [scene_fields, storage_fields]:
+			for child: Node in fields.get_children():
+				fields.remove_child(child)
+				child.queue_free()
+		field_controls.clear()
+		status.text = "该分类暂无建筑"
 
 
 func select_building(index: int) -> void:
@@ -204,6 +250,23 @@ func _add_node_fields(node: Node) -> void:
 
 
 func _update_preview() -> void:
+	if current.road_kind > 0:
+		var root := Node3D.new()
+		root.name = "RoadPreview"
+		var surface := MeshInstance3D.new()
+		var mesh := PlaneMesh.new()
+		mesh.size = Vector2.ONE
+		surface.mesh = mesh
+		var material := StandardMaterial3D.new()
+		material.albedo_color = Color(0.43, 0.28, 0.13) if current.road_kind == 1 else Color(0.55, 0.59, 0.63)
+		surface.material_override = material
+		root.add_child(surface)
+		surface.owner = root
+		var packed := PackedScene.new()
+		packed.pack(root)
+		preview.show_scene(packed)
+		root.free()
+		return
 	preview.show_scene(current.model_scene if current.model_scene != null else current.building_scene)
 
 
@@ -267,7 +330,7 @@ func _add_storage_row(resource_id: StringName) -> void:
 
 
 func save_current() -> bool:
-	if current == null or current.building_scene == null or current.building_scene.resource_path.is_empty():
+	if current == null or (current.road_kind == 0 and (current.building_scene == null or current.building_scene.resource_path.is_empty())):
 		status.text = "保存失败：请选择已有建筑场景"
 		return false
 	if current.grid_size.x < 1 or current.grid_size.y < 1 or current.construction_time < 0 or current.max_construction_workers < 1:
@@ -292,19 +355,22 @@ func save_current() -> bool:
 		if amount < 0:
 			status.text = "保存失败：仓储容量不能为负数"
 			return false
-	var scene_path: String = current.building_scene.resource_path
-	var packed: PackedScene = current.building_scene.duplicate() as PackedScene
-	if packed.pack(scene_root) != OK or ResourceSaver.save(packed, scene_path) != OK:
-		status.text = "建筑场景保存失败：" + scene_path
-		return false
-	current.building_scene = ResourceLoader.load(scene_path, "", ResourceLoader.CACHE_MODE_REPLACE) as PackedScene
+	var scene_path: String = ""
+	if current.road_kind == 0:
+		scene_path = current.building_scene.resource_path
+		var packed: PackedScene = current.building_scene.duplicate() as PackedScene
+		if packed.pack(scene_root) != OK or ResourceSaver.save(packed, scene_path) != OK:
+			status.text = "建筑场景保存失败：" + scene_path
+			return false
+		current.building_scene = ResourceLoader.load(scene_path, "", ResourceLoader.CACHE_MODE_REPLACE) as PackedScene
 	if ResourceSaver.save(current, data_path) != OK:
 		status.text = "建筑配置保存失败：" + data_path
 		return false
 	ResourceLoader.load(data_path, "", ResourceLoader.CACHE_MODE_REPLACE)
-	EditorInterface.get_resource_filesystem().update_file(scene_path)
+	if not scene_path.is_empty(): EditorInterface.get_resource_filesystem().update_file(scene_path)
 	EditorInterface.get_resource_filesystem().update_file(data_path)
 	status.text = "已保存：" + data_path + "\n专属参数：" + scene_path
+	_refresh_building_list(false)
 	return true
 
 

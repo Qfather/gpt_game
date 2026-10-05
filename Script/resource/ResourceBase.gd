@@ -20,6 +20,9 @@ var resource_type: ResourceType.Type:
 func get_resource_id() -> StringName:
 	return resource_id
 
+@export var hit_effect: ResourceHitEffect
+var hit_animation = preload("res://Script/resource/resource_hit_animation.gd").new()
+
 @export var min_amount: int = 5
 @export var max_amount: int = 10
 
@@ -27,6 +30,7 @@ func get_resource_id() -> StringName:
 @export var visual_scale_min: float = 1.0
 @export var visual_scale_max: float = 1.0
 var visual_seed: int = -1
+var visual_variant_count: int = 0
 var growth_duration: float = 0.0
 var growth_progress: float = 1.0
 var _growth_elapsed: float = 0.0
@@ -46,7 +50,9 @@ var _build_obstacle_bounds: AABB
 
 
 func get_build_obstacle_bounds() -> AABB:
-	var collision: CollisionShape3D = get_node_or_null("StaticBody3D/CollisionShape3D") as CollisionShape3D
+	var collision: CollisionShape3D = get_node_or_null("ClickArea/CollisionShape3D") as CollisionShape3D
+	if collision == null:
+		collision = get_node_or_null("StaticBody3D/CollisionShape3D") as CollisionShape3D
 	if collision == null or collision.disabled or collision.shape == null:
 		return AABB()
 	# 缓存局部碰撞包围盒；位置、旋转与缩放仍按当前世界变换计算。
@@ -68,7 +74,9 @@ func overlaps_clearance_box(bounds: AABB, box_transform: Transform3D) -> bool:
 	var box_bounds: AABB = box_transform * bounds
 	if own_bounds.size == Vector3.ZERO or not own_bounds.intersects(box_bounds):
 		return false
-	var collision: CollisionShape3D = get_node("StaticBody3D/CollisionShape3D") as CollisionShape3D
+	var collision: CollisionShape3D = get_node_or_null("ClickArea/CollisionShape3D") as CollisionShape3D
+	if collision == null:
+		collision = get_node("StaticBody3D/CollisionShape3D") as CollisionShape3D
 	var outline: PackedVector2Array = ResourceSpacing.projected_box(bounds, box_transform)
 	var scale: Vector3 = collision.global_basis.get_scale().abs()
 	if collision.shape is CylinderShape3D and is_equal_approx(scale.x, scale.z) and collision.global_basis.y.normalized().is_equal_approx(Vector3.UP):
@@ -142,12 +150,30 @@ func _ready():
 
 	var click_body: CollisionObject3D = get_node_or_null("StaticBody3D")
 	if click_body != null:
+		# 保留原点击与摆放范围，单位和导航仅使用缩小后的实体碰撞。
+		var solid: CollisionShape3D = click_body.get_node("CollisionShape3D") as CollisionShape3D
+		var click_area := Area3D.new()
+		click_area.name = "ClickArea"
+		click_area.collision_layer = 4
+		click_area.collision_mask = 0
+		click_area.monitoring = false
+		click_area.monitorable = false
+		click_area.process_mode = Node.PROCESS_MODE_ALWAYS
+		add_child(click_area)
+		click_area.transform = (click_body as Node3D).transform
+		var click_shape := CollisionShape3D.new()
+		click_shape.name = "CollisionShape3D"
+		click_shape.shape = solid.shape
+		click_area.add_child(click_shape)
+		click_shape.transform = solid.transform
+		click_area.input_event.connect(_on_click_body_input_event)
+		solid.scale *= Vector3(0.5, 1.0, 0.5)
+		click_body.input_ray_pickable = false
 		_mature_collision_layer = click_body.collision_layer
 		if growth_duration > 0.0:
 			# 保留鼠标拾取，幼苗不参与单位使用的环境碰撞层。
 			click_body.collision_layer = 4
 		click_body.process_mode = Node.PROCESS_MODE_ALWAYS
-		click_body.input_event.connect(_on_click_body_input_event)
 	call_deferred("_register_with_main")
 
 
@@ -193,7 +219,9 @@ func _randomize_visual() -> void:
 		rng.randomize()
 	else:
 		rng.seed = visual_seed
-	var chosen: int = rng.randi_range(0, container.get_child_count() - 1)
+	# 地图生成可只实例化选中的候选，但仍按原候选数量消耗随机数。
+	var chosen: int = rng.randi_range(0, (visual_variant_count if visual_variant_count > 0 else container.get_child_count()) - 1)
+	if visual_variant_count > 0: chosen = 0
 	for index: int in range(container.get_child_count()):
 		var candidate: Node3D = container.get_child(index) as Node3D
 		if index == chosen:
@@ -261,7 +289,7 @@ func release(worker: Node):
 # 采集
 # ============================================================
 
-func gather(amount: int) -> int:
+func gather(amount: int, attacker: Node3D = null) -> int:
 	if not can_gather():
 		return 0
 
@@ -270,6 +298,8 @@ func gather(amount: int) -> int:
 		resource_amount
 	)
 
+	if gathered_amount > 0 and attacker != null:
+		hit_animation.play(get_node_or_null("meshs"), hit_effect, attacker.global_position)
 	resource_amount -= gathered_amount
 
 	print(

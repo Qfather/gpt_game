@@ -3,6 +3,8 @@
 [ext_resource type="PackedScene" path="res://Scene/building/game/hunter_hut.tscn" id="2"]
 [resource]
 script = ExtResource("1")
+category = 0
+sort_id = 10
 id = &"hunter_hut"
 display_name = "猎人小屋"
 description = "最多两名猎户，狩猎后回屋处理为肉类。"

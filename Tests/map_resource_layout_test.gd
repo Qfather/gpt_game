@@ -24,8 +24,8 @@ func _run() -> void:
 	_expect(game_camera.focus_target.is_equal_approx(base.global_position), "开局摄像机未聚焦随机据点")
 	_expect(game_camera.focus_destination.is_equal_approx(base.global_position), "摄像机仍向旧据点位置平滑移动")
 	_expect(game_camera.unproject_position(base.global_position).distance_to(root.get_visible_rect().size * 0.5) < 1.0, "据点没有投影到屏幕中心")
-	var base_mesh: BoxMesh = (base.get_node("MeshInstance3D") as MeshInstance3D).mesh as BoxMesh
-	_expect(base_mesh.size == Vector3(2, 2, 3), "据点模型不是 2×3 占地")
+	var base_click_shape: BoxShape3D = (base.get_node("ClickArea/CollisionShape3D") as CollisionShape3D).shape as BoxShape3D
+	_expect(base_click_shape.size == Vector3(2, 2, 3), "据点点击区域不是 2×3 占地")
 	var grid: BuildGrid = scene.get_node("Systems/BuildGrid") as BuildGrid
 	_expect((base as BuildingBase).build_grid_size == Vector2i(2, 3), "据点未登记 2×3 占地")
 	_expect(grid.occupied_cells.size() == 6, "据点占地不是六格")

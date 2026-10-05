@@ -132,6 +132,9 @@ func refresh():
 	job_label.text = "职业：" + _get_display_name(JOB_DISPLAY_NAMES, job_index)
 	combat_role_label.text = "军事职业：" + CombatRole.get_display_name(combat_role_index)
 	state_label.text = "状态：" + _get_display_name(STATE_DISPLAY_NAMES, state_index)
+	var garrison_building: BuildingBase = (villager.garrison_target if state_index in [villager.State.MOVE_TO_BARRACKS, villager.State.RETURN_TO_BARRACKS] else villager.garrisoned_in) as BuildingBase
+	if is_instance_valid(garrison_building) and garrison_building.has_method("allows_garrison_attacks"):
+		state_label.text = state_label.text.replace("军营", "箭塔")
 	if state_index == villager.State.HUNTING:
 		state_label.text = "状态：回屋处理" if villager.hunting.returning else "状态：狩猎"
 	if state_index == villager.State.RETREAT_TO_BASE:

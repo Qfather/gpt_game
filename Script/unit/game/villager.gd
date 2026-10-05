@@ -13,6 +13,7 @@ const HUNTER_DATA: UnitDataResource = preload("res://data/units/HunterData.tres"
 const ARROW_SCRIPT: Script = preload("res://Script/combat/arrow.gd")
 var hunting: RefCounted = preload("res://Script/unit/hunting_behavior.gd").new()
 var visual_instance: Node3D
+var visual_root: Node3D
 
 const RESOURCE_DATABASE: ResourceDatabase = preload(
 	"res://data/resources/resource_database.tres"
@@ -97,7 +98,9 @@ enum State {
 	MOVE_TO_REPAIR,
 	REPAIRING,
 	RETREAT_TO_BASE,
-	MOVE_TO_RELOCATED_BUILDING
+	MOVE_TO_RELOCATED_BUILDING,
+	MOVE_TO_ROAD,
+	BUILD_ROAD
 }
 
 var relocated_building: BuildingBase
@@ -119,6 +122,7 @@ var state: State = State.IDLE:
 				navigation_agent.target_desired_distance = 0.2
 				navigation_agent.path_desired_distance = 0.2
 		state = value
+		_set_unreachable_warning(false)
 var treasure_camp: Node3D
 var treasure_resume: Dictionary = {}
 var patrol_barracks: Node = null
@@ -152,6 +156,7 @@ var resupply_barracks: Node = null
 var resupply_food_id: StringName = &""
 var returning_resupply_surplus: bool = false
 var idle_reposition_timer: float = 0.0
+var leaving_immigration_base: bool = false
 
 @export_category("剑士战斗")
 @export var combat_damage: float = 10.0
@@ -184,6 +189,7 @@ const JOB_CLOTHING_COLORS: Dictionary = {
 @export_category("军事职业")
 @export_enum("无", "剑士", "弓箭手") var combat_role: int = CombatRole.Type.NONE
 var road_navigation = preload("res://Script/unit/road_navigation.gd").new()
+var road_previous_target_distance: float = 1.5
 
 @onready var body_mesh: MeshInstance3D = get_node_or_null("MeshInstance3D")
 
@@ -232,6 +238,11 @@ func has_combat_role() -> bool:
 	return combat_role != CombatRole.Type.NONE
 
 
+func _face_direction(direction: Vector3) -> void:
+	var visual: Node3D = visual_root if is_instance_valid(visual_instance) else body_mesh
+	preload("res://Script/unit/unit_facing.gd").face_direction(visual, direction)
+
+
 func _update_combat_visual() -> void:
 	if has_combat_role():
 		add_to_group("combat_units")
@@ -239,14 +250,18 @@ func _update_combat_visual() -> void:
 		remove_from_group("combat_units")
 	if body_mesh == null or unit_data == null:
 		return
+	if not is_instance_valid(visual_root):
+		visual_root = Node3D.new()
+		visual_root.name = "VisualRoot"
+		add_child(visual_root)
 	if is_instance_valid(visual_instance):
-		remove_child(visual_instance)
+		visual_root.remove_child(visual_instance)
 		visual_instance.queue_free()
 		visual_instance = null
 	body_mesh.visible = unit_data.visual_scene == null
 	if unit_data.visual_scene != null:
 		visual_instance = unit_data.visual_scene.instantiate() as Node3D
-		add_child(visual_instance)
+		visual_root.add_child(visual_instance)
 	_apply_visual_tint(visual_instance if visual_instance != null else body_mesh)
 	_update_work_clothing()
 
@@ -355,7 +370,7 @@ func get_activity_level() -> ActivityLevel:
 			return ActivityLevel.RESTING
 		State.FIND_TASK_SOURCE, State.MOVE_TO_TASK_SOURCE:
 			return ActivityLevel.WORKING
-		State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.BUILDING, State.FIND_FIELD_WORK, State.MOVE_TO_FIELD, State.WORKING_FIELD, State.MOVE_TO_REPAIR, State.REPAIRING:
+		State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.BUILDING, State.MOVE_TO_ROAD, State.BUILD_ROAD, State.FIND_FIELD_WORK, State.MOVE_TO_FIELD, State.WORKING_FIELD, State.MOVE_TO_REPAIR, State.REPAIRING:
 			return ActivityLevel.WORKING
 		State.RESTING:
 			return ActivityLevel.RESTING
@@ -829,13 +844,17 @@ func start():
 	find_base()
 
 	# 如果仍然无业，才进入 Base 待命
-	if job == Job.NONE:
+	if job == Job.NONE and not leaving_immigration_base:
 		return_to_idle()
 # ============================================================
 # 主循环
 # ============================================================
 
 func _physics_process(delta):
+	preload("res://Script/unit/unit_facing.gd").update(visual_root if is_instance_valid(visual_instance) else body_mesh, delta)
+	if leaving_immigration_base:
+		velocity = Vector3.ZERO
+		return
 	if is_stunned():
 		stun_remaining = maxf(stun_remaining - delta, 0.0)
 		velocity = Vector3.ZERO
@@ -872,6 +891,8 @@ func _physics_process(delta):
 		_start_current_task()
 
 	match state:
+		State.MOVE_TO_ROAD, State.BUILD_ROAD:
+			_process_road_construction(delta)
 		State.MOVE_TO_REPAIR, State.REPAIRING:
 			_process_building_repair(delta)
 		State.HUNTING:
@@ -1021,7 +1042,7 @@ func _update_unreachable_warning(delta: float) -> void:
 		_set_unreachable_warning(false)
 	var moving_to_work: bool = state in [
 		State.MOVE_TO_TASK_SOURCE, State.MOVE_TO_TASK_SITE,
-		State.MOVE_TO_BUILD_SITE, State.WAIT_CONSTRUCTION_SITE,
+		State.MOVE_TO_BUILD_SITE, State.MOVE_TO_ROAD, State.WAIT_CONSTRUCTION_SITE,
 		State.MOVE_TO_DEMOLITION, State.MOVE_TO_WORKPLACE,
 		State.MOVE_TO_RESOURCE, State.MOVE_TO_FIELD,
 		State.MOVE_TO_BASE, State.MOVE_TO_DEMOLITION_BASE,
@@ -1058,7 +1079,25 @@ func _update_unreachable_warning(delta: float) -> void:
 func _set_unreachable_warning(active: bool) -> void:
 	unreachable_warning = active
 	if unreachable_marker != null:
-		unreachable_marker.visible = active
+		var attention: bool = active or has_idle_warning()
+		if bool(unreachable_marker.get_meta("fog_visible", false)) != attention:
+			unreachable_marker.set_meta("fog_visible", attention)
+		unreachable_marker.visible = attention and not bool(get_meta("fog_hidden", false))
+
+
+func has_idle_warning() -> bool:
+	if is_dead() or is_queued_for_deletion(): return false
+	if state == State.WAIT_CONSTRUCTION_SITE:
+		return _has_reached_task_site_navigation_target()
+	if state == State.WAIT_TASK_RESOURCE: return true
+	if state != State.IDLE: return false
+	# 有职业或任务却没有实际工作时，需要提醒；据点普通待命除外。
+	if job != Job.NONE or is_instance_valid(workplace) or current_task != null: return true
+	if not is_instance_valid(target_base): return true
+	return (
+		Vector2(global_position.x - target_base.global_position.x, global_position.z - target_base.global_position.z).length() > target_base.idle_radius
+		or absf(global_position.y - target_base.global_position.y) > 1.0
+	)
 
 
 func has_unreachable_warning() -> bool:
@@ -1129,11 +1168,13 @@ func _process_combat(delta: float) -> bool:
 			navigation_agent.target_position = target_position
 		var next_position: Vector3 = road_navigation.next_position(self, navigation_agent)
 		velocity = global_position.direction_to(next_position) * get_move_speed()
+		_face_direction(velocity)
 		move_and_slide()
 		return true
 
 	state = State.COMBAT_ATTACK
 	velocity = Vector3.ZERO
+	_face_direction(target_position - global_position)
 	combat_attack_cooldown = maxf(combat_attack_cooldown - delta, 0.0)
 	if combat_attack_cooldown > 0.0:
 		return true
@@ -1174,6 +1215,7 @@ func _find_nearest_hostile(search_range: float = -1.0) -> Node3D:
 
 
 func fire_arrow(target: Node3D) -> void:
+	_face_direction(target.global_position - global_position)
 	var damage: float = ARCHER_DATA.damage * 0.5 if is_hunter() and target.is_in_group("enemies") else combat_damage
 	ARROW_SCRIPT.launch(self, target, global_position + Vector3.UP, damage, unit_data.arrow_speed)
 
@@ -1410,6 +1452,14 @@ func _start_current_task() -> void:
 
 	var task: GameTask = current_task as GameTask
 	if task == null:
+		return
+
+	if task.type == GameTask.TaskType.BUILD_ROAD:
+		task.state = GameTask.State.IN_PROGRESS
+		road_previous_target_distance = navigation_agent.target_desired_distance
+		navigation_agent.target_desired_distance = 0.25
+		navigation_agent.target_position = task.data.position
+		state = State.MOVE_TO_ROAD
 		return
 
 	if task.type == GameTask.TaskType.REPAIR_BUILDING:
@@ -1750,6 +1800,28 @@ func move_to_build_site() -> void:
 
 	state = State.BUILDING
 	print("Villager 已加入施工：", task.id)
+
+
+func _process_road_construction(delta: float) -> void:
+	var task: GameTask = current_task as GameTask
+	if task == null or not is_instance_valid(task.target):
+		_release_current_task()
+		return
+	if not task.target.can_work_cell(task.data.cell):
+		task.target.work_cell(task, self, 0.0)
+		return
+	if global_position.distance_to(task.data.position) > 0.65:
+		if navigation_agent.is_navigation_finished():
+			var map: RID = navigation_agent.get_navigation_map()
+			if task.target._path(map, global_position, task.data.position).is_empty():
+				_release_current_task()
+				return
+		state = State.MOVE_TO_ROAD
+		move_along_navigation()
+		return
+	state = State.BUILD_ROAD
+	velocity = Vector3.ZERO
+	task.target.work_cell(task, self, delta)
 
 
 func move_to_training() -> void:
@@ -2582,6 +2654,7 @@ func gather_resource(delta):
 	# 砍树计时
 	# ========================================================
 
+	_face_direction(target_resource.global_position - global_position)
 	chop_timer += delta
 
 	if chop_timer < chop_interval:
@@ -2604,7 +2677,7 @@ func gather_resource(delta):
 		)
 
 		var gathered_amount = target_resource.gather(
-			amount_to_gather
+			amount_to_gather, self
 		)
 
 		var gather_resource_id: StringName = get_job_resource_id()
@@ -2912,6 +2985,7 @@ func move_along_navigation():
 	):
 		velocity.x = patrol_collision_avoid_direction.x * get_move_speed()
 		velocity.z = patrol_collision_avoid_direction.z * get_move_speed()
+		_face_direction(velocity)
 		move_and_slide()
 		patrol_collision_avoid_time = maxf(
 			patrol_collision_avoid_time - get_physics_process_delta_time(),
@@ -2948,6 +3022,7 @@ func move_along_navigation():
 		velocity.z = 0.0
 
 
+	_face_direction(velocity)
 	move_and_slide()
 	if state == State.MOVE_TO_PATROL_POINT:
 		_update_patrol_collision_avoidance()
@@ -3404,6 +3479,7 @@ func is_idle() -> bool:
 	#没有职业，并且也没有处于离职处理中，才算真正空闲。
 	return (
 		not is_stunned()
+		and not leaving_immigration_base
 		and job == Job.NONE
 		and current_task == null
 		and not is_quitting_job
@@ -3420,6 +3496,24 @@ func is_idle_resident() -> bool:
 # ============================================================
 # @feature 根据职业返回正确的待命地点
 # ============================================================
+
+func walk_out_of_immigration_base(base: Node3D) -> void:
+	target_base = base
+	collision_layer = 0
+	collision_mask = 0
+	var exit_position: Vector3 = base.get_migrant_entrance_position()
+	_face_direction(exit_position - global_position)
+	var tween: Tween = create_tween().set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
+	tween.tween_property(self, "global_position", exit_position, global_position.distance_to(exit_position) / get_move_speed())
+	tween.tween_callback(func() -> void:
+		leaving_immigration_base = false
+		collision_layer = 2
+		collision_mask = 3
+		if not is_instance_valid(target_base):
+			target_base = null
+		return_to_idle()
+	)
+
 
 func return_to_idle():
 	if abandoning_work:
@@ -4253,6 +4347,12 @@ func finish_quit_job():
 # ============================================================
 
 func can_take_task(_task: Object) -> bool:
+	if _task is GameTask and _task.type == GameTask.TaskType.BUILD_ROAD:
+		if current_task != null or state not in [State.IDLE, State.RETURN_TO_IDLE] or is_dead(): return false
+		var map: RID = navigation_agent.get_navigation_map()
+		if NavigationServer3D.map_get_iteration_id(map) == 0: return false
+		var path: PackedVector3Array = NavigationServer3D.map_get_path(map, global_position, _task.data.position, true)
+		if path.is_empty() or path[-1].distance_to(_task.data.position) > 0.5: return false
 	if _task != null:
 		var task_target: Variant = _task.get("target")
 		if is_instance_valid(task_target) and task_target.get_instance_id() == abandoned_work_target_id:
@@ -4276,6 +4376,8 @@ func set_current_task(task: Object) -> void:
 
 
 func clear_current_task() -> void:
+	if current_task is GameTask and current_task.type == GameTask.TaskType.BUILD_ROAD and state in [State.MOVE_TO_ROAD, State.BUILD_ROAD]:
+		navigation_agent.target_desired_distance = road_previous_target_distance
 
 	if state == State.TRAINING and not is_dead():
 		visible = true
@@ -4292,7 +4394,7 @@ func clear_current_task() -> void:
 	if state == State.MOVE_TO_LOOT:
 		loot_bundle_target = null
 		state = State.IDLE
-	if state == State.BUILDING or state == State.MOVE_TO_REPAIR or state == State.REPAIRING or was_training:
+	if state in [State.BUILDING, State.MOVE_TO_ROAD, State.BUILD_ROAD, State.MOVE_TO_REPAIR, State.REPAIRING] or was_training:
 		task_site = null
 		if was_training:
 			return_to_idle()

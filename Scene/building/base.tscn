@@ -36,3 +36,9 @@ bar_width = 1.8
 bar_height = 0.14
 
 [node name="VisualDetail" parent="." instance=ExtResource("visual_detail")]
+
+[node name="ImmigrationEntrance" type="Marker3D" parent="."]
+position = Vector3(0, 0, 2.4)
+
+[node name="ImmigrationInterior" type="Marker3D" parent="."]
+position = Vector3(0, 0, 0.4)

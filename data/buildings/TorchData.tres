@@ -5,6 +5,8 @@
 
 [resource]
 script = ExtResource("1_data")
+category = 2
+sort_id = 10
 id = &"torch"
 display_name = "火把"
 description = "可放置在战争迷雾中的临时照明建筑。

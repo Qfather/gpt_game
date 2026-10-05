@@ -27,7 +27,7 @@ func _run() -> void:
 	assert(house.has_node("StaticBody3D/CollisionShape3D") and house.is_in_group("navigation_solid_buildings"))
 	var solid: CollisionShape3D = house.get_node("StaticBody3D/CollisionShape3D")
 	var click: CollisionShape3D = house.get_node("ClickArea/CollisionShape3D")
-	assert(is_equal_approx(solid.scale.x, 0.85) and is_equal_approx(click.scale.x, 1.0))
+	assert(is_equal_approx(solid.scale.x, 0.5) and is_equal_approx(click.scale.x, 1.0))
 	var mesh: NavigationMesh = runtime._new_navigation_mesh()
 	NavigationServer3D.bake_from_source_geometry_data(mesh, runtime._navigation_geometry())
 	region.navigation_mesh = mesh
@@ -38,7 +38,8 @@ func _run() -> void:
 		worker.velocity = Vector3(4,0,0)
 		worker.move_and_slide()
 		await physics_frame
-	assert(worker.position.x < -1.0)
+	var solid_bounds: AABB = solid.global_transform * solid.shape.get_debug_mesh().get_aabb()
+	assert(worker.position.x < solid_bounds.position.x)
 	worker.position = Vector3(-5,0,0)
 	worker.navigation_agent.target_position = Vector3(5,0,0)
 	var maximum_detour: float = 0.0
@@ -46,10 +47,10 @@ func _run() -> void:
 		worker.navigation_agent.get_next_path_position()
 		worker.move_along_navigation()
 		maximum_detour = maxf(maximum_detour, absf(worker.position.z))
-		assert(absf(worker.position.x) >= 1.0 or absf(worker.position.z) >= 1.0)
+		assert(not Rect2(Vector2(solid_bounds.position.x, solid_bounds.position.z), Vector2(solid_bounds.size.x, solid_bounds.size.z)).has_point(Vector2(worker.position.x, worker.position.z)))
 		if worker.position.distance_to(Vector3(5,0,0)) < 1.6: break
 		await physics_frame
-	assert(worker.position.distance_to(Vector3(5,0,0)) < 1.6 and maximum_detour > 1.3)
+	assert(worker.position.distance_to(Vector3(5,0,0)) < 1.6 and maximum_detour > solid_bounds.end.z)
 	worker.set_combat_role(CombatRole.Type.SWORDSMAN)
 	var enemy: EnemyBase = load("res://Scene/unit/enemy_base.tscn").instantiate()
 	world.add_child(enemy)
@@ -62,10 +63,10 @@ func _run() -> void:
 	for frame in range(420):
 		worker._process_combat(1.0 / 60.0)
 		maximum_detour = maxf(maximum_detour, absf(worker.position.z))
-		assert(absf(worker.position.x) >= 1.0 or absf(worker.position.z) >= 1.0)
+		assert(not Rect2(Vector2(solid_bounds.position.x, solid_bounds.position.z), Vector2(solid_bounds.size.x, solid_bounds.size.z)).has_point(Vector2(worker.position.x, worker.position.z)))
 		if worker.position.distance_to(enemy.position) <= 1.6: break
 		await physics_frame
-	assert(worker.position.distance_to(enemy.position) <= 1.6 and maximum_detour > 1.3)
+	assert(worker.position.distance_to(enemy.position) <= 1.6 and maximum_detour > solid_bounds.end.z)
 	worker.set_combat_role(CombatRole.Type.NONE)
 	enemy.queue_free()
 	var revision: int = runtime.navigation_revision

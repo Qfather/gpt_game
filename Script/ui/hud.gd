@@ -4,57 +4,13 @@ extends CanvasLayer
 signal build_requested(building_data: BuildingData)
 signal enemy_placement_requested(enemy_data: EnemyData)
 signal raid_requested()
-signal road_requested()
+signal road_requested(data: BuildingData)
 signal unreachable_villager_clicked(villager: UnitBase)
 
-const LUMBER_CAMP_DATA: BuildingData = preload(
-	"res://data/buildings/LumberCampData.tres"
-)
-const QUARRY_DATA: BuildingData = preload(
-	"res://data/buildings/QuarryData.tres"
-)
-const FARM_DATA: BuildingData = preload(
-	"res://data/buildings/FarmData.tres"
-)
-const HOUSE_DATA: BuildingData = preload(
-	"res://data/buildings/HouseData.tres"
-)
-const SWORDSMAN_CAMP_DATA: BuildingData = preload(
-	"res://data/buildings/SwordsmanCampData.tres"
-)
-const BARRACKS_DATA: BuildingData = preload(
-	"res://data/buildings/BarracksData.tres"
-)
-const WALL_DATA: BuildingData = preload(
-	"res://data/buildings/WallData.tres"
-)
-const GATE_DATA: BuildingData = preload(
-	"res://data/buildings/GateData.tres"
-)
-const TORCH_DATA: BuildingData = preload(
-	"res://data/buildings/TorchData.tres"
-)
 const RESOURCE_DATABASE: ResourceDatabase = preload(
 	"res://data/resources/resource_database.tres"
 )
-const SLIME_DATA: EnemyData = preload("res://data/enemies/raid/SlimeData.tres")
-const WOLF_DATA: EnemyData = preload("res://data/enemies/raid/WolfData.tres")
-const PRODUCTION_BUILDINGS: Array[BuildingData] = [
-	preload("res://data/buildings/HunterHutData.tres"),
-	LUMBER_CAMP_DATA,
-	QUARRY_DATA,
-	FARM_DATA,
-	HOUSE_DATA
-]
-const MILITARY_BUILDINGS: Array[BuildingData] = [
-	preload("res://data/buildings/ArcherCampData.tres"),
-	preload("res://data/buildings/ArrowTowerData.tres"),
-	SWORDSMAN_CAMP_DATA,
-	BARRACKS_DATA,
-	WALL_DATA,
-	GATE_DATA
-]
-const STRATEGY_BUILDINGS: Array[BuildingData] = [TORCH_DATA]
+var menu_buildings: Array[BuildingData] = []
 
 
 # ============================================================
@@ -92,7 +48,6 @@ var debug_resource_labels: Dictionary = {}
 var debug_villager_section: VBoxContainer = null
 var debug_villager_label: Label = null
 var debug_villager: Node = null
-var enemy_placement_button: Button = null
 var selected_building_category: int = 0
 var defeat_overlay: Control = null
 var victory_overlay: Control = null
@@ -365,12 +320,6 @@ func _on_threat_changed(has_threat: bool, direction: String) -> void:
 		threat_label.text = "威胁方向：%s" % (direction if has_threat else "暂无")
 
 
-func _on_rift_pressed() -> void:
-	var manager: RiftManager = get_tree().get_first_node_in_group("rift_manager") as RiftManager
-	if manager != null:
-		manager.spawn_rift()
-
-
 func _unhandled_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
@@ -507,29 +456,17 @@ func _create_debug_panel() -> void:
 	content.add_theme_constant_override("separation", 5)
 	debug_scroll.add_child(content)
 
-	enemy_placement_button = Button.new()
-	enemy_placement_button.text = "放置史莱姆"
-	enemy_placement_button.pressed.connect(
-		_on_debug_enemy_placement_pressed.bind(SLIME_DATA)
+	var navigation_toggle := CheckButton.new()
+	navigation_toggle.name = "NavigationDebugToggle"
+	navigation_toggle.text = "显示寻路地图"
+	get_tree().debug_navigation_hint = false
+	NavigationServer3D.set_debug_enabled(false)
+	navigation_toggle.button_pressed = false
+	navigation_toggle.toggled.connect(func(enabled: bool) -> void:
+		get_tree().debug_navigation_hint = enabled
+		NavigationServer3D.set_debug_enabled(enabled)
 	)
-	content.add_child(enemy_placement_button)
-
-	var wolf_placement_button: Button = Button.new()
-	wolf_placement_button.text = "放置狼"
-	wolf_placement_button.pressed.connect(
-		_on_debug_enemy_placement_pressed.bind(WOLF_DATA)
-	)
-	content.add_child(wolf_placement_button)
-
-	var raid_button: Button = Button.new()
-	raid_button.text = "生成第三方袭扰"
-	raid_button.pressed.connect(func() -> void: raid_requested.emit())
-	content.add_child(raid_button)
-
-	var rift_button: Button = Button.new()
-	rift_button.text = "生成时间裂缝"
-	rift_button.pressed.connect(_on_rift_pressed)
-	content.add_child(rift_button)
+	content.add_child(navigation_toggle)
 
 	var resource_title := Label.new()
 	resource_title.text = "资源调整（据点库存）"
@@ -690,16 +627,6 @@ func set_debug_villager(villager: Node) -> void:
 	_refresh_debug_panel()
 
 
-func set_enemy_placement_active(active: bool) -> void:
-	if enemy_placement_button == null:
-		return
-	enemy_placement_button.text = "点击地面放置史莱姆" if active else "放置史莱姆"
-
-
-func _on_debug_enemy_placement_pressed(enemy_data: EnemyData) -> void:
-	enemy_placement_requested.emit(enemy_data)
-
-
 func _refresh_debug_panel() -> void:
 	if debug_panel == null:
 		return
@@ -785,18 +712,22 @@ func _apply_debug_villager_adjust(
 
 
 func _configure_building_menu() -> void:
-	building_tabs.tab_count = 4
-	building_tabs.set_tab_title(0, "生产建筑")
-	building_tabs.set_tab_title(1, "军事建筑")
-	building_tabs.set_tab_title(2, "战略")
-	building_tabs.set_tab_title(3, "道路")
+	menu_buildings.clear()
+	for file: String in DirAccess.get_files_at("res://data/buildings/"):
+		if not file.ends_with(".tres"): continue
+		var data: BuildingData = load("res://data/buildings/" + file) as BuildingData
+		if data != null and data.id != &"base": menu_buildings.append(data)
+	menu_buildings.sort_custom(BuildingData.menu_less)
+	building_tabs.tab_count = BuildingData.CATEGORY_NAMES.size()
+	for index: int in range(building_tabs.tab_count):
+		building_tabs.set_tab_title(index, BuildingData.CATEGORY_NAMES[index])
 	if not building_tabs.tab_changed.is_connected(_on_building_tab_changed):
 		building_tabs.tab_changed.connect(_on_building_tab_changed)
 	_refresh_building_buttons()
 
 
 func _on_building_tab_changed(tab_index: int) -> void:
-	selected_building_category = clampi(tab_index, 0, 3)
+	selected_building_category = clampi(tab_index, 0, BuildingData.CATEGORY_NAMES.size() - 1)
 	_refresh_building_buttons()
 
 
@@ -804,20 +735,8 @@ func _refresh_building_buttons() -> void:
 	for child: Node in build_buttons.get_children():
 		child.free()
 
-	if selected_building_category == 3:
-		var button := Button.new()
-		button.text = "道路管理 / 铺路"
-		button.custom_minimum_size = Vector2(180, 48)
-		button.focus_mode = Control.FOCUS_NONE
-		button.pressed.connect(func() -> void: road_requested.emit())
-		build_buttons.add_child(button)
-		return
-	var building_options: Array[BuildingData] = STRATEGY_BUILDINGS
-	if selected_building_category == 0:
-		building_options = PRODUCTION_BUILDINGS
-	elif selected_building_category == 1:
-		building_options = MILITARY_BUILDINGS
-	for building_data: BuildingData in building_options:
+	for building_data: BuildingData in menu_buildings:
+		if building_data.category != selected_building_category: continue
 		var button := Button.new()
 		button.focus_mode = Control.FOCUS_NONE
 		button.custom_minimum_size = Vector2(115.0, 48.0)
@@ -921,6 +840,9 @@ func _on_building_button_mouse_exited() -> void:
 
 
 func _on_building_button_pressed(building_data: BuildingData) -> void:
+	if building_data.road_kind > 0:
+		road_requested.emit(building_data)
+		return
 	build_requested.emit(building_data)
 
 
@@ -940,7 +862,7 @@ func _get_building_tooltip_body(building_data: BuildingData) -> String:
 		var resource_data: ResourceData = RESOURCE_DATABASE.get_resource_data(resource_id)
 		if resource_data != null and not resource_data.display_name.is_empty():
 			resource_name = resource_data.display_name
-		costs.append("%s %d" % [resource_name, int(building_data.construction_cost[resource_key])])
+		costs.append("%s %s" % [resource_name, str(building_data.construction_cost[resource_key])])
 	if not costs.is_empty():
 		lines.append("所需材料：" + "、".join(costs))
 

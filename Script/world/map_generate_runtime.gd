@@ -14,6 +14,8 @@ var _resource_specs: Dictionary = {}
 var _point_spacings: Dictionary = {}
 var _scene_outlines: Dictionary = {}
 var _scene_circles: Dictionary = {}
+var _resource_visual_variants: Dictionary = {}
+var _resource_visual_counts: Dictionary = {}
 var _point_geometry: Dictionary = {}
 var _resource_passages: Array[Rect2] = []
 var tree_count: int:
@@ -37,7 +39,11 @@ func _scene_count(scene: PackedScene) -> int:
 @export var build_grid_path: NodePath = ^"../BuildGrid"
 
 var map_data: WFCMapData
-var height_field: WFCHeightField
+var height_field: WFCHeightField:
+	set(value):
+		height_field = value
+		_cell_positions.clear()
+		_map_cell_buildability.clear()
 var _terrain_demo: Node
 var _resource_points: Array[Vector3] = []
 var _resource_rng := RandomNumberGenerator.new()
@@ -51,6 +57,7 @@ var _cliff_foot_distances: Dictionary = {}
 var _cliff_top_distances: Dictionary = {}
 var generation_timings_ms: Dictionary = {}
 var _cell_positions: Dictionary = {}
+var _map_cell_buildability: Dictionary = {}
 var _navigation_faces: PackedVector3Array = PackedVector3Array()
 var _navigation_dirty: bool = false
 var _navigation_update_queued: bool = false
@@ -80,7 +87,6 @@ func _ready() -> void:
 		push_error("MapGenerate 关卡配置生成地图失败")
 		return
 	height_field = map_data.create_height_field()
-	_cell_positions.clear()
 	var stage_started: int = Time.get_ticks_msec()
 	if not _place_base():
 		return
@@ -89,6 +95,7 @@ func _ready() -> void:
 	_terrain_demo = DEMO_SCENE.instantiate()
 	_terrain_demo.set("level_config", null)
 	_terrain_demo.set("map_outline", map_data)
+	_terrain_demo.set("model_instantiator", preload("res://Script/world/随机显示自己模型.gd").instantiate_model)
 	_terrain_demo.name = "GeneratedTerrain"
 	add_child(_terrain_demo)
 	_hide_demo_only_nodes()
@@ -101,6 +108,8 @@ func _ready() -> void:
 	_build_navigation()
 	_sync_world_bounds()
 	_configure_build_grid()
+	var roads: Node = get_tree().get_first_node_in_group("road_manager")
+	if roads != null: roads._refresh_stroke_graph()
 	var camera: GameCameraController = get_viewport().get_camera_3d() as GameCameraController
 	var base: Node3D = get_tree().get_first_node_in_group("bases") as Node3D
 	if camera != null and base != null:
@@ -281,8 +290,37 @@ func _prepare_resource_spec(entry: MapResourceEntry) -> bool:
 				outline.append(Vector2(point.x, point.z))
 	_scene_outlines[entry.scene] = Geometry2D.convex_hull(outline)
 	_scene_circles[entry.scene] = collision.shape is CylinderShape3D and shape_transform.basis.y.normalized().is_equal_approx(Vector3.UP) and is_equal_approx(extent.x, extent.y) and is_zero_approx(bounds.get_center().x) and is_zero_approx(bounds.get_center().z)
+	var visual: Node = instance.get_node_or_null("meshs")
+	_resource_visual_counts[entry.scene] = visual.get_child_count() if visual != null else 0
 	instance.free()
 	return true
+
+
+func _instantiate_resource(scene: PackedScene, seed_value: int) -> ResourceBase:
+	var count: int = _resource_visual_counts[scene]
+	if count <= 1:
+		return scene.instantiate() as ResourceBase
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	var chosen: int = rng.randi_range(0, count - 1)
+	if not _resource_visual_variants.has(scene):
+		_resource_visual_variants[scene] = {}
+	var variants: Dictionary = _resource_visual_variants[scene]
+	if not variants.has(chosen):
+		var template: ResourceBase = scene.instantiate() as ResourceBase
+		var visual: Node = template.get_node("meshs")
+		var candidates: Array[Node] = visual.get_children()
+		for index: int in range(candidates.size()):
+			if index != chosen:
+				visual.remove_child(candidates[index])
+				candidates[index].free()
+		var variant := PackedScene.new()
+		variant.pack(template)
+		variants[chosen] = variant
+		template.free()
+	var instance: ResourceBase = (variants[chosen] as PackedScene).instantiate() as ResourceBase
+	instance.visual_variant_count = count
+	return instance
 
 
 func _geometry(scene: PackedScene, position: Vector3, yaw: float) -> Dictionary:
@@ -341,18 +379,19 @@ func _build_resource_terrain_weights(cells: Array[Vector2i]) -> void:
 		var cell_corners: Array[float] = height_field.get_cell_corners(cell)
 		if height_field.has_control(cell, WFCHeightControl.Kind.STAIRS) or not (is_equal_approx(cell_corners[0], cell_corners[1]) and is_equal_approx(cell_corners[0], cell_corners[2]) and is_equal_approx(cell_corners[0], cell_corners[3])):
 			continue
-		var height: float = height_field.get_cell_surface_height(cell)
-		flat_heights[cell] = height
+		flat_heights[cell] = (cell_corners[0] + cell_corners[1] + cell_corners[2] + cell_corners[3]) * 0.25
+	# 邻格判定复用本轮读取的平地高度，避免每条相邻边重复计算四角。
+	for cell: Vector2i in cells:
+		if not flat_heights.has(cell):
+			continue
+		var height: float = flat_heights[cell]
 		var level: int = clampi(roundi(height / WFCHeightControl.LEVEL_HEIGHT), 0, WFCHeightControl.MAX_LEVEL)
 		var cliff_foot: bool = false
 		var cliff_top: bool = false
 		for neighbor: Vector2i in [cell + Vector2i.UP, cell + Vector2i.RIGHT, cell + Vector2i.DOWN, cell + Vector2i.LEFT]:
-			if not map_data.has_cell(neighbor) or height_field.has_control(neighbor, WFCHeightControl.Kind.STAIRS):
+			if not flat_heights.has(neighbor):
 				continue
-			var corners: Array[float] = height_field.get_cell_corners(neighbor)
-			if not (is_equal_approx(corners[0], corners[1]) and is_equal_approx(corners[0], corners[2]) and is_equal_approx(corners[0], corners[3])):
-				continue
-			var height_difference: float = corners[0] - height
+			var height_difference: float = float(flat_heights[neighbor]) - height
 			if height_difference >= WFCHeightControl.LEVEL_HEIGHT:
 				cliff_foot = true
 			elif height_difference <= -WFCHeightControl.LEVEL_HEIGHT:
@@ -588,10 +627,12 @@ func _place_resource_at(root: Node3D, scene: PackedScene, position: Vector3, bas
 			continue
 		if _edge_gap(geometry, previous) < required:
 			return false
-	var instance: Node3D = scene.instantiate() as Node3D
+	var visual_seed: int = _visual_rng.randi()
+	var instance: Node3D = _instantiate_resource(scene, visual_seed)
 	if instance is ResourceBase:
-		(instance as ResourceBase).visual_seed = _visual_rng.randi()
+		(instance as ResourceBase).visual_seed = visual_seed
 		if _active_resource != null:
+			if _active_resource.hit_effect != null: instance.hit_effect = _active_resource.hit_effect
 			instance.visual_scale_min = _active_resource.mature_scale_min
 			instance.visual_scale_max = _active_resource.mature_scale_max
 		if not regrowth.is_empty():
@@ -827,15 +868,19 @@ func _is_grid_cell_buildable(grid_cell: Vector2i) -> bool:
 	var map_cell: Vector2i = _grid_to_map_cell(grid_cell)
 	if not map_data.has_cell(map_cell):
 		return false
+	if _map_cell_buildability.has(map_cell):
+		return _map_cell_buildability[map_cell]
 	var corners: Array[float] = height_field.get_cell_corners(map_cell)
-	return is_equal_approx(corners[0], corners[1]) and is_equal_approx(corners[0], corners[2]) and is_equal_approx(corners[0], corners[3])
+	var buildable: bool = is_equal_approx(corners[0], corners[1]) and is_equal_approx(corners[0], corners[2]) and is_equal_approx(corners[0], corners[3])
+	_map_cell_buildability[map_cell] = buildable
+	return buildable
 
 
 func _get_grid_ground_height(grid_cell: Vector2i) -> float:
 	var map_cell: Vector2i = _grid_to_map_cell(grid_cell)
 	if not map_data.has_cell(map_cell):
 		return 0.0
-	return (height_field.get_cell_surface_height(map_cell) + WFCHeightControl.LEVEL_HEIGHT) * map_data.cell_size_m
+	return _cell_world_position(map_cell).y
 
 
 func _grid_to_map_cell(grid_cell: Vector2i) -> Vector2i:

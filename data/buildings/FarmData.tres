@@ -5,6 +5,8 @@
 
 [resource]
 script = ExtResource("1_farm_data")
+category = 0
+sort_id = 40
 id = &"farm"
 display_name = "农场"
 description = "为居民提供种植粮食的工作地点。

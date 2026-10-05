@@ -92,8 +92,8 @@ func _setup_solid_collision() -> void:
 	if not self is Wall:
 		for child: Node in body.get_children():
 			if child is CollisionShape3D:
-				child.scale.x *= 0.85
-				child.scale.z *= 0.85
+				child.scale.x *= 0.5
+				child.scale.z *= 0.5
 	add_to_group("navigation_solid_buildings")
 	tree_exiting.connect(_request_navigation_update)
 	# 建造系统在 add_child 后才设置最终位置和旋转。

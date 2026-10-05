@@ -165,6 +165,9 @@ navigation_mesh = SubResource("NavigationMesh_t2dwb")
 process_mode = 3
 transform = Transform3D(0.97904545, -0.117003195, 0.16667399, 0, 0.8184666, 0.5745541, -0.20364176, -0.56251454, 0.801316, 5.2121606, 8.801366, 15.693283)
 script = ExtResource("18_camera_controller")
+"水平旋转弧度" = 0.12
+"俯视角弧度" = 0.8
+"初始视距" = 20.0
 
 [node name="MapGenerateRuntime" type="Node3D" parent="Systems" unique_id=1258794897]
 script = ExtResource("27_map_generator")

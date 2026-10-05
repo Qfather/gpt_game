@@ -3,23 +3,22 @@ extends Node
 var manager: Node
 var main: Node
 var ghost: BuildingGhost
-var panel: PanelContainer
-var status: Label
-var upgrade_button: Button
 var mode: int = 0
-var all_selected: bool = false
 var dragging: bool = false
 var drag_start: Vector2i
 var preview: MeshInstance3D
 var preview_material: StandardMaterial3D
 var stroke: Array[Vector2i] = []
 var mouse_position: Vector2 = Vector2.INF
+var stroke_valid: bool = false
+var preview_from: Vector2i = Vector2i(2147483647, 0)
+var preview_to: Vector2i = Vector2i(2147483647, 0)
+var preview_refresh_msec: int = 0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	main = get_parent()
 	ghost = main.get_node("Systems/BuildingGhost")
-	_create_panel()
 	preview = MeshInstance3D.new()
 	preview.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	preview_material = StandardMaterial3D.new()
@@ -28,87 +27,30 @@ func _ready() -> void:
 	preview.material_override = preview_material
 	main.add_child(preview)
 	preview.hide()
-	manager.roads_changed.connect(_refresh_status)
-	var resources: Node = get_tree().get_first_node_in_group("resource_manager")
-	if resources != null: resources.resources_changed.connect(_refresh_status)
 	main.hud.road_requested.connect(open)
 	main.hud.build_requested.connect(func(_data: BuildingData) -> void: close())
 	main.hud.enemy_placement_requested.connect(func(_data: EnemyData) -> void: close())
 	set_process(false)
 
-func _button(row: HBoxContainer, text: String, callback: Callable) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.focus_mode = Control.FOCUS_NONE
-	button.pressed.connect(callback)
-	row.add_child(button)
-	return button
-
-func _create_panel() -> void:
-	panel = PanelContainer.new()
-	panel.name = "RoadPanel"
-	main.hud.add_child(panel)
-	panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	panel.offset_left = 380
-	panel.offset_right = 1000
-	panel.offset_top = -240
-	panel.offset_bottom = -120
-	var content := VBoxContainer.new()
-	panel.add_child(content)
-	status = Label.new()
-	content.add_child(status)
-	var row := HBoxContainer.new()
-	content.add_child(row)
-	_button(row, "铺土路（免费）", _set_mode.bind(1))
-	_button(row, "铺石路（1石头/格）", _set_mode.bind(2))
-	_button(row, "拆路", _set_mode.bind(3)).tooltip_text = "拆除不返还资源"
-	_button(row, "选择全部土路", _select_all)
-	var actions := HBoxContainer.new()
-	content.add_child(actions)
-	upgrade_button = _button(actions, "升级为石路", _upgrade)
-	_button(actions, "关闭 / 取消铺设", close)
-	panel.hide()
-
-func open() -> void:
+func open(data: BuildingData = null) -> void:
 	ghost.cancel_preview()
 	main._cancel_enemy_placement()
 	main.clear_selection()
-	panel.show()
-	_refresh_status()
+	_set_mode(data.road_kind if data != null else 1)
 
 func close() -> void:
 	mode = 0
 	dragging = false
 	stroke.clear()
 	preview.hide()
-	panel.hide()
 	set_process(false)
 
 func _set_mode(value: int) -> void:
 	mode = value
 	dragging = false
-	all_selected = false
+	preview_from = Vector2i(2147483647, 0)
+	stroke.clear()
 	set_process(true)
-	_refresh_status()
-
-func _select_all() -> void:
-	mode = 0
-	dragging = false
-	preview.hide()
-	set_process(false)
-	all_selected = true
-	_refresh_status()
-
-func _upgrade() -> void:
-	manager.upgrade_all()
-	_refresh_status()
-
-func _refresh_status() -> void:
-	var count: int = manager.dirt_count()
-	var affordable: int = mini(count, manager.available_stone())
-	status.text = "道路：土路 %d 格（+5%%）／石路 %d 格（+10%%）\n%s" % [count, manager.cells.size() - count, "已选择全部土路；点击下方按钮升级" if all_selected else "左键拖拽铺设，松开完成；右键或 Esc 取消"]
-	upgrade_button.text = "升级全部：%d 石头，可升级 %d/%d 格" % [count, affordable, count]
-	upgrade_button.disabled = not all_selected or affordable == 0
 
 func _mouse_cell() -> Variant:
 	var camera: Camera3D = main.get_viewport().get_camera_3d()
@@ -128,6 +70,8 @@ func _line(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 
 func _input(event: InputEvent) -> void:
 	if mode == 0: return
+	var game_camera: GameCameraController = main.get_node("Systems/Camera3D")
+	if is_instance_valid(game_camera.character_camera): return
 	if event is InputEventMouse: mouse_position = event.position
 	if event is InputEventMouseMotion: return
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
@@ -147,17 +91,15 @@ func _input(event: InputEvent) -> void:
 		dragging = true
 		drag_start = cell
 	elif dragging:
-		var requested: Array[Vector2i] = _line(drag_start, cell)
+		var requested: Array[Vector2i] = _line(drag_start, cell) if mode == 3 else manager.plan_stroke(drag_start, cell)
 		if mode == 3: manager.remove_cells(requested)
-		else: manager.place_cells(requested, mode)
+		elif not requested.is_empty(): manager.queue_cells(requested, mode)
 		dragging = false
 		stroke.clear()
-		_refresh_status()
 	main.get_viewport().set_input_as_handled()
 
 func _process(_delta: float) -> void:
-	if not panel.visible or mode == 0: return
-	_refresh_status()
+	if mode == 0: return
 	if main.get_viewport().gui_get_hovered_control() != null:
 		preview.hide()
 		return
@@ -166,9 +108,23 @@ func _process(_delta: float) -> void:
 		preview.hide()
 		return
 	var next: Array[Vector2i] = []
-	if dragging: next = _line(drag_start, cell)
-	else: next.append(cell)
-	if next == stroke:
+	var from: Vector2i = drag_start if dragging else cell
+	if preview_from == from and preview_to == cell and not stroke.is_empty() and Time.get_ticks_msec() < preview_refresh_msec:
+		preview.show()
+		return
+	preview_from = from
+	preview_to = cell
+	preview_refresh_msec = Time.get_ticks_msec() + 200
+	next = _line(from, cell) if mode == 3 else manager.plan_stroke(from, cell)
+	var was_valid: bool = stroke_valid
+	stroke_valid = not next.is_empty()
+	if mode != 3 and stroke_valid:
+		var needed: int = 0
+		for point: Vector2i in next:
+			if manager.cells.get(point, 0) < mode and not manager.pending.has(point): needed += 1
+		stroke_valid = manager.affordable_count(mode) >= needed
+	if next.is_empty(): next = _line(from, cell)
+	if next == stroke and was_valid == stroke_valid:
 		preview.show()
 		return
 	stroke = next
@@ -177,7 +133,7 @@ func _process(_delta: float) -> void:
 	var half: float = manager.grid.cell_size * 0.48
 	for point: Vector2i in stroke:
 		var center: Vector3 = manager.grid.grid_to_world(point) + Vector3.UP * 0.06
-		var color := Color(0.25, 0.8, 0.25) if manager.can_place(point) else Color(0.9, 0.15, 0.1)
+		var color := Color(0.25, 0.8, 0.25) if stroke_valid else Color(0.9, 0.15, 0.1)
 		if mode == 3: color = Color(0.9, 0.25, 0.15)
 		var corners: Array[Vector3] = [center + Vector3(-half, 0, -half), center + Vector3(half, 0, -half), center + Vector3(half, 0, half), center + Vector3(-half, 0, half)]
 		for index: int in [0, 1, 3, 1, 2, 3]:

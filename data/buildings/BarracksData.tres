@@ -5,6 +5,8 @@
 
 [resource]
 script = ExtResource("1_building_data")
+category = 1
+sort_id = 40
 id = &"barracks"
 display_name = "军营"
 description = "为剑士提供驻扎位置。

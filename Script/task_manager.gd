@@ -117,6 +117,7 @@ func _dispatch_available_tasks() -> void:
 	available_tasks.sort_custom(_sort_task_priority)
 
 	for task: GameTask in available_tasks:
+		if task.type == GameTask.TaskType.BUILD_ROAD: continue
 
 		for villager: Node in villagers:
 
@@ -124,6 +125,19 @@ func _dispatch_available_tasks() -> void:
 				break
 		if is_instance_valid(task.target) and task.target is ConstructionSite:
 			task.target.prepare_construction_workers()
+
+	# 每名空闲居民按自身距离领取道路格，领取后立即锁定，避免重复施工。
+	for villager: Node in villagers:
+		if not is_instance_valid(villager) or not villager.has_method("can_take_task") or not villager.can_take_task(null): continue
+		var road_tasks: Array[GameTask] = []
+		for task: GameTask in available_tasks:
+			if task.type == GameTask.TaskType.BUILD_ROAD and task.state == GameTask.State.AVAILABLE:
+				road_tasks.append(task)
+		road_tasks.sort_custom(func(a: GameTask, b: GameTask) -> bool:
+			return villager.global_position.distance_squared_to(a.data.position) < villager.global_position.distance_squared_to(b.data.position)
+		)
+		for task: GameTask in road_tasks:
+			if claim_task(task, villager): break
 
 
 func _sort_task_priority(a: GameTask, b: GameTask) -> bool:
@@ -670,6 +684,8 @@ func cancel_task(task: GameTask, return_worker: bool = true) -> bool:
 
 
 func fail_task(task: GameTask) -> bool:
+	if task != null and task.type == GameTask.TaskType.BUILD_ROAD:
+		return release_task(task)
 
 	if not _is_registered(task):
 		return false

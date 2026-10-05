@@ -36,6 +36,18 @@ func _run() -> void:
 		await process_frame
 		await physics_frame
 	paused = true
+	var edited: BuildingData = load("res://data/buildings/HouseData.tres")
+	var original_category: int = edited.category
+	var original_sort: int = edited.sort_id
+	edited.category = BuildingData.Category.PROCESSING
+	edited.sort_id = -10
+	main.hud._configure_building_menu()
+	main.hud._on_building_tab_changed(4)
+	_expect(main.hud.build_buttons.get_child_count() == 1 and main.hud.build_buttons.get_child(0).text == edited.display_name, "建筑分类修改决定HUD加工分类内容")
+	_expect(main.hud.menu_buildings[0] == edited, "HUD按排序ID升序排列")
+	edited.category = original_category
+	edited.sort_id = original_sort
+	main.hud._configure_building_menu()
 	var roads: Node = main.road_manager
 	var tool: Node = main.road_tool
 	var grid: BuildGrid = roads.grid
@@ -78,28 +90,61 @@ func _run() -> void:
 	camera.make_current()
 	main.hud.building_tabs.current_tab = 3
 	main.hud.build_buttons.get_child(0).pressed.emit()
-	_expect(tool.panel.visible and not main.building_ghost.start_preview, "道路菜单打开且取消建筑蓝图")
-	tool.panel.get_child(0).get_child(1).get_child(0).pressed.emit()
+	_expect(tool.mode == 1 and not main.building_ghost.start_preview, "点击HUD土路立即进入拖拽模式")
+	_expect(main.hud.get_node_or_null("RoadPanel") == null, "选择道路不创建额外操作面板")
 	for frame: int in range(3): await process_frame
+	var original_occupancy: Dictionary = grid.occupied_cells.duplicate()
+	for offset: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]: grid.occupied_cells[cells[-1] + offset] = true
+	_mouse(camera.unproject_position(grid.grid_to_world(cells[0])), true)
+	_mouse(camera.unproject_position(grid.grid_to_world(cells[-1])))
+	await process_frame
+	tool.preview_from = Vector2i(2147483647, 0)
+	tool._process(0.0)
+	_expect(not tool.stroke_valid, "封闭目标时整条道路预览无效")
+	var colors: PackedColorArray = tool.preview.mesh.surface_get_arrays(0)[Mesh.ARRAY_COLOR]
+	_expect(colors[0].r > 0.8 and colors[-1].g < 0.2, "无法连通时整条预览为红色")
+	if DisplayServer.get_name() != "headless":
+		await RenderingServer.frame_post_draw
+		root.get_texture().get_image().save_png("res://.godot/road_ui_blocked.png")
+	_mouse(camera.unproject_position(grid.grid_to_world(cells[-1])), false)
+	_expect(roads.pending.is_empty() and roads.cells.is_empty(), "无法连通时松开不生成截断道路")
+	grid.occupied_cells = original_occupancy
+	tool.preview_from = Vector2i(2147483647, 0)
 	_mouse(camera.unproject_position(grid.grid_to_world(cells[0])), true)
 	await process_frame
 	_mouse(camera.unproject_position(grid.grid_to_world(cells[-1])))
 	await process_frame
 	_mouse(camera.unproject_position(grid.grid_to_world(cells[-1])), false)
 	await process_frame
-	_expect(roads.cells.size() == 8, "实际鼠标拖拽铺设8格纯色土路")
+	_expect(roads.pending.size() == 8 and roads.cells.is_empty(), "实际鼠标拖拽标记8格待施工土路")
+	# 暂停中确认不会自动完工；后续升级UI使用已完成道路夹具。
+	_expect(roads.speed_multiplier(grid.grid_to_world(cells[0])) == 1.0, "暂停中待建道路不提供加速")
+	roads.remove_cells(cells)
+	roads.place_cells(cells, 1)
 	base.take_resource(&"stone", base.get_resource(&"stone"))
-	base.add_resource(&"stone", 3)
-	tool.panel.get_child(0).get_child(1).get_child(3).pressed.emit()
-	_expect(tool.all_selected and not tool.upgrade_button.disabled and tool.upgrade_button.text.contains("3/8"), "选择全部土路显示可支付升级数量")
-	tool.upgrade_button.pressed.emit()
-	_expect(roads.dirt_count() == 5 and base.get_resource(&"stone") == 0, "道路UI按库存部分升级")
 	base.add_resource(&"stone", 1)
-	for frame: int in range(3): await process_frame
-	_expect(not tool.upgrade_button.disabled and tool.upgrade_button.text.contains("1/5"), "库存补充后升级按钮自动更新")
+	main.hud.build_buttons.get_child(1).pressed.emit()
+	_expect(tool.mode == 2, "点击HUD石路立即进入拖拽模式")
+	_mouse(camera.unproject_position(grid.grid_to_world(cells[0])), true)
+	_mouse(camera.unproject_position(grid.grid_to_world(cells[-1])))
+	await process_frame
+	tool.preview_from = Vector2i(2147483647, 0)
+	tool._process(0.0)
+	_expect(not tool.stroke_valid, "升级整条道路材料不足时显示无效预览")
+	_mouse(camera.unproject_position(grid.grid_to_world(cells[-1])), false)
+	_expect(roads.pending.is_empty(), "材料不足时不标记截断升级")
+	base.add_resource(&"stone", 7)
+	_mouse(camera.unproject_position(grid.grid_to_world(cells[0])), true)
+	_mouse(camera.unproject_position(grid.grid_to_world(cells[-1])))
+	await process_frame
+	tool.preview_from = Vector2i(2147483647, 0)
+	tool._process(0.0)
+	_expect(tool.stroke_valid, "补充材料后直接拖拽预览升级")
 	if DisplayServer.get_name() != "headless":
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png("res://.godot/road_ui_preview.png")
+	_mouse(camera.unproject_position(grid.grid_to_world(cells[-1])), false)
+	_expect(roads.dirt_count() == 8 and roads.pending.size() == 8 and base.get_resource(&"stone") == 0, "拖拽石路标记升级施工并保留原土路")
 	tool._set_mode(1)
 	var escape := InputEventKey.new()
 	escape.keycode = KEY_ESCAPE
@@ -109,7 +154,7 @@ func _run() -> void:
 	tool.open()
 	tool._set_mode(1)
 	main.hud.build_requested.emit(load("res://data/buildings/HouseData.tres"))
-	_expect(tool.mode == 0 and not tool.panel.visible, "选择建筑关闭铺路工具")
+	_expect(tool.mode == 0 and not tool.preview.visible, "选择建筑关闭铺路工具")
 	paused = false
 	main.queue_free()
 	camera.queue_free()

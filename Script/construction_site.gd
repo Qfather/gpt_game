@@ -920,10 +920,10 @@ func get_construction_material_text() -> String:
 		if resource_data != null and not resource_data.display_name.is_empty():
 			resource_name = resource_data.display_name
 		lines.append(
-			"%s：%d / %d" % [
+			"%s：%s / %s" % [
 				resource_name,
-				int(get_delivered_amount(resource_id)),
-				int(get_required_amount(resource_id))
+				str(get_delivered_amount(resource_id)),
+				str(get_required_amount(resource_id))
 			]
 		)
 	return "材料：\n" + "\n".join(lines)

@@ -10,6 +10,10 @@ void vertex() {
 
 void fragment() {
 	float depth = texture(depth_texture, SCREEN_UV).r;
+	// 反向深度的背景值为零；天空不属于战争迷雾覆盖的地图几何。
+	if (depth <= 0.000001) {
+		discard;
+	}
 #if CURRENT_RENDERER == RENDERER_COMPATIBILITY
 	vec3 ndc = vec3(SCREEN_UV, depth) * 2.0 - 1.0;
 #else
