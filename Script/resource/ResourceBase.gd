@@ -178,8 +178,11 @@ func _ready():
 
 
 func _process(delta: float) -> void:
+	var was_mature: bool = is_mature()
 	_growth_elapsed += delta
 	growth_progress = minf(_growth_elapsed / growth_duration, 1.0)
+	if not was_mature and is_mature():
+		get_tree().call_group("resource_buildings", "on_resource_matured", self)
 	var visual: Node3D = get_node_or_null("meshs") as Node3D
 	if visual != null: visual.scale = _mature_visual_scale * growth_progress
 	if is_mature():

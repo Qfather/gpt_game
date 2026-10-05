@@ -16,7 +16,9 @@ var fog_toggle: CheckBox
 var settlement_fields: Array[Dictionary] = []
 var immigration_list: ItemList
 var immigration_inspector: EditorInspector
+var translation_pending: bool = false
 const LABELS: Dictionary = {
+	"id": "稳定ID",
 	"maximum_animals": "猎物总数量上限", "refresh_interval": "补充间隔（秒）", "minimum_base_distance": "距据点最小距离（米）",
 	"maximum_base_distance": "距据点最大距离（米）", "prey_pool": "猎物随机池", "health": "生命值", "meat_yield": "出肉数量", "flee_speed": "逃跑速度",
 	"map_size": "地图格数", "cell_size_m": "单格尺寸（米）", "seed_value": "地形种子",
@@ -97,6 +99,7 @@ func _init() -> void:
 	resource_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var resource_tabs := TabContainer.new()
 	resource_tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	resource_tabs.tab_changed.connect(func(_index: int) -> void: call_deferred("_translate_labels"))
 	add_child(resource_tabs)
 	resource_column.name = "地图资源"
 	resource_tabs.add_child(resource_column)
@@ -236,6 +239,8 @@ func _init() -> void:
 			resource_list.set_item_text(selected[0], preset.map_resources[selected[0]].display_name)
 			if _property in ["scene", "hit_effect"]: _refresh_hit_preview(selected[0])
 	)
+	for inspector: EditorInspector in [wildlife_inspector, immigration_inspector]:
+		_watch_translated_node(inspector)
 
 
 func edit_preset(value: LevelFlowData) -> void:
@@ -309,9 +314,21 @@ func _refresh_immigration_list(index: int = 0) -> void:
 		immigration_inspector.edit(groups[index])
 
 
+func _watch_translated_node(node: Node) -> void:
+	if not node.child_entered_tree.is_connected(_watch_translated_node):
+		node.child_entered_tree.connect(_watch_translated_node)
+		for child: Node in node.get_children(true):
+			_watch_translated_node(child)
+	call_deferred("_translate_labels")
+
+
 func _translate_labels() -> void:
+	if translation_pending or not is_inside_tree(): return
+	translation_pending = true
 	await get_tree().process_frame
 	await get_tree().process_frame
+	translation_pending = false
+	if not is_inside_tree(): return
 	for inspector: EditorInspector in [map_inspector, resource_inspector, immigration_inspector, wildlife_inspector, hit_inspector]:
 		_translate_node(inspector)
 

@@ -16,6 +16,11 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "生命：0 / 0"
 
+[node name="IntentionLabel" type="Label" parent="Vbox/Content" parent_id_path=PackedInt32Array(911553784)]
+unique_name_in_owner = true
+layout_mode = 2
+text = "第一意图："
+
 [node name="DamageLabel" type="Label" parent="Vbox/Content" parent_id_path=PackedInt32Array(911553784)]
 unique_name_in_owner = true
 layout_mode = 2

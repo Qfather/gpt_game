@@ -49,6 +49,9 @@ func _ready() -> void:
 	input_event.connect(_on_input_event)
 	health_component.connect("health_changed", _on_health_changed)
 	health_component.connect("died", _on_health_died)
+	health_component.damaged.connect(func(amount: float, _source: Node) -> void:
+		if amount > 0.0: preload("res://Script/combat/damage_flash.gd").flash(visual_root)
+	)
 	_apply_enemy_data()
 	if character_name.is_empty() and enemy_data != null:
 		var names = preload("res://Script/unit/character_names.gd")

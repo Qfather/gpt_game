@@ -229,6 +229,7 @@ func take_damage(amount: float, source: Node = null) -> float:
 
 	var actual_damage: float = minf(maxf(amount, 0.0), health)
 	health = maxf(health - actual_damage, 0.0)
+	if actual_damage > 0.0: _on_health_component_damaged(actual_damage, source)
 	health_changed.emit(health, get_max_health())
 	if health <= 0.0:
 		died.emit(source)
@@ -250,6 +251,8 @@ func _on_health_component_changed(
 
 
 func _on_health_component_damaged(amount: float, source: Node) -> void:
+	if amount > 0.0:
+		preload("res://Script/combat/damage_flash.gd").flash(get_node_or_null("VisualRoot"))
 	damaged.emit(amount, source)
 
 

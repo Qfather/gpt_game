@@ -31,7 +31,9 @@ static func menu_less(a: BuildingData, b: BuildingData) -> bool:
 @export var grid_size: Vector2i = Vector2i(1, 1)
 
 @export_category("资源消耗")
+## 键填写资源ID，例如 wood（木材）、stone（石头）；值填写所需数量。
 @export var construction_cost: Dictionary[StringName, float] = {}
+## 键填写资源ID，例如 wood（木材）、stone（石头）；值填写所需数量。
 @export var training_cost: Dictionary[StringName, float] = {}
 
 @export_category("建造参数")

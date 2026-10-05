@@ -776,42 +776,15 @@ func get_worker_target_position(worker: Node) -> Vector3:
 
 func _create_random_edge_offset(worker_index: int, worker_count: int) -> Vector3:
 	if not has_model_bounds:
-		return Vector3(randf_range(-1.0, 1.0), 0.0, randf_range(-1.0, 1.0))
+		return Vector3.ZERO
 
 	var half_size: Vector2 = Vector2(
-		model_bounds.size.x * 0.5,
-		model_bounds.size.z * 0.5
+		maxf(model_bounds.size.x * 0.5 - 0.35, 0.0),
+		maxf(model_bounds.size.z * 0.5 - 0.35, 0.0)
 	)
 	var center: Vector3 = model_bounds.position + model_bounds.size * 0.5
-	var edge_padding: float = 0.2
-	var width: float = maxf(half_size.x * 2.0, 0.1)
-	var depth: float = maxf(half_size.y * 2.0, 0.1)
-	var perimeter: float = 2.0 * (width + depth)
-	var slot_center: float = float(worker_index) + 0.5
-	var distance_on_perimeter: float = (
-		slot_center
-	) / float(maxi(worker_count, 1)) * perimeter
-	var min_x: float = center.x - half_size.x
-	var max_x: float = center.x + half_size.x
-	var min_z: float = center.z - half_size.y
-	var max_z: float = center.z + half_size.y
-	var result: Vector3 = center
-
-	if distance_on_perimeter < width:
-		result.x = min_x + distance_on_perimeter
-		result.z = max_z + edge_padding
-	elif distance_on_perimeter < width + depth:
-		result.x = max_x + edge_padding
-		result.z = max_z - (distance_on_perimeter - width)
-	elif distance_on_perimeter < width * 2.0 + depth:
-		result.x = max_x - (distance_on_perimeter - width - depth)
-		result.z = min_z - edge_padding
-	else:
-		result.x = min_x - edge_padding
-		result.z = min_z + (distance_on_perimeter - width * 2.0 - depth)
-
-	result.y = 0.0
-	return result
+	var angle: float = TAU * (float(worker_index) + 0.5) / float(maxi(worker_count, 1))
+	return Vector3(center.x + cos(angle) * half_size.x, 0.0, center.z + sin(angle) * half_size.y)
 
 
 func _calculate_model_bounds() -> void:

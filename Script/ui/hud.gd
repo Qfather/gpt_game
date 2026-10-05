@@ -52,6 +52,7 @@ var selected_building_category: int = 0
 var defeat_overlay: Control = null
 var victory_overlay: Control = null
 var threat_label: Label = null
+var death_notifications: VBoxContainer
 var raid_countdown_label: Label = null
 var debug_scroll: ScrollContainer
 var debug_toggle: Button
@@ -225,7 +226,23 @@ func _create_threat_label() -> void:
 	threat_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.35, 1.0))
 	threat_label.z_index = 20
 	add_child(threat_label)
+	death_notifications = VBoxContainer.new()
+	death_notifications.name = "DeathNotifications"
+	death_notifications.set_anchors_preset(Control.PRESET_CENTER_LEFT)
+	death_notifications.position = Vector2(12.0, 12.0)
+	death_notifications.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	death_notifications.z_index = 20
+	add_child(death_notifications)
 	call_deferred("_connect_threat_manager")
+
+
+func show_friendly_death(unit_name: String) -> void:
+	var notice := Label.new()
+	notice.text = "%s 已死亡" % unit_name
+	notice.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	notice.add_theme_color_override("font_color", Color(1.0, 0.4, 0.35))
+	death_notifications.add_child(notice)
+	get_tree().create_timer(5.0, true, false, true).timeout.connect(notice.queue_free)
 
 
 func _create_raid_countdown_label() -> void:
@@ -320,6 +337,14 @@ func _on_threat_changed(has_threat: bool, direction: String) -> void:
 		threat_label.text = "威胁方向：%s" % (direction if has_threat else "暂无")
 
 
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.keycode == KEY_SPACE:
+		if event.pressed and not event.echo:
+			if get_tree().paused: resume_game()
+			else: pause_game()
+		get_viewport().set_input_as_handled()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
@@ -335,11 +360,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			speed_5()
 		KEY_5:
 			speed_10()
-		KEY_SPACE:
-			if get_tree().paused:
-				resume_game()
-			else:
-				pause_game()
 		_:
 			return
 
@@ -463,8 +483,9 @@ func _create_debug_panel() -> void:
 	NavigationServer3D.set_debug_enabled(false)
 	navigation_toggle.button_pressed = false
 	navigation_toggle.toggled.connect(func(enabled: bool) -> void:
-		get_tree().debug_navigation_hint = enabled
-		NavigationServer3D.set_debug_enabled(enabled)
+		var runtime: MapGenerateRuntime = get_tree().get_first_node_in_group("map_generate_runtime") as MapGenerateRuntime
+		if runtime != null:
+			runtime.set_navigation_debug_visible(enabled)
 	)
 	content.add_child(navigation_toggle)
 

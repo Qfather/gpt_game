@@ -32,6 +32,8 @@ const STATE_DISPLAY_NAMES: PackedStringArray = [
 	"前往巡逻点",
 	"巡逻中",
 	"返回军营",
+	"接近敌人",
+	"攻击敌人",
 	"前往拆除",
 	"正在拆除",
 	"运送拆除材料",
@@ -132,13 +134,21 @@ func refresh():
 	job_label.text = "职业：" + _get_display_name(JOB_DISPLAY_NAMES, job_index)
 	combat_role_label.text = "军事职业：" + CombatRole.get_display_name(combat_role_index)
 	state_label.text = "状态：" + _get_display_name(STATE_DISPLAY_NAMES, state_index)
+	if villager.is_waiting_for_crop():
+		state_label.text = "状态：等待庄稼成熟"
+	if state_index == villager.State.WORKING_FIELD and is_instance_valid(villager.target_field):
+		state_label.text = "状态：" + villager.target_field.get_state_name()
+	if state_index == villager.State.WAIT_CONSTRUCTION_SITE and is_instance_valid(villager.task_site) and villager.task_site is ConstructionSite and villager.task_site.state == ConstructionSite.State.WAITING_RESOURCES:
+		state_label.text = "状态：等待建材" if villager._has_reached_task_site_navigation_target() else "状态：前往工地等待建材"
 	var garrison_building: BuildingBase = (villager.garrison_target if state_index in [villager.State.MOVE_TO_BARRACKS, villager.State.RETURN_TO_BARRACKS] else villager.garrisoned_in) as BuildingBase
 	if is_instance_valid(garrison_building) and garrison_building.has_method("allows_garrison_attacks"):
 		state_label.text = state_label.text.replace("军营", "箭塔")
 	if state_index == villager.State.HUNTING:
 		state_label.text = "状态：回屋处理" if villager.hunting.returning else "状态：狩猎"
 	if state_index == villager.State.RETREAT_TO_BASE:
-		state_label.text = "状态：边射击边撤退" if villager.is_hunter() else "状态：逃回据点"
+		state_label.text = "状态：前往%s避难" % _get_node_name(villager.shelter_target) if is_instance_valid(villager.shelter_target) else ("状态：边射击边撤退" if villager.is_hunter() else "状态：逃回据点")
+	if state_index == villager.State.SHELTERED:
+		state_label.text = "状态：建筑内避难"
 	if state_index == villager.State.MOVE_TO_RELOCATED_BUILDING:
 		state_label.text = "状态：前往搬迁后的建筑"
 	if state_index == villager.State.MOVE_TO_REPAIR:

@@ -336,7 +336,12 @@ func save_current() -> bool:
 	if current.grid_size.x < 1 or current.grid_size.y < 1 or current.construction_time < 0 or current.max_construction_workers < 1:
 		status.text = "保存失败：占地、建造时间或施工人数无效"
 		return false
+	var available_resources: Array[ResourceData] = ResourceEditorDataService.scan_resources()
 	for costs: Dictionary in [current.construction_cost, current.training_cost]:
+		for resource_id: StringName in costs:
+			if not ResourceEditorDataService.resource_id_exists(resource_id, available_resources):
+				status.text = "保存失败：未知资源ID「%s」。请填写资源ID，例如 wood（木材）、stone（石头），不要填写显示名称。" % resource_id
+				return false
 		for amount: float in costs.values():
 			if amount < 0:
 				status.text = "保存失败：资源成本不能为负数"

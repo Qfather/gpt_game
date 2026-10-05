@@ -333,7 +333,7 @@ cliff_top_bonus = 0.0
 
 [sub_resource type="Resource" id="Resource_uhyek"]
 script = ExtResource("9_y2to8")
-kind = 2
+kind = 3
 
 [sub_resource type="Resource" id="Resource_lea5l"]
 script = ExtResource("8_0v8oa")

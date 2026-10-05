@@ -41,6 +41,8 @@ func _run() -> void:
 		assert(worker.target_resource == null)
 		worker.global_position = worker.navigation_agent.target_position
 		worker.move_to_idle_area()
+		worker._update_unreachable_warning(4.9)
+		assert(not worker.has_idle_warning() and not worker.unreachable_marker.visible, "待命不足 5 秒不显示提醒")
 		worker._update_unreachable_warning(0.1)
 		assert(worker.state == worker.State.IDLE and worker.has_idle_warning())
 		assert(worker.unreachable_marker.visible and not worker.has_unreachable_warning())
@@ -54,9 +56,11 @@ func _run() -> void:
 	worker.state = worker.State.IDLE
 	assert(not worker.unreachable_marker.visible, "据点正常待机不提醒")
 	worker.position = Vector3(20,0,0)
-	worker._update_unreachable_warning(0.1)
+	worker._update_unreachable_warning(5.0)
 	assert(worker.unreachable_marker.visible, "其他位置待机也应提醒")
 	worker.state = worker.State.WAIT_TASK_RESOURCE
+	assert(not worker.unreachable_marker.visible, "进入新的等待状态重新计时")
+	worker._update_unreachable_warning(5.0)
 	assert(worker.unreachable_marker.visible, "等待任务材料应提醒空闲")
 	worker.set_meta("fog_hidden", true)
 	worker._update_unreachable_warning(0.1)
@@ -72,7 +76,7 @@ func _run() -> void:
 			workers[index].workplace = camp
 			workers[index].position = Vector3(index * 3 - 4,0,2.5)
 			workers[index].state = workers[index].State.IDLE
-			workers[index]._update_unreachable_warning(0.1)
+			workers[index]._update_unreachable_warning(5.0)
 		root.size = Vector2i(1000,700)
 		var camera := Camera3D.new()
 		world.add_child(camera)

@@ -115,6 +115,8 @@ func is_area_visible(center: Vector3, radius: float) -> bool:
 
 func refresh_visibility() -> void:
 	refresh_queued = false
+	if not is_inside_tree() or is_queued_for_deletion():
+		return
 	var tree_occluders: Array[Vector3] = _collect_tree_occluders()
 	var moving_sources: Array[Vector4] = []
 	var fixed_sources: Array[Vector4] = []

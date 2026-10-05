@@ -102,6 +102,15 @@ func has_gatherable_resources() -> bool:
 	return false
 
 
+func on_resource_matured(resource: ResourceBase) -> void:
+	if is_destroyed() or is_demolition_in_progress() or resource.get_resource_id() != production_resource_id or not is_position_in_work_range(resource.global_position):
+		return
+	resource_warning_timer = 0.0
+	for worker: Node in workers:
+		if is_instance_valid(worker) and worker.workplace == self and worker.state in [worker.State.IDLE, worker.State.RETURN_TO_IDLE] and worker.current_task == null and worker.carried_amount <= 0.0:
+			resume_worker(worker)
+
+
 func get_max_health() -> float:
 	return max_health
 
@@ -183,7 +192,7 @@ func get_max_worker_count() -> int:
 # ============================================================
 
 func has_free_slot() -> bool:
-	return get_worker_count() < max_workers
+	return get_shelter_occupants().size() < max_workers
 
 
 # ============================================================

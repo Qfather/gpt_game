@@ -34,6 +34,8 @@ func _run() -> void:
 	house.position = Vector3(16,0,12)
 	var hunter = _unit(world, Vector3(12,0,6))
 	assert(house.add_worker(hunter))
+	# 本测试覆盖没有可用避难建筑时的据点撤退；建筑避难由 construction_shelter_response_test 覆盖。
+	house.remove_from_group("buildings")
 	var resident = _unit(world, Vector3(12,0,-6))
 	var enemy: EnemyBase = load("res://Scene/unit/enemy_base.tscn").instantiate()
 	world.add_child(enemy)

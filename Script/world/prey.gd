@@ -48,6 +48,7 @@ func take_damage(amount: float, source: Node = null) -> float:
 	if claimed_by != source: return 0.0
 	var actual: float = minf(health, amount)
 	health -= actual
+	if actual > 0.0: preload("res://Script/combat/damage_flash.gd").flash(self)
 	escape_direction = source.global_position.direction_to(global_position)
 	escape_direction.y = 0.0
 	escape_time = 2.0

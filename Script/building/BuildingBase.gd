@@ -43,6 +43,7 @@ var build_grid_area_registered: bool = false
 @onready var click_area: CollisionObject3D = get_node_or_null("ClickArea")
 
 var interaction_positions: Dictionary = {}
+var shelter_residents: Array[Node] = []
 
 
 # ============================================================
@@ -101,6 +102,8 @@ func _setup_solid_collision() -> void:
 
 
 func _request_navigation_update() -> void:
+	if not is_inside_tree():
+		return
 	get_tree().call_group("map_generate_runtime", "request_navigation_update")
 
 
@@ -173,6 +176,44 @@ func get_interaction_position(worker: Node) -> Vector3:
 		)
 
 	return global_position + interaction_positions[worker_id]
+
+
+func get_shelter_capacity() -> int:
+	if self is SwordsmanCamp: return (self as SwordsmanCamp).get_training_slots()
+	if self is ResourceBuildingBase: return (self as ResourceBuildingBase).get_max_worker_count()
+	if self is House: return (self as House).get_housing_capacity()
+	return 0
+
+
+func get_shelter_occupants() -> Array[Node]:
+	var occupants: Array[Node] = []
+	if self is SwordsmanCamp:
+		occupants.assign((self as SwordsmanCamp).training_workers)
+	if self is ResourceBuildingBase:
+		(self as ResourceBuildingBase).get_worker_count()
+		occupants.assign((self as ResourceBuildingBase).workers)
+	for resident: Node in shelter_residents.duplicate():
+		if not is_instance_valid(resident) or resident.is_queued_for_deletion() or resident.is_dead() or resident.shelter_target != self:
+			shelter_residents.erase(resident)
+		elif not occupants.has(resident):
+			occupants.append(resident)
+	return occupants
+
+
+func can_shelter(resident: Node) -> bool:
+	if get_shelter_capacity() <= 0 or is_destroyed() or is_queued_for_deletion() or is_demolition_in_progress(): return false
+	var occupants: Array[Node] = get_shelter_occupants()
+	return occupants.has(resident) or occupants.size() < get_shelter_capacity()
+
+
+func reserve_shelter(resident: Node) -> bool:
+	if not can_shelter(resident): return false
+	if not shelter_residents.has(resident): shelter_residents.append(resident)
+	return true
+
+
+func release_shelter(resident: Node) -> void:
+	shelter_residents.erase(resident)
 
 
 func set_building_data(data: BuildingData) -> void:

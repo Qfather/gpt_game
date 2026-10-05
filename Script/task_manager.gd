@@ -59,6 +59,8 @@ func rebalance_construction_priority() -> void:
 
 func _run_dispatch() -> void:
 	dispatch_queued = false
+	if not is_inside_tree() or is_queued_for_deletion():
+		return
 	dispatch_running = true
 
 	var construction_sites: Array[Node] = []
@@ -118,6 +120,9 @@ func _dispatch_available_tasks() -> void:
 
 	for task: GameTask in available_tasks:
 		if task.type == GameTask.TaskType.BUILD_ROAD: continue
+		if task.type == GameTask.TaskType.TRAIN_SWORDSMAN and is_instance_valid(task.target) and task.target.has_method("get_sheltered_training_worker"):
+			var sheltered: Node = task.target.get_sheltered_training_worker()
+			if sheltered != null and claim_task(task, sheltered): continue
 
 		for villager: Node in villagers:
 

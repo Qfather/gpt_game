@@ -87,6 +87,20 @@ func get_training_position(worker: Node) -> Vector3:
 	return global_position + Vector3(side * 0.6, 0.0, 2.0)
 
 
+func get_sheltered_training_worker() -> Node:
+	var outside_units: bool = false
+	for unit: Node3D in get_tree().get_nodes_in_group("villagers"):
+		if unit.is_visible_in_tree() and not unit.is_dead(): outside_units = true
+	for unit: Node3D in get_tree().get_nodes_in_group("enemies"):
+		if unit.is_visible_in_tree() and not unit.is_dead() and unit.get_faction() == EnemyData.Faction.SETTLEMENT: outside_units = true
+	var fallback: Node = null
+	for resident: Node in get_tree().get_nodes_in_group("villagers"):
+		if resident.state != resident.State.SHELTERED or resident.is_dead() or resident.current_task != null or resident.has_combat_role(): continue
+		if resident.shelter_target == self: return resident
+		if not outside_units and fallback == null: fallback = resident
+	return fallback
+
+
 func begin_training(worker: Node) -> bool:
 	if worker == null or not training_workers.has(worker):
 		return false
@@ -119,13 +133,16 @@ func complete_training(worker: Node) -> bool:
 		and previous_workplace.has_method("remove_worker")
 	):
 		previous_workplace.remove_worker(worker)
+	worker.state = worker.State.IDLE
+	if worker.carried_amount > 0.0: worker.go_to_base()
+	else: worker.return_to_idle()
 	return true
 
 
 func register_training_worker(worker: Node) -> bool:
 	if worker == null or training_workers.has(worker):
 		return true
-	if training_workers.size() >= training_slots:
+	if training_workers.size() >= training_slots or (get_shelter_occupants().size() >= training_slots and not get_shelter_occupants().has(worker)):
 		return false
 	training_workers.append(worker)
 	training_requests = maxi(training_requests - 1, 0)

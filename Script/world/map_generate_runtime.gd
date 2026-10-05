@@ -63,6 +63,7 @@ var _navigation_dirty: bool = false
 var _navigation_update_queued: bool = false
 var _navigation_baking: bool = false
 var navigation_revision: int = 0
+var _navigation_debug: MeshInstance3D
 
 
 func _ready() -> void:
@@ -731,6 +732,53 @@ func _overlaps_regrowth_building(geometry: Dictionary) -> bool:
 
 func _horizontal_distance(a: Vector3, b: Vector3) -> float:
 	return Vector2(a.x, a.z).distance_to(Vector2(b.x, b.z))
+
+
+func set_navigation_debug_visible(enabled: bool) -> void:
+	var region: NavigationRegion3D = get_node_or_null(navigation_region_path) as NavigationRegion3D
+	if region == null: return
+	if _navigation_debug == null:
+		if not enabled: return
+		_navigation_debug = MeshInstance3D.new()
+		_navigation_debug.name = "NavigationDebugMesh"
+		_navigation_debug.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		region.add_child(_navigation_debug)
+		region.navigation_mesh_changed.connect(_refresh_navigation_debug)
+	_navigation_debug.visible = enabled
+	if enabled: _refresh_navigation_debug()
+
+
+func _refresh_navigation_debug() -> void:
+	if _navigation_debug == null or not _navigation_debug.visible: return
+	var region: NavigationRegion3D = _navigation_debug.get_parent() as NavigationRegion3D
+	var nav: NavigationMesh = region.navigation_mesh
+	_navigation_debug.mesh = null
+	if nav == null or nav.get_polygon_count() == 0: return
+	var vertices: PackedVector3Array = nav.get_vertices()
+	var faces := PackedVector3Array()
+	var edges := PackedVector3Array()
+	for index: int in range(nav.get_polygon_count()):
+		var polygon: PackedInt32Array = nav.get_polygon(index)
+		for corner: int in range(1, polygon.size() - 1):
+			for vertex: int in [polygon[0], polygon[corner], polygon[corner + 1]]:
+				faces.append(vertices[vertex])
+		for corner: int in range(polygon.size()):
+			edges.append(vertices[polygon[corner]])
+			edges.append(vertices[polygon[(corner + 1) % polygon.size()]])
+	var mesh := ArrayMesh.new()
+	for surface: int in range(2):
+		var arrays: Array = []
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays[Mesh.ARRAY_VERTEX] = faces if surface == 0 else edges
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES if surface == 0 else Mesh.PRIMITIVE_LINES, arrays)
+		var material := StandardMaterial3D.new()
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		material.no_depth_test = true
+		material.albedo_color = Color(0.1, 0.7, 1.0, 0.3) if surface == 0 else Color(0.05, 0.3, 0.6, 0.8)
+		mesh.surface_set_material(surface, material)
+	_navigation_debug.mesh = mesh
 
 
 func _build_navigation() -> void:

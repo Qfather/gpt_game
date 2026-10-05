@@ -8,6 +8,7 @@ extends BuildingPanelBase
 @onready var movement_label: Label = %MovementLabel
 @onready var combat_range_label: Label = %CombatRangeLabel
 @onready var detection_label: Label = %DetectionLabel
+@onready var intention_label: Label = %IntentionLabel
 
 
 func _ready() -> void:
@@ -38,3 +39,12 @@ func refresh() -> void:
 		enemy.attack_interval,
 	]
 	detection_label.text = "检测范围：%.1f" % enemy.detection_range
+	var intention: String = "攻击附近敌对单位"
+	if enemy._has_configured_raid_objective():
+		match enemy.enemy_data.raid_objective:
+			EnemyData.RaidObjective.KILL_UNITS: intention = "击杀单位"
+			EnemyData.RaidObjective.DESTROY_BUILDINGS: intention = "摧毁建筑"
+			EnemyData.RaidObjective.STEAL_RESOURCES: intention = "掠夺资源"
+	elif enemy.raid_active:
+		intention = "攻击据点"
+	intention_label.text = "第一意图：" + intention

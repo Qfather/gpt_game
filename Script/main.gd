@@ -330,6 +330,14 @@ func register_villager(villager: Node) -> void:
 		return
 	if not villager.unit_clicked.is_connected(_on_villager_clicked):
 		villager.unit_clicked.connect(_on_villager_clicked)
+	var on_death: Callable = _on_friendly_unit_died.bind(villager)
+	if not villager.died.is_connected(on_death):
+		villager.died.connect(on_death)
+
+
+func _on_friendly_unit_died(_source: Node, unit: Node) -> void:
+	if unit.get_faction() == EnemyData.Faction.SETTLEMENT:
+		hud.show_friendly_death(unit.get_named_display_name())
 
 
 func register_resource(resource: Node) -> void:
@@ -344,6 +352,9 @@ func register_enemy(enemy: Node) -> void:
 		return
 	if not enemy.enemy_clicked.is_connected(_on_enemy_clicked):
 		enemy.enemy_clicked.connect(_on_enemy_clicked)
+	var on_death: Callable = _on_friendly_unit_died.bind(enemy)
+	if enemy.health_component != null and not enemy.health_component.died.is_connected(on_death):
+		enemy.health_component.died.connect(on_death)
 
 
 func _spawn_initial_villagers() -> void:
@@ -356,11 +367,13 @@ func _spawn_initial_villagers() -> void:
 		return
 
 	var base: Node3D = bases[0]
-	var spawn_origin: Vector3 = base.global_position
 
 	for index in range(maxi(level_config.initial_villagers, 0)):
 		var villager = VILLAGER_SCENE.instantiate()
+		villager.leaving_immigration_base = true
 		villagers_container.add_child(villager)
+		villager.global_position = base.get_migrant_interior_position()
+		villager.walk_out_of_immigration_base(base, index, level_config.initial_villagers)
 
 		var resource_manager = get_tree().get_first_node_in_group(
 			"resource_manager"
@@ -373,14 +386,6 @@ func _spawn_initial_villagers() -> void:
 		if population_manager != null:
 			population_manager.register_villager(villager)
 		register_villager(villager)
-
-		var column: int = index % 3
-		var row: int = index / 3
-		villager.global_position = spawn_origin + Vector3(
-			float(column - 1) * 1.5,
-			0.0,
-			float(row + 1) * 1.5 + 1.0
-		)
 
 
 func _apply_level_config() -> void:
