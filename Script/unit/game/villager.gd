@@ -161,9 +161,14 @@ var returning_resupply_surplus: bool = false
 var idle_reposition_timer: float = 0.0
 var idle_warning_elapsed: float = 0.0
 var initial_idle_position_pending: bool = false
+var unit_avoidance = preload("res://Script/unit/unit_avoidance.gd").new()
+var yield_cooldown: float = 0.0
 var tower_look_timer: float = 0.0
 var shelter_target: BuildingBase
 var shelter_exit_position: Vector3
+var passing_door: bool = false
+var door_building: BuildingBase
+var construction_repositioning: bool = false
 var retreat_threat: Node3D
 var leaving_immigration_base: bool = false
 
@@ -331,6 +336,12 @@ const EATING_TIME: float = 5.0
 const SATIATED_HUNGER_THRESHOLD: float = 30.0
 var eating_timer: float = 0.0
 var resting_timer: float = 0.0
+var home_building: BuildingBase
+var indoor_building: BuildingBase
+var indoor_idle: bool = false
+var idle_entrance_target: BuildingBase
+var rest_home: BuildingBase
+var rest_previous_target_distance: float = 1.5
 var selected_food_id: StringName = &""
 var preferred_food_effect_remaining: float = 0.0
 var preferred_food_hunger_multiplier: float = 1.0
@@ -526,6 +537,12 @@ func move_to_eat() -> void:
 func begin_resting() -> void:
 	if target_base == null or not is_instance_valid(target_base):
 		return
+	rest_home = home_building if is_instance_valid(home_building) and not home_building.is_queued_for_deletion() and not home_building.is_demolition_in_progress() else target_base
+	if is_instance_valid(indoor_building) and indoor_building != rest_home:
+		await _leave_idle_building()
+		if is_dead(): return
+	indoor_idle = false
+	idle_entrance_target = null
 	if job == Job.HUNTER: hunting.release_target(self)
 	_remember_garrison_state_before_needs()
 	_remember_patrol_state_before_needs()
@@ -540,11 +557,11 @@ func begin_resting() -> void:
 			base_storage = target_base.get_node_or_null("ResourceStorage") as ResourceStorage
 		selected_food_id = choose_food(base_storage)
 	eating_timer = 0.0
-	var target_position: Vector3 = target_base.global_position
-	if target_base.has_method("get_interaction_position"):
-		target_position = target_base.get_interaction_position(self)
+	var target_position: Vector3 = rest_home.get_entrance_position()
 	navigation_agent.target_position = target_position
 	state = State.NEED_REST
+	rest_previous_target_distance = navigation_agent.target_desired_distance
+	navigation_agent.target_desired_distance = 0.2
 
 
 func begin_eating() -> bool:
@@ -574,12 +591,17 @@ func begin_eating() -> bool:
 
 
 func move_to_rest() -> void:
-	if target_base == null or not is_instance_valid(target_base):
-		state = State.IDLE
+	if not is_instance_valid(rest_home) or rest_home.is_queued_for_deletion():
+		return_to_idle()
 		return
-	if not navigation_agent.is_navigation_finished():
+	if indoor_building != rest_home and Vector2(global_position.x - rest_home.get_entrance_position().x, global_position.z - rest_home.get_entrance_position().z).length() > 0.3:
+		navigation_agent.target_desired_distance = 0.2
 		move_along_navigation()
 		return
+	if indoor_building != rest_home:
+		if not await _pass_building_door(rest_home, true):
+			return_to_idle()
+			return
 	resting_timer = 0.0
 	state = State.RESTING
 
@@ -623,6 +645,10 @@ func _eat_while_resting(delta: float) -> void:
 
 func _resume_after_rest() -> void:
 	resting_timer = 0.0
+	await _leave_idle_building()
+	if is_dead(): return
+	rest_home = null
+	navigation_agent.target_desired_distance = rest_previous_target_distance
 	if is_hungry() and begin_eating():
 		return
 	if _resume_garrison_after_needs():
@@ -804,6 +830,7 @@ func _create_unreachable_marker() -> void:
 
 
 func _on_unit_died(_source: Node) -> void:
+	if is_instance_valid(door_building): door_building.release_door(self)
 	if is_instance_valid(shelter_target): shelter_target.release_shelter(self)
 	hunting.release_target(self)
 	hunting.clear_bundle()
@@ -861,9 +888,49 @@ func start():
 # ============================================================
 
 func _physics_process(delta):
+	yield_cooldown = maxf(yield_cooldown - delta, 0.0)
 	preload("res://Script/unit/unit_facing.gd").update(visual_root if is_instance_valid(visual_instance) else body_mesh, delta)
+	if passing_door or construction_repositioning:
+		velocity = Vector3.ZERO
+		return
+	if hunting.inside_processing:
+		update_needs(delta)
+		hunting.process(self, delta)
+		return
 	if leaving_immigration_base:
 		velocity = Vector3.ZERO
+		return
+	if indoor_idle and is_instance_valid(indoor_building):
+		velocity = Vector3.ZERO
+		update_needs(delta)
+		if current_task != null:
+			_start_current_task()
+		elif job != Job.NONE:
+			_leave_idle_for_job()
+		elif state not in [State.IDLE, State.RETURN_TO_IDLE] or has_combat_role() and _find_nearest_hostile() != null:
+			_leave_idle_building()
+		elif is_tired():
+			begin_resting()
+		elif is_hungry():
+			_leave_idle_for_food()
+		else:
+			idle_reposition_timer -= delta
+			if idle_reposition_timer <= 0.0:
+				idle_reposition_timer = 3.0
+				target_base.idle_space.refresh(target_base)
+				if not target_base.idle_space.indoors:
+					_leave_idle_and_reposition()
+		return
+	if indoor_building != null and (not is_instance_valid(indoor_building) or indoor_building.is_queued_for_deletion()):
+		indoor_building = null
+		indoor_idle = false
+		visible = true
+		collision_layer = 2
+		collision_mask = 3
+		return_to_idle()
+	if state == State.RESTING and is_instance_valid(indoor_building):
+		update_needs(delta)
+		rest(delta)
 		return
 	if is_stunned():
 		stun_remaining = maxf(stun_remaining - delta, 0.0)
@@ -1047,6 +1114,10 @@ func _physics_process(delta):
 
 func _update_unreachable_warning(delta: float) -> void:
 	idle_warning_elapsed = idle_warning_elapsed + delta if _needs_idle_warning() else 0.0
+	if state == State.RETURN_TO_IDLE and job == Job.NONE:
+		unreachable_time = 0.0
+		_set_unreachable_warning(false)
+		return
 	if state != unreachable_state:
 		unreachable_state = state
 		unreachable_time = 0.0
@@ -1101,6 +1172,7 @@ func has_idle_warning() -> bool:
 
 
 func _needs_idle_warning() -> bool:
+	if indoor_idle or state in [State.NEED_REST, State.MOVE_TO_REST, State.RESTING]: return false
 	if is_dead() or is_queued_for_deletion(): return false
 	if state == State.WAIT_CONSTRUCTION_SITE:
 		if task_site is ConstructionSite and task_site.state == ConstructionSite.State.WAITING_RESOURCES:
@@ -1270,7 +1342,7 @@ func is_hunter() -> bool:
 
 
 func get_damage_protector() -> Node3D:
-	if state == State.SHELTERED and is_instance_valid(shelter_target) and not shelter_target.is_destroyed() and not shelter_target.is_queued_for_deletion():
+	if state == State.SHELTERED and not visible and is_instance_valid(shelter_target) and not shelter_target.is_destroyed() and not shelter_target.is_queued_for_deletion():
 		return shelter_target
 	if (
 		is_instance_valid(garrisoned_in)
@@ -1333,6 +1405,7 @@ func _select_retreat_destination(excluded: BuildingBase = null) -> void:
 	var map: RID = navigation_agent.get_navigation_map()
 	for building: BuildingBase in candidates:
 		var entrance: Vector3 = NavigationServer3D.map_get_closest_point(map, building.get_interaction_position(self))
+		if entrance.distance_to(building.get_entrance_position()) > 0.75: continue
 		var path: PackedVector3Array = NavigationServer3D.map_get_path(map, global_position, entrance, true)
 		if path.is_empty() or path[-1].distance_to(entrance) > 0.5: continue
 		if building.reserve_shelter(self):
@@ -1344,15 +1417,78 @@ func _select_retreat_destination(excluded: BuildingBase = null) -> void:
 		navigation_agent.target_position = NavigationServer3D.map_get_closest_point(map, target_base.get_interaction_position(self))
 
 
+func _pass_building_door(building: BuildingBase, entering: bool) -> bool:
+	passing_door = true
+	door_building = building
+	building.join_door_queue(self)
+	while is_instance_valid(building) and not building.is_queued_for_deletion() and not building.has_door_turn(self):
+		await get_tree().physics_frame
+		if is_dead():
+			building.release_door(self)
+			passing_door = false
+			return false
+	if not is_instance_valid(building) or building.is_queued_for_deletion():
+		passing_door = false
+		visible = true
+		collision_layer = 2
+		collision_mask = 3
+		return false
+	collision_layer = 0
+	collision_mask = 0
+	visible = true
+	var destination: Vector3 = building.get_interior_position() if entering else building.get_entrance_position()
+	_face_direction(destination - global_position)
+	var tween: Tween = create_tween().set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
+	if entering:
+		var entrance: Vector3 = building.get_entrance_position()
+		tween.tween_property(self, "global_position", entrance, maxf(global_position.distance_to(entrance) / get_move_speed(), 0.05))
+	tween.tween_property(self, "global_position", destination, maxf(global_position.distance_to(destination) / get_move_speed(), 0.2))
+	await tween.finished
+	if is_instance_valid(building): building.release_door(self)
+	door_building = null
+	passing_door = false
+	if is_dead(): return false
+	var survived: bool = is_instance_valid(building) and not building.is_queued_for_deletion()
+	visible = not entering or not survived
+	collision_layer = 0 if entering and survived else 2
+	collision_mask = 0 if entering and survived else 3
+	if entering and survived:
+		indoor_building = building
+		building.add_indoor_resident(self)
+	else:
+		if is_instance_valid(indoor_building): indoor_building.remove_indoor_resident(self)
+		indoor_building = null
+	_refresh_health_bar_display()
+	return survived
+
+
 func _leave_shelter() -> void:
+	var building: BuildingBase = shelter_target
+	if is_instance_valid(building) and not building.is_queued_for_deletion():
+		await _pass_building_door(building, false)
+	if is_dead(): return
 	if is_instance_valid(shelter_target): shelter_target.release_shelter(self)
 	shelter_target = null
-	global_position = shelter_exit_position
 	visible = true
 	collision_layer = 2
 	collision_mask = 3
 	_refresh_health_bar_display()
 	state = State.RETREAT_TO_BASE
+
+
+func _exit_shelter_and_resume(reselect: bool = false) -> void:
+	await _leave_shelter()
+	if is_dead(): return
+	if reselect: _select_retreat_destination()
+	else: _resume_after_retreat()
+
+
+func _enter_shelter() -> void:
+	state = State.SHELTERED
+	if not await _pass_building_door(shelter_target, true):
+		if not is_dead():
+			state = State.RETREAT_TO_BASE
+			_select_retreat_destination()
 
 
 func _resume_after_retreat(at_base: bool = false) -> void:
@@ -1381,11 +1517,9 @@ func _process_civilian_retreat(delta: float) -> bool:
 	if state == State.SHELTERED:
 		update_needs(delta)
 		if not is_instance_valid(shelter_target) or shelter_target.is_destroyed() or shelter_target.is_queued_for_deletion() or shelter_target.is_demolition_in_progress():
-			_leave_shelter()
-			_select_retreat_destination()
+			_exit_shelter_and_resume(true)
 		elif _find_nearest_hostile() == null:
-			_leave_shelter()
-			_resume_after_retreat()
+			_exit_shelter_and_resume()
 		return true
 	if has_combat_role() or is_dead() or not is_visible_in_tree():
 		return false
@@ -1423,12 +1557,7 @@ func _process_civilian_retreat(delta: float) -> bool:
 			_resume_after_retreat()
 		else:
 			shelter_exit_position = global_position
-			global_position = shelter_target.global_position
-			visible = false
-			collision_layer = 0
-			collision_mask = 0
-			state = State.SHELTERED
-			_refresh_health_bar_display()
+			_enter_shelter()
 		return true
 	if threat != null:
 		return true
@@ -1578,6 +1707,9 @@ func finish_treasure_hunt(camp: Node3D) -> void:
 
 
 func _start_current_task() -> void:
+	if indoor_idle and is_instance_valid(indoor_building):
+		await _leave_idle_building()
+		if is_dead(): return
 
 	var task: GameTask = current_task as GameTask
 	if task == null:
@@ -1585,10 +1717,10 @@ func _start_current_task() -> void:
 
 	if task.type == GameTask.TaskType.BUILD_ROAD:
 		task.state = GameTask.State.IN_PROGRESS
+		state = State.MOVE_TO_ROAD
 		road_previous_target_distance = navigation_agent.target_desired_distance
 		navigation_agent.target_desired_distance = 0.25
 		navigation_agent.target_position = task.data.position
-		state = State.MOVE_TO_ROAD
 		return
 
 	if task.type == GameTask.TaskType.REPAIR_BUILDING:
@@ -1829,6 +1961,7 @@ func _has_reached_task_site_navigation_target() -> bool:
 	target_delta.y = 0.0
 	if task_site is ConstructionSite:
 		if target_delta.length() > 0.35: return false
+		if task_site.exterior_construction_started: return true
 		if task_site.has_model_bounds:
 			var point: Vector3 = task_site.to_local(global_position)
 			var bounds: AABB = task_site.model_bounds
@@ -1914,6 +2047,25 @@ func _return_to_idle_if_task_finished(completed_site: Node) -> void:
 	return_to_idle()
 
 
+func move_to_construction_position(site: ConstructionSite, destination: Vector3) -> void:
+	construction_repositioning = true
+	velocity = Vector3.ZERO
+	collision_layer = 0
+	collision_mask = 0
+	_face_direction(destination - global_position)
+	var tween: Tween = create_tween().set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
+	tween.tween_property(self, "global_position", destination, maxf(global_position.distance_to(destination) / get_move_speed(), 0.2))
+	await tween.finished
+	construction_repositioning = false
+	if is_dead(): return
+	collision_layer = 2
+	collision_mask = 3
+	if not is_instance_valid(site) or task_site != site:
+		return_to_idle()
+	else:
+		_face_direction(site.global_position - global_position)
+
+
 func move_to_build_site() -> void:
 
 	if not is_instance_valid(task_site):
@@ -1935,6 +2087,8 @@ func move_to_build_site() -> void:
 		return
 
 	state = State.BUILDING
+	if task_site is ConstructionSite and task_site.exterior_construction_started:
+		_face_direction(task_site.global_position - global_position)
 	print("Villager 已加入施工：", task.id)
 
 
@@ -1972,12 +2126,23 @@ func move_to_training() -> void:
 	if task == null or not task_site.has_method("begin_training"):
 		_release_current_task()
 		return
+	if not _has_reached_task_site_navigation_target(): return
+	if not await _pass_building_door(task_site, true):
+		_release_current_task()
+		return
 	if not task_site.begin_training(self):
 		_release_current_task()
 		return
 	training_elapsed = 0.0
 	state = State.TRAINING
 	print("Villager 开始训练：", task.id)
+
+
+func leave_completed_training(building: BuildingBase) -> void:
+	await _pass_building_door(building, false)
+	if not is_dead():
+		if carried_amount > 0.0: go_to_base()
+		else: return_to_idle()
 
 
 func process_training(delta: float) -> void:
@@ -3148,10 +3313,11 @@ func move_along_navigation():
 
 	if direction.length() > 0.01:
 
+		var step_speed: float = minf(get_move_speed(), direction.length() / get_physics_process_delta_time())
 		direction = direction.normalized()
-		velocity.x = direction.x * get_move_speed()
-		velocity.y = direction.y * get_move_speed()
-		velocity.z = direction.z * get_move_speed()
+		velocity.x = direction.x * step_speed
+		velocity.y = direction.y * step_speed
+		velocity.z = direction.z * step_speed
 
 	else:
 
@@ -3160,6 +3326,7 @@ func move_along_navigation():
 		velocity.z = 0.0
 
 
+	velocity = unit_avoidance.steer(self, navigation_agent, velocity, get_physics_process_delta_time())
 	_face_direction(velocity)
 	move_and_slide()
 	if state == State.MOVE_TO_PATROL_POINT:
@@ -3618,6 +3785,9 @@ func is_idle() -> bool:
 	return (
 		not is_stunned()
 		and not leaving_immigration_base
+		and not initial_idle_position_pending
+		and not passing_door
+		and state not in [State.NEED_REST, State.MOVE_TO_REST, State.RESTING, State.NEED_EAT, State.MOVE_TO_EAT, State.EATING]
 		and job == Job.NONE
 		and current_task == null
 		and not is_quitting_job
@@ -3635,7 +3805,7 @@ func is_idle_resident() -> bool:
 # @feature 根据职业返回正确的待命地点
 # ============================================================
 
-func walk_out_of_immigration_base(base: Node3D, initial_slot: int = -1, initial_count: int = 0) -> void:
+func walk_out_of_immigration_base(base: Node3D, initial_slot: int = -1, _initial_count: int = 0) -> void:
 	target_base = base
 	collision_layer = 0
 	collision_mask = 0
@@ -3666,12 +3836,95 @@ func walk_out_of_immigration_base(base: Node3D, initial_slot: int = -1, initial_
 		if not is_instance_valid(target_base):
 			target_base = null
 		return_to_idle()
-		if initial_slot >= 0 and is_instance_valid(target_base):
-			var column: float = float(initial_slot % 5) - float(mini(initial_count, 5) - 1) * 0.5
-			var point: Vector3 = target_base.to_global(Vector3(column * 1.4, 0.0, 3.7 + float(initial_slot / 5) * 1.2))
-			navigation_agent.target_position = NavigationServer3D.map_get_closest_point(navigation_agent.get_navigation_map(), point)
-			initial_idle_position_pending = true
 	)
+
+
+func _get_newcomer_idle_position(base: Node3D) -> Vector3:
+	var residents: Array[Node] = get_tree().get_nodes_in_group("villagers")
+	var map: RID = navigation_agent.get_navigation_map()
+	var best_point: Vector3 = Vector3.INF
+	var best_clearance: float = -1.0
+	var entrance: Vector3 = base.get_migrant_entrance_position()
+	base.idle_space.refresh(base)
+	var candidates: Array[Vector3] = base.idle_space.points.duplicate()
+	if get_tree().get_first_node_in_group("build_grid") == null:
+		for _attempt: int in range(32): candidates.append(get_random_idle_position(base.global_position, base.idle_radius))
+	candidates.shuffle()
+	for point: Vector3 in candidates:
+		var projected: Vector3 = NavigationServer3D.map_get_closest_point(map, point)
+		if Vector2(projected.x - point.x, projected.z - point.z).length() > 0.35 or absf(projected.y - point.y) > 0.8: continue
+		if Vector2(projected.x - entrance.x, projected.z - entrance.z).length() < 1.3: continue
+		var clearance: float = INF
+		for resident: Node3D in residents:
+			if resident == self or not resident.is_visible_in_tree() and resident.state != State.RETURN_TO_IDLE: continue
+			var position: Vector3 = resident.navigation_agent.target_position if resident.state == State.RETURN_TO_IDLE else resident.global_position
+			clearance = minf(clearance, Vector2(position.x - projected.x, position.z - projected.z).length())
+		if clearance < 0.9: continue
+		var path: PackedVector3Array = NavigationServer3D.map_get_path(map, global_position, projected, true)
+		if path.is_empty() or path[-1].distance_to(projected) > 0.4: continue
+		if clearance > best_clearance:
+			best_point = projected
+			best_clearance = clearance
+		if clearance >= 1.1: return projected
+	if best_point != Vector3.INF: return best_point
+	return Vector3.INF
+
+
+func _set_base_idle_destination() -> void:
+	target_base.idle_space.refresh(target_base)
+	var point: Vector3 = Vector3.INF if target_base.idle_space.indoors else _get_newcomer_idle_position(target_base)
+	idle_entrance_target = target_base if point == Vector3.INF else null
+	state = State.RETURN_TO_IDLE
+	navigation_agent.target_position = target_base.get_entrance_position() if point == Vector3.INF else point
+	initial_idle_position_pending = true
+
+
+func _leave_idle_building() -> void:
+	indoor_idle = false
+	var building: BuildingBase = indoor_building
+	if is_instance_valid(building) and not building.is_queued_for_deletion():
+		await _pass_building_door(building, false)
+	else:
+		indoor_building = null
+		visible = true
+		collision_layer = 2
+		collision_mask = 3
+
+
+func _leave_idle_and_reposition() -> void:
+	var point: Vector3 = _get_newcomer_idle_position(target_base)
+	if point == Vector3.INF: return
+	# 出门排队时先预留室外站位，避免多个人同时抢同一个空地。
+	state = State.RETURN_TO_IDLE
+	navigation_agent.target_position = point
+	initial_idle_position_pending = true
+	await _leave_idle_building()
+	if not is_dead() and not target_base.idle_space.contains(target_base, point): _set_base_idle_destination()
+
+
+func _leave_idle_for_food() -> void:
+	if choose_food(target_base.storage).is_empty(): return
+	await _leave_idle_building()
+	if not is_dead() and not begin_eating(): return_to_idle()
+
+
+func _leave_idle_for_job() -> void:
+	await _leave_idle_building()
+	if is_dead(): return
+	start_current_job()
+
+
+func yield_to_unit(_other: CharacterBody3D, travel_direction: Vector3) -> void:
+	if state != State.IDLE or current_task != null or carried_amount > 0.0 or yield_cooldown > 0.0 or passing_door or leaving_immigration_base or is_dead(): return
+	var side := Vector3(-travel_direction.z, 0, travel_direction.x)
+	for offset: Vector3 in [side * 1.0, -side * 1.0]:
+		if is_instance_valid(target_base) and not target_base.idle_space.contains(target_base, global_position + offset): continue
+		if not preload("res://Script/unit/unit_avoidance.gd").can_step(self, navigation_agent, offset): continue
+		navigation_agent.target_position = NavigationServer3D.map_get_closest_point(navigation_agent.get_navigation_map(), global_position + offset)
+		state = State.RETURN_TO_IDLE
+		initial_idle_position_pending = true
+		yield_cooldown = 2.0
+		return
 
 
 func return_to_idle():
@@ -3679,10 +3932,7 @@ func return_to_idle():
 		if target_base == null:
 			find_base()
 		if target_base != null:
-			navigation_agent.target_position = get_random_idle_position(
-				target_base.global_position, target_base.idle_radius
-			)
-			state = State.RETURN_TO_IDLE
+			_set_base_idle_destination()
 		else:
 			state = State.IDLE
 		return
@@ -3726,11 +3976,7 @@ func return_to_idle():
 		find_base()
 
 	if target_base != null:
-		navigation_agent.target_position = get_random_idle_position(
-			target_base.global_position,target_base.idle_radius
-		)
-
-		state = State.RETURN_TO_IDLE
+		_set_base_idle_destination()
 
 	else:
 
@@ -3802,15 +4048,27 @@ func try_find_available_barracks() -> bool:
 # 走回据点待命
 # ============================================================
 func move_to_idle_area():
+	if is_instance_valid(idle_entrance_target):
+		var entrance: Vector3 = idle_entrance_target.get_entrance_position()
+		if Vector2(global_position.x - entrance.x, global_position.z - entrance.z).length() > 0.3:
+			move_along_navigation()
+			return
+		var building: BuildingBase = idle_entrance_target
+		idle_entrance_target = null
+		if await _pass_building_door(building, true):
+			state = State.IDLE
+			indoor_idle = true
+			abandoning_work = false
+			idle_reposition_timer = 3.0
+			_request_idle_tasks()
+		else:
+			return_to_idle()
+		return
+	if job == Job.NONE and is_instance_valid(target_base) and not target_base.idle_space.contains(target_base, navigation_agent.target_position):
+		_set_base_idle_destination()
+		return
 
-	var returned_after_abandoning: bool = (
-		(abandoning_work or job == Job.NONE) and carried_amount <= 0.0 and is_instance_valid(target_base)
-		and Vector2(global_position.x, global_position.z).distance_to(Vector2(target_base.global_position.x, target_base.global_position.z)) <= target_base.idle_radius
-	)
-	var reached_idle_position: bool = (
-		((job != Job.NONE or not is_instance_valid(target_base)) and global_position.distance_to(navigation_agent.target_position) <= 0.8)
-		or returned_after_abandoning
-	)
+	var reached_idle_position: bool = global_position.distance_to(navigation_agent.target_position) <= 0.8
 	if initial_idle_position_pending:
 		var offset: Vector3 = navigation_agent.target_position - global_position
 		reached_idle_position = Vector2(offset.x, offset.z).length() <= 0.25 and absf(offset.y) <= 0.8
@@ -3827,6 +4085,7 @@ func move_to_idle_area():
 		if job != Job.NONE:
 			print("💤 已回到工作地点附近待命：", workplace.name)
 		idle_reposition_timer = randf_range(3.0, 10.0)
+		_request_idle_tasks()
 
 		return
 
@@ -3834,9 +4093,19 @@ func move_to_idle_area():
 	move_along_navigation()
 
 
+func _request_idle_tasks() -> void:
+	var manager: Node = get_tree().get_first_node_in_group("task_manager")
+	if manager != null: manager.request_dispatch()
+
+
 func process_idle_reposition(delta: float) -> void:
 	if current_task != null or job != Job.NONE and workplace == null:
 		return
+	if job == Job.NONE and is_instance_valid(target_base):
+		target_base.idle_space.refresh(target_base)
+		if target_base.idle_space.indoors or not target_base.idle_space.contains(target_base, global_position):
+			_set_base_idle_destination()
+			return
 	idle_reposition_timer -= delta
 	if idle_reposition_timer > 0.0:
 		return
@@ -3855,10 +4124,8 @@ func process_idle_reposition(delta: float) -> void:
 		if target_base == null:
 			idle_reposition_timer = randf_range(3.0, 10.0)
 			return
-		navigation_agent.target_position = get_random_idle_position(
-			target_base.global_position,
-			target_base.idle_radius
-		)
+		_set_base_idle_destination()
+		return
 	state = State.RETURN_TO_IDLE
 
 
@@ -4030,20 +4297,9 @@ func _get_reachable_workplace_position() -> Vector3:
 	var map: RID = navigation_agent.get_navigation_map()
 	if not map.is_valid() or NavigationServer3D.map_get_iteration_id(map) == 0:
 		return preferred
-	var offset := Vector2(preferred.x - workplace.global_position.x, preferred.z - workplace.global_position.z)
-	for index: int in range(16):
-		var candidate: Vector3 = preferred
-		if index > 0:
-			var direction := Vector2.from_angle(offset.angle() + float(index) * TAU / 16.0) * offset.length()
-			candidate = workplace.global_position + Vector3(direction.x, 0, direction.y)
-		var navigation_point: Vector3 = NavigationServer3D.map_get_closest_point(map, candidate)
-		if navigation_point.distance_to(candidate) > 0.75:
-			continue
-		var path := NavigationServer3D.map_get_path(map, global_position, navigation_point, true)
-		if not path.is_empty() and path[path.size() - 1].distance_to(navigation_point) <= 0.5:
-			if workplace is BuildingBase:
-				workplace.interaction_positions[get_instance_id()] = navigation_point - workplace.global_position
-			return navigation_point
+	var navigation_point: Vector3 = NavigationServer3D.map_get_closest_point(map, preferred)
+	if navigation_point.distance_to(preferred) <= 0.75:
+		return navigation_point
 	return preferred
 
 
@@ -4099,6 +4355,24 @@ func move_to_workplace():
 # ============================================================
 
 func deposit_to_workplace():
+	if passing_door: return
+	if carried_amount <= 0.0 or not is_instance_valid(workplace):
+		_deposit_to_workplace_inside()
+		return
+	var building: BuildingBase = workplace
+	if not await _pass_building_door(building, true):
+		if not is_instance_valid(workplace):
+			workplace = null
+			job = Job.NONE
+		if is_dead(): return
+		return_to_idle()
+		return
+	_deposit_to_workplace_inside()
+	await _pass_building_door(building, false)
+	if not is_instance_valid(workplace) and not is_dead(): return_to_idle()
+
+
+func _deposit_to_workplace_inside():
 
 	if carried_amount <= 0.0:
 		if workplace is Farm:
@@ -4506,6 +4780,8 @@ func finish_quit_job():
 # ============================================================
 
 func can_take_task(_task: Object) -> bool:
+	if passing_door or construction_repositioning or hunting.inside_processing or leaving_immigration_base or initial_idle_position_pending: return false
+	if state in [State.NEED_REST, State.MOVE_TO_REST, State.RESTING, State.NEED_EAT, State.MOVE_TO_EAT, State.EATING]: return false
 	if _task is GameTask and _task.type == GameTask.TaskType.TRAIN_SWORDSMAN and state == State.SHELTERED:
 		return not is_dead() and not has_combat_role() and current_task == null and not is_quitting_job and not abandoning_work and is_instance_valid(_task.target) and _task.target.get_sheltered_training_worker() == self
 	if _task is GameTask and _task.type == GameTask.TaskType.BUILD_ROAD:
@@ -4536,7 +4812,11 @@ func set_current_task(task: Object) -> void:
 	current_task = task
 	if task is GameTask and task.type == GameTask.TaskType.TRAIN_SWORDSMAN and state == State.SHELTERED:
 		var training_in_shelter: bool = shelter_target == task.target
-		_leave_shelter()
+		if training_in_shelter:
+			shelter_target.release_shelter(self)
+			shelter_target = null
+		else:
+			await _leave_shelter()
 		retreat_threat = null
 		_start_current_task()
 		if training_in_shelter:

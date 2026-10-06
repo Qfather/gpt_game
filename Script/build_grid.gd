@@ -12,6 +12,7 @@ var ground_height_rule: Callable
 
 
 func _ready() -> void:
+	add_to_group("build_grid")
 
 	if DevMode.DEV_MODE:
 		_debug_test()

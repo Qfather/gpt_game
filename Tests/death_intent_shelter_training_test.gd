@@ -103,6 +103,7 @@ func _run() -> void:
 	var population: int = get_nodes_in_group("villagers").size()
 	_expect(camp.request_training(), "外面无人时仍可下达训练命令")
 	manager._run_dispatch()
+	while sheltered.passing_door: await physics_frame
 	_expect(sheltered.state == sheltered.State.MOVE_TO_TRAINING and sheltered.visible and sheltered.shelter_target == null, "居民从其他避难建筑出来前往训练营")
 	_expect(not sheltered._process_civilian_retreat(0.1) and sheltered.current_task != null, "执行训练命令时不因敌人折返避难")
 	_expect(get_nodes_in_group("villagers").size() == population, "调用避难居民不新增人口")

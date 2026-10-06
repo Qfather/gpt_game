@@ -44,6 +44,28 @@ var build_grid_area_registered: bool = false
 
 var interaction_positions: Dictionary = {}
 var shelter_residents: Array[Node] = []
+var door_queue: Array[Node] = []
+var indoor_residents: Array[Node] = []
+
+
+func add_indoor_resident(resident: Node) -> void:
+	if not indoor_residents.has(resident): indoor_residents.append(resident)
+	if not has_node("OccupancyIndicator"):
+		var indicator: Node3D = preload("res://Script/ui/building_occupancy_indicator.gd").new()
+		indicator.name = "OccupancyIndicator"
+		add_child(indicator)
+
+
+func remove_indoor_resident(resident: Node) -> void:
+	indoor_residents.erase(resident)
+
+
+func get_indoor_residents() -> Array[Node]:
+	for index: int in range(indoor_residents.size() - 1, -1, -1):
+		var resident: Variant = indoor_residents[index]
+		if not is_instance_valid(resident) or resident.is_queued_for_deletion() or resident.is_dead() or resident.indoor_building != self:
+			indoor_residents.remove_at(index)
+	return indoor_residents
 
 
 # ============================================================
@@ -159,23 +181,79 @@ func _process(delta: float) -> void:
 
 
 func get_interaction_position(worker: Node) -> Vector3:
-	var worker_id: int = worker.get_instance_id() if worker != null else 0
-	if not interaction_positions.has(worker_id):
-		var slot_index: int = interaction_positions.size()
-		var angle: float = float(slot_index) * 2.399963
-		var radius: float = 2.0
-		var collision: CollisionShape3D = get_node_or_null("StaticBody3D/CollisionShape3D") as CollisionShape3D
-		if collision != null and collision.shape != null:
-			var bounds: AABB = collision.transform * collision.shape.get_debug_mesh().get_aabb()
-			radius = maxf(radius, maxf(maxf(absf(bounds.position.x), absf(bounds.end.x)), maxf(absf(bounds.position.z), absf(bounds.end.z))) + 0.9)
-		radius += float(slot_index % 3) * 0.35
-		interaction_positions[worker_id] = Vector3(
-			cos(angle) * radius,
-			0.0,
-			sin(angle) * radius
-		)
+	return get_entrance_position()
 
-	return global_position + interaction_positions[worker_id]
+
+static func get_local_entrance(root: Node3D) -> Vector3:
+	var marker: Node3D = root.find_child("Entrance", true, false) as Node3D
+	if marker == null:
+		marker = root.find_child("ImmigrationEntrance", true, false) as Node3D
+	if marker == null:
+		marker = root.find_child("Door_*", true, false) as Node3D
+	if marker == null:
+		# 开放式资源建筑的入口在模型正面，可添加 Entrance 标记覆盖。
+		return Vector3(0, 0, 1.9)
+	var point := Vector3.ZERO
+	var current: Node3D = marker
+	while current != root:
+		point = current.transform * point
+		current = current.get_parent() as Node3D
+	point.y = 0.0
+	if String(marker.name).begins_with("Door_"): point.z += 0.9
+	return point
+
+
+func get_entrance_position() -> Vector3:
+	var root: Node3D = model_instance if is_instance_valid(model_instance) else self
+	return to_global(get_local_entrance(self)) if root == self else root.to_global(get_local_entrance(root))
+
+
+func get_interior_position() -> Vector3:
+	var marker: Node3D = find_child("Interior", true, false) as Node3D
+	if marker == null: marker = find_child("ImmigrationInterior", true, false) as Node3D
+	if marker != null: return marker.global_position
+	var local: Vector3 = to_local(get_entrance_position())
+	return to_global(Vector3(local.x, 0, local.z - 1.8))
+
+
+func join_door_queue(worker: Node) -> void:
+	if not door_queue.has(worker): door_queue.append(worker)
+
+
+func has_door_turn(worker: Node) -> bool:
+	for index: int in range(door_queue.size() - 1, -1, -1):
+		var queued: Variant = door_queue[index]
+		if not is_instance_valid(queued) or queued.is_queued_for_deletion() or queued.is_dead():
+			door_queue.remove_at(index)
+	return not door_queue.is_empty() and door_queue[0] == worker
+
+
+func release_door(worker: Node) -> void:
+	door_queue.erase(worker)
+
+
+static func create_entrance_arrow(entrance: Vector3) -> MeshInstance3D:
+	var arrow := MeshInstance3D.new()
+	arrow.name = "EntranceArrow"
+	var mesh := ArrayMesh.new()
+	var vertices := PackedVector3Array([
+		Vector3(-0.16, 0, 0), Vector3(0.16, 0, 0), Vector3(0.16, 0, 0.6),
+		Vector3(-0.16, 0, 0), Vector3(0.16, 0, 0.6), Vector3(-0.16, 0, 0.6),
+		Vector3(-0.5, 0, 0.6), Vector3(0.5, 0, 0.6), Vector3(0, 0, 1.2)])
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	arrow.mesh = mesh
+	arrow.position = entrance + Vector3(0, 0.35, 0)
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material.no_depth_test = true
+	material.albedo_color = Color(1, 0.8, 0.1)
+	arrow.material_override = material
+	arrow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return arrow
 
 
 func get_shelter_capacity() -> int:

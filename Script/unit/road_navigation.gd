@@ -23,7 +23,10 @@ func next_position(unit: Node3D, agent: NavigationAgent3D) -> Vector3:
 	if (target.distance_squared_to(agent.target_position) > 0.25 or revision != manager.revision or map_iteration != iteration) and now >= retry_msec:
 		var path: Variant = manager.preferred_path(unit.global_position, agent.target_position, agent.get_navigation_map())
 		if path != null:
-			route = path
+			route = path.duplicate()
+			# 道路路径来自导航服务器，和普通代理路径一样减去单位高度补偿。
+			for point_index: int in range(route.size()):
+				route[point_index].y -= agent.path_height_offset
 			index = 0
 			target = agent.target_position
 			revision = manager.revision

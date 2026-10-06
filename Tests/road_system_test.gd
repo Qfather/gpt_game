@@ -65,14 +65,17 @@ func _run() -> void:
 		worker.road_navigation = preload("res://Script/unit/road_navigation.gd").new()
 		worker.navigation_agent.target_position = goal
 		var maximum_z: float = 0.0
+		var maximum_height_error: float = 0.0
 		var queries: int = roads.route_queries
 		for frame: int in range(220):
 			worker.navigation_agent.get_next_path_position()
 			worker.move_along_navigation()
 			maximum_z = maxf(maximum_z, worker.position.z)
+			maximum_height_error = maxf(maximum_height_error, absf(worker.position.y))
 			if worker.position.distance_to(goal) < 1.6: break
 			await physics_frame
 		_expect(worker.position.distance_to(goal) < 1.6 and maximum_z > 2.1, "实际角色沿道路绕行并到达目标：身份%d" % role)
+		_expect(maximum_height_error < 0.1, "沿道路移动全程脚底贴地：身份%d" % role)
 		_expect(roads.route_queries - queries <= 2, "沿途复用路线，不每帧重算：身份%d" % role)
 	worker.position = start
 	var before: int = roads.route_queries

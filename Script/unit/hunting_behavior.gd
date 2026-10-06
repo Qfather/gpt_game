@@ -6,6 +6,7 @@ var raw_meat: float = 0.0
 var returning: bool = false
 var return_destination: Vector3 = Vector3.INF
 var processing_time: float = -1.0
+var inside_processing: bool = false
 var roam_time: float = 0.0
 var bundle: MeshInstance3D
 
@@ -22,6 +23,10 @@ func request_return(hunter: Node) -> void:
 func process(hunter: Node3D, delta: float) -> void:
 	var house: Node3D = hunter.workplace
 	if not is_instance_valid(house) or house.is_queued_for_deletion():
+		inside_processing = false
+		hunter.visible = true
+		hunter.collision_layer = 2
+		hunter.collision_mask = 3
 		release_target(hunter)
 		# 小屋被毁时原猎物无法处理，释放职业并移除背包。
 		clear_bundle()
@@ -36,23 +41,28 @@ func process(hunter: Node3D, delta: float) -> void:
 				hunter.navigation_agent.get_navigation_map(), house.get_interaction_position(hunter)
 			)
 		var destination: Vector3 = return_destination
-		if Vector2(hunter.global_position.x, hunter.global_position.z).distance_to(Vector2(destination.x, destination.z)) > 1.8:
+		if not inside_processing and Vector2(hunter.global_position.x, hunter.global_position.z).distance_to(Vector2(destination.x, destination.z)) > 1.8:
 			move(hunter, destination)
 			return
 		hunter.velocity = Vector3.ZERO
 		if prey_count > 0:
-			if processing_time < 0.0: processing_time = randf_range(house.processing_min, house.processing_max)
+			if not inside_processing:
+				if processing_time < 0.0: processing_time = randf_range(house.processing_min, house.processing_max)
+				_enter_house(hunter, house)
+				return
 			processing_time -= delta
 			if processing_time > 0.0: return
 			var amount: float = house.deposit_resource(&"meat", raw_meat)
 			raw_meat -= amount
 			# 满仓时自行搬运库存，为尚未存入的肉腾出空间。
 			if raw_meat > 0.0:
-				transport_meat(hunter, house)
+				_leave_house(hunter, house, true)
 				return
 			prey_count = 0
 			processing_time = -1.0
 			clear_bundle()
+			_leave_house(hunter, house, false)
+			return
 		if house.is_storage_full() and transport_meat(hunter, house): return
 		returning = false
 		if hunter.is_quitting_job:
@@ -113,6 +123,26 @@ func transport_meat(hunter: Node, house: Node) -> bool:
 	hunter.is_transporting = true
 	hunter.go_to_base()
 	return true
+
+func _enter_house(hunter: Node, house: BuildingBase) -> void:
+	if not await hunter._pass_building_door(house, true):
+		processing_time = -1.0
+		hunter.return_to_idle()
+	else:
+		inside_processing = true
+
+
+func _leave_house(hunter: Node, house: BuildingBase, needs_space: bool) -> void:
+	inside_processing = false
+	await hunter._pass_building_door(house, false)
+	if hunter.is_dead() or not is_instance_valid(house): return
+	if needs_space:
+		transport_meat(hunter, house)
+		return
+	returning = false
+	if house.is_storage_full() and transport_meat(hunter, house): return
+	if hunter.is_quitting_job: hunter.finish_quit_job()
+
 
 func update_bundle(hunter: Node) -> void:
 	if not is_instance_valid(bundle):

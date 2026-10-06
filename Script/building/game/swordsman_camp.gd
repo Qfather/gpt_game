@@ -80,11 +80,7 @@ func request_training() -> bool:
 
 
 func get_training_position(worker: Node) -> Vector3:
-	var worker_index: int = training_workers.find(worker)
-	if worker_index < 0:
-		worker_index = training_workers.size()
-	var side: float = -1.0 if worker_index % 2 == 0 else 1.0
-	return global_position + Vector3(side * 0.6, 0.0, 2.0)
+	return get_entrance_position()
 
 
 func get_sheltered_training_worker() -> Node:
@@ -109,7 +105,7 @@ func begin_training(worker: Node) -> bool:
 	worker.velocity = Vector3.ZERO
 	worker.collision_layer = 0
 	worker.collision_mask = 0
-	worker.global_position = get_training_position(worker)
+	worker.global_position = get_interior_position()
 	return true
 
 
@@ -134,8 +130,7 @@ func complete_training(worker: Node) -> bool:
 	):
 		previous_workplace.remove_worker(worker)
 	worker.state = worker.State.IDLE
-	if worker.carried_amount > 0.0: worker.go_to_base()
-	else: worker.return_to_idle()
+	worker.leave_completed_training(self)
 	return true
 
 

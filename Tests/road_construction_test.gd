@@ -12,6 +12,15 @@ func _run() -> void:
 	var world := Node3D.new()
 	root.add_child(world)
 	current_scene = world
+	if DisplayServer.get_name() != "headless":
+		var camera := Camera3D.new()
+		world.add_child(camera)
+		camera.position = Vector3(8,18,18)
+		camera.look_at(Vector3.ZERO)
+		camera.make_current()
+		var light := DirectionalLight3D.new()
+		world.add_child(light)
+		light.rotation_degrees.x = -60
 	var grid := BuildGrid.new()
 	grid.grid_min = Vector2i(-12, -12)
 	grid.grid_max = Vector2i(12, 12)
@@ -62,6 +71,7 @@ func _run() -> void:
 	world.add_child(worker)
 	worker.position = grid.grid_to_world(Vector2i(1, 0))
 	worker.set_physics_process(false)
+	for frame: int in range(10): await physics_frame
 	worker.state = worker.State.IDLE
 	tasks._dispatch_available_tasks()
 	_expect(worker.current_task == roads.pending[near_cell], "居民先标记并领取最近路格")
@@ -82,12 +92,31 @@ func _run() -> void:
 	_expect(roads.cells[near_cell] == 1 and is_equal_approx(roads.speed_multiplier(worker.position), 1.05), "升级不足5秒保留原土路")
 	roads.work_cell(task, worker, 0.1)
 	_expect(roads.cells[near_cell] == 2 and is_equal_approx(roads.speed_multiplier(worker.position), 1.10), "升级5秒后石路生效")
-	worker.state = worker.State.IDLE
+	worker.state = worker.State.RETURN_TO_IDLE
+	tasks._dispatch_available_tasks()
+	worker._start_current_task()
+	_expect(worker.state == worker.State.MOVE_TO_ROAD and is_equal_approx(worker.navigation_agent.target_desired_distance, 0.25), "从住宅完工返回待命状态接道路任务，保留道路抵达距离")
+	_expect(VillagerPanel.STATE_DISPLAY_NAMES.size() == worker.State.size() and VillagerPanel.TASK_DISPLAY_NAMES.size() == GameTask.TaskType.size(), "居民面板覆盖所有现有状态与任务")
+	_expect(VillagerPanel.STATE_DISPLAY_NAMES[worker.State.MOVE_TO_ROAD] == "前往道路施工" and VillagerPanel.TASK_DISPLAY_NAMES[GameTask.TaskType.BUILD_ROAD] == "道路施工", "道路任务不显示未知")
+	var panel: VillagerPanel = load("res://UI/unit_panel/villager_panel.tscn").instantiate()
+	root.add_child(panel)
+	await process_frame
+	await process_frame
+	panel.open_unit(worker)
+	_expect(panel.state_label.text == "状态：前往道路施工" and panel.task_label.text == "当前任务：道路施工", "实际居民面板正确显示道路状态与任务")
+	if DisplayServer.get_name() != "headless":
+		await create_timer(0.3).timeout
+		await RenderingServer.frame_post_draw
+		root.get_texture().get_image().save_png("res://.godot/road-resident-panel.png")
+	panel.queue_free()
 	worker.set_physics_process(true)
 	tasks.request_dispatch()
 	var deadline: int = Time.get_ticks_msec() + 20000
 	while not roads.cells.has(far_cell) and Time.get_ticks_msec() < deadline: await physics_frame
 	_expect(roads.cells.get(far_cell) == 1, "实际居民走到下一路格并完成施工")
+	deadline = Time.get_ticks_msec() + 15000
+	while worker.state != worker.State.IDLE and Time.get_ticks_msec() < deadline: await physics_frame
+	_expect(worker.current_task == null and worker.state == worker.State.IDLE and worker.global_position.distance_to(base.global_position) <= base.idle_radius + 0.5, "待建道路全部完成后实际返回据点待命")
 	worker.set_physics_process(false)
 	_expect(roads.queue_cells([Vector2i(6, 0)], 1) == 1, "新增施工任务")
 	var cancelled: GameTask = roads.pending[Vector2i(6, 0)]

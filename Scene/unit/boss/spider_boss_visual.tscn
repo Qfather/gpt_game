@@ -4,25 +4,13 @@
 albedo_color = Color(0.24, 0.13, 0.24, 1)
 roughness = 0.85
 
-[sub_resource type="StandardMaterial3D" id="Mat1"]
-albedo_color = Color(0.48, 0.13, 0.23, 1)
-roughness = 0.85
-
-[sub_resource type="StandardMaterial3D" id="Mat2"]
-albedo_color = Color(0.85, 0.65, 0.18, 1)
-roughness = 0.85
-
-[sub_resource type="StandardMaterial3D" id="Mat3"]
-albedo_color = Color(0.95, 0.25, 0.16, 1)
-roughness = 0.85
-
-[sub_resource type="StandardMaterial3D" id="Mat4"]
-albedo_color = Color(0.88, 0.85, 0.73, 1)
-roughness = 0.85
-
 [sub_resource type="BoxMesh" id="Mesh0"]
 material = SubResource("Mat0")
 size = Vector3(1.2, 0.8, 1.52)
+
+[sub_resource type="StandardMaterial3D" id="Mat1"]
+albedo_color = Color(0.48, 0.13, 0.23, 1)
+roughness = 0.85
 
 [sub_resource type="BoxMesh" id="Mesh1"]
 material = SubResource("Mat1")
@@ -32,6 +20,10 @@ size = Vector3(0.89, 0.12, 1.24)
 material = SubResource("Mat0")
 size = Vector3(0.87, 0.64, 0.7)
 
+[sub_resource type="StandardMaterial3D" id="Mat2"]
+albedo_color = Color(0.85, 0.65, 0.18, 1)
+roughness = 0.85
+
 [sub_resource type="BoxMesh" id="Mesh3"]
 material = SubResource("Mat2")
 size = Vector3(0.14, 0.14, 0.06)
@@ -40,6 +32,10 @@ size = Vector3(0.14, 0.14, 0.06)
 material = SubResource("Mat2")
 size = Vector3(0.14, 0.14, 0.06)
 
+[sub_resource type="StandardMaterial3D" id="Mat3"]
+albedo_color = Color(0.95, 0.25, 0.16, 1)
+roughness = 0.85
+
 [sub_resource type="BoxMesh" id="Mesh5"]
 material = SubResource("Mat3")
 size = Vector3(0.095, 0.095, 0.06)
@@ -47,6 +43,10 @@ size = Vector3(0.095, 0.095, 0.06)
 [sub_resource type="BoxMesh" id="Mesh6"]
 material = SubResource("Mat3")
 size = Vector3(0.095, 0.095, 0.06)
+
+[sub_resource type="StandardMaterial3D" id="Mat4"]
+albedo_color = Color(0.88, 0.85, 0.73, 1)
+roughness = 0.85
 
 [sub_resource type="CylinderMesh" id="Mesh7"]
 material = SubResource("Mat4")
@@ -128,106 +128,104 @@ size = Vector3(0.17, 0.773951, 0.17)
 material = SubResource("Mat0")
 size = Vector3(0.13, 1.18739, 0.13)
 
-[node name="SpiderBossVisual" type="Node3D"]
+[node name="SpiderBossVisual" type="Node3D" unique_id=1525918716]
 
-[node name="Abdomen" type="MeshInstance3D" parent="."]
-position = Vector3(0, 0.85, -0.33)
+[node name="Abdomen" type="MeshInstance3D" parent="." unique_id=2067993155]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, -0.33)
 mesh = SubResource("Mesh0")
 
-[node name="BackPlate" type="MeshInstance3D" parent="."]
-position = Vector3(0, 1.27, -0.34)
+[node name="BackPlate" type="MeshInstance3D" parent="." unique_id=481873196]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.27, -0.34)
 mesh = SubResource("Mesh1")
 
-[node name="Head" type="MeshInstance3D" parent="."]
-position = Vector3(0, 0.72, 0.65)
+[node name="Head" type="MeshInstance3D" parent="." unique_id=2135366641]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.72, 0.65)
 mesh = SubResource("Mesh2")
 
-[node name="LeftEye" type="MeshInstance3D" parent="."]
-position = Vector3(-0.23, 0.85, 1.035)
+[node name="LeftEye" type="MeshInstance3D" parent="." unique_id=764325281]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.23, 0.85, 1.035)
 mesh = SubResource("Mesh3")
 
-[node name="RightEye" type="MeshInstance3D" parent="."]
-position = Vector3(0.23, 0.85, 1.035)
+[node name="RightEye" type="MeshInstance3D" parent="." unique_id=519803099]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.23, 0.85, 1.035)
 mesh = SubResource("Mesh4")
 
-[node name="SmallEyeLeft" type="MeshInstance3D" parent="."]
-position = Vector3(-0.09, 0.64, 1.035)
+[node name="SmallEyeLeft" type="MeshInstance3D" parent="." unique_id=1213529351]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.09, 0.64, 1.035)
 mesh = SubResource("Mesh5")
 
-[node name="SmallEyeRight" type="MeshInstance3D" parent="."]
-position = Vector3(0.09, 0.64, 1.035)
+[node name="SmallEyeRight" type="MeshInstance3D" parent="." unique_id=2071267877]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.09, 0.64, 1.035)
 mesh = SubResource("Mesh6")
 
-[node name="FangLeft" type="MeshInstance3D" parent="."]
-position = Vector3(-0.22, 0.39, 0.94)
-rotation_degrees = Vector3(180, 0, 0)
+[node name="FangLeft" type="MeshInstance3D" parent="." unique_id=1889857690]
+transform = Transform3D(1, 0, 0, 0, -1, 8.742278e-08, 0, -8.742278e-08, -1, -0.22, 0.39, 0.94)
 mesh = SubResource("Mesh7")
 
-[node name="FangRight" type="MeshInstance3D" parent="."]
-position = Vector3(0.22, 0.39, 0.94)
-rotation_degrees = Vector3(180, 0, 0)
+[node name="FangRight" type="MeshInstance3D" parent="." unique_id=810861296]
+transform = Transform3D(1, 0, 0, 0, -1, 8.742278e-08, 0, -8.742278e-08, -1, 0.22, 0.39, 0.94)
 mesh = SubResource("Mesh8")
 
-[node name="LegUpper-1_0" type="MeshInstance3D" parent="."]
-transform = Transform3D(0.371391, -0.839847, -0.395887, 0.928477, 0.335939, 0.158355, -0, -0.426384, 0.904542, -0.825, 1, -1.015)
+[node name="LegUpper-1_0" type="MeshInstance3D" parent="." unique_id=1702081059]
+transform = Transform3D(0.371391, -0.839847, -0.395887, 0.928477, 0.335939, 0.158355, 0, -0.426384, 0.904542, -0.825, 1, -1.015)
 mesh = SubResource("Mesh9")
 
-[node name="LegLower-1_0" type="MeshInstance3D" parent="."]
+[node name="LegLower-1_0" type="MeshInstance3D" parent="." unique_id=1209806531]
 transform = Transform3D(-0.885488, -0.446356, -0.129139, 0.464662, -0.850604, -0.246095, 0, -0.27792, 0.960604, -1.415, 0.625, -1.345)
 mesh = SubResource("Mesh10")
 
-[node name="LegUpper-1_1" type="MeshInstance3D" parent="."]
-transform = Transform3D(0.371391, -0.917223, -0.14412, 0.928477, 0.366889, 0.0576481, -0, -0.155222, 0.98788, -0.825, 1, -0.455)
+[node name="LegUpper-1_1" type="MeshInstance3D" parent="." unique_id=63986952]
+transform = Transform3D(0.371391, -0.917223, -0.14412, 0.928477, 0.366889, 0.0576481, 0, -0.155222, 0.98788, -0.825, 1, -0.455)
 mesh = SubResource("Mesh11")
 
-[node name="LegLower-1_1" type="MeshInstance3D" parent="."]
+[node name="LegLower-1_1" type="MeshInstance3D" parent="." unique_id=1210039388]
 transform = Transform3D(-0.885488, -0.462516, -0.0446047, 0.464662, -0.881399, -0.0850015, 0, -0.0959939, 0.995382, -1.415, 0.625, -0.565)
 mesh = SubResource("Mesh12")
 
-[node name="LegUpper-1_2" type="MeshInstance3D" parent="."]
-transform = Transform3D(0.371391, -0.917223, 0.14412, 0.928477, 0.366889, -0.0576481, -0, 0.155222, 0.98788, -0.825, 1, 0.155)
+[node name="LegUpper-1_2" type="MeshInstance3D" parent="." unique_id=445249348]
+transform = Transform3D(0.371391, -0.917223, 0.14412, 0.928477, 0.366889, -0.0576481, 0, 0.155222, 0.98788, -0.825, 1, 0.155)
 mesh = SubResource("Mesh13")
 
-[node name="LegLower-1_2" type="MeshInstance3D" parent="."]
+[node name="LegLower-1_2" type="MeshInstance3D" parent="." unique_id=723554172]
 transform = Transform3D(-0.885488, -0.462516, 0.0446047, 0.464662, -0.881399, 0.0850015, 0, 0.0959939, 0.995382, -1.415, 0.625, 0.265)
 mesh = SubResource("Mesh14")
 
-[node name="LegUpper-1_3" type="MeshInstance3D" parent="."]
-transform = Transform3D(0.371391, -0.839847, 0.395887, 0.928477, 0.335939, -0.158355, -0, 0.426384, 0.904542, -0.825, 1, 0.665)
+[node name="LegUpper-1_3" type="MeshInstance3D" parent="." unique_id=912664382]
+transform = Transform3D(0.371391, -0.839847, 0.395887, 0.928477, 0.335939, -0.158355, 0, 0.426384, 0.904542, -0.825, 1, 0.665)
 mesh = SubResource("Mesh15")
 
-[node name="LegLower-1_3" type="MeshInstance3D" parent="."]
+[node name="LegLower-1_3" type="MeshInstance3D" parent="." unique_id=576024860]
 transform = Transform3D(-0.885488, -0.446356, 0.129139, 0.464662, -0.850604, 0.246095, 0, 0.27792, 0.960604, -1.415, 0.625, 0.995)
 mesh = SubResource("Mesh16")
 
-[node name="LegUpper1_0" type="MeshInstance3D" parent="."]
+[node name="LegUpper1_0" type="MeshInstance3D" parent="." unique_id=537828086]
 transform = Transform3D(0.371391, 0.839847, 0.395887, -0.928477, 0.335939, 0.158355, 0, -0.426384, 0.904542, 0.825, 1, -1.015)
 mesh = SubResource("Mesh17")
 
-[node name="LegLower1_0" type="MeshInstance3D" parent="."]
+[node name="LegLower1_0" type="MeshInstance3D" parent="." unique_id=1811825206]
 transform = Transform3D(-0.885488, 0.446356, 0.129139, -0.464662, -0.850604, -0.246095, 0, -0.27792, 0.960604, 1.415, 0.625, -1.345)
 mesh = SubResource("Mesh18")
 
-[node name="LegUpper1_1" type="MeshInstance3D" parent="."]
+[node name="LegUpper1_1" type="MeshInstance3D" parent="." unique_id=602092838]
 transform = Transform3D(0.371391, 0.917223, 0.14412, -0.928477, 0.366889, 0.0576481, 0, -0.155222, 0.98788, 0.825, 1, -0.455)
 mesh = SubResource("Mesh19")
 
-[node name="LegLower1_1" type="MeshInstance3D" parent="."]
+[node name="LegLower1_1" type="MeshInstance3D" parent="." unique_id=407484451]
 transform = Transform3D(-0.885488, 0.462516, 0.0446047, -0.464662, -0.881399, -0.0850015, 0, -0.0959939, 0.995382, 1.415, 0.625, -0.565)
 mesh = SubResource("Mesh20")
 
-[node name="LegUpper1_2" type="MeshInstance3D" parent="."]
+[node name="LegUpper1_2" type="MeshInstance3D" parent="." unique_id=1656618733]
 transform = Transform3D(0.371391, 0.917223, -0.14412, -0.928477, 0.366889, -0.0576481, 0, 0.155222, 0.98788, 0.825, 1, 0.155)
 mesh = SubResource("Mesh21")
 
-[node name="LegLower1_2" type="MeshInstance3D" parent="."]
+[node name="LegLower1_2" type="MeshInstance3D" parent="." unique_id=1825106996]
 transform = Transform3D(-0.885488, 0.462516, -0.0446047, -0.464662, -0.881399, 0.0850015, 0, 0.0959939, 0.995382, 1.415, 0.625, 0.265)
 mesh = SubResource("Mesh22")
 
-[node name="LegUpper1_3" type="MeshInstance3D" parent="."]
+[node name="LegUpper1_3" type="MeshInstance3D" parent="." unique_id=595725655]
 transform = Transform3D(0.371391, 0.839847, -0.395887, -0.928477, 0.335939, -0.158355, 0, 0.426384, 0.904542, 0.825, 1, 0.665)
 mesh = SubResource("Mesh23")
 
-[node name="LegLower1_3" type="MeshInstance3D" parent="."]
+[node name="LegLower1_3" type="MeshInstance3D" parent="." unique_id=1198466055]
 transform = Transform3D(-0.885488, 0.446356, -0.129139, -0.464662, -0.850604, 0.246095, 0, 0.27792, 0.960604, 1.415, 0.625, 0.995)
 mesh = SubResource("Mesh24")

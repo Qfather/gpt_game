@@ -338,6 +338,15 @@ func _on_threat_changed(has_threat: bool, direction: String) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.keycode == KEY_H:
+		if event.pressed and not event.echo:
+			var ui: CanvasLayer = get_parent()
+			ui.visible = not ui.visible
+			# 子画布层不继承父画布层的显隐，需要一起切换。
+			for layer: CanvasLayer in ui.find_children("*", "CanvasLayer", true, false):
+				layer.visible = ui.visible
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.keycode == KEY_SPACE:
 		if event.pressed and not event.echo:
 			if get_tree().paused: resume_game()
@@ -356,10 +365,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			speed_2()
 		KEY_3:
 			speed_3()
-		KEY_4:
-			speed_5()
-		KEY_5:
-			speed_10()
 		_:
 			return
 
@@ -973,18 +978,6 @@ func speed_3() -> void:
 	resume_game()
 
 
-func speed_5() -> void:
-
-	Engine.time_scale = 5.0
-	resume_game()
-
-
-func speed_10() -> void:
-
-	Engine.time_scale = 10.0
-	resume_game()
-
-
 func resume_game() -> void:
 	get_tree().paused = false
 	if pause_button != null:
@@ -1018,13 +1011,3 @@ func _on_speed_2_button_pressed() -> void:
 func _on_speed_3_button_pressed() -> void:
 
 	speed_3()
-
-
-func _on_speed_5_button_pressed() -> void:
-
-	speed_5()
-
-
-func _on_speed_10_button_pressed() -> void:
-
-	speed_10()

@@ -31,6 +31,7 @@ var required_resources: Dictionary[StringName, float] = {}
 var delivered_resources: Dictionary[StringName, float] = {}
 var reserved_resources: Dictionary[StringName, float] = {}
 var construction_progress: float = 0.0
+var exterior_construction_started: bool = false
 var cancellation_progress: float = 0.0
 var cancellation_duration: float = 0.0
 var cancellation_refund_resources: Dictionary[StringName, float] = {}
@@ -191,12 +192,25 @@ func _process(delta: float) -> void:
 	if state != State.BUILDING or builders.is_empty() or building_data == null:
 		return
 
-	var efficiency: float = float(builders.size())
+	var efficiency: float = 0.0
+	for worker: Node in builders:
+		if is_instance_valid(worker) and not worker.is_dead() and not worker.construction_repositioning and not worker.passing_door and worker.state == worker.State.BUILDING:
+			efficiency += 1.0
+	var phase_limit: float = building_data.construction_time if exterior_construction_started else building_data.construction_time * 0.7
 	construction_progress = minf(
 		construction_progress + delta * efficiency,
-		building_data.construction_time
+		phase_limit
 	)
+	if not exterior_construction_started and construction_progress >= phase_limit:
+		exterior_construction_started = true
+		worker_target_offsets.clear()
+		for worker: Node in builders:
+			if is_instance_valid(worker): worker.move_to_construction_position(self, get_worker_target_position(worker))
+		return
 	if construction_progress >= building_data.construction_time:
+		for worker: Node in builders:
+			if is_instance_valid(worker) and not worker.is_dead() and worker.construction_repositioning:
+				return
 		_complete_construction()
 		return
 
@@ -260,6 +274,10 @@ func _complete_construction() -> void:
 		for worker: Node in completed_workers:
 			if is_instance_valid(worker):
 				building.add_worker(worker)
+	else:
+		for worker: Node in completed_workers:
+			if is_instance_valid(worker):
+				worker.call_deferred("_return_to_idle_if_task_finished", null)
 
 	var main_node: Node = get_tree().current_scene
 	if main_node != null and main_node.has_method("register_building"):
@@ -783,6 +801,14 @@ func _create_random_edge_offset(worker_index: int, worker_count: int) -> Vector3
 		maxf(model_bounds.size.z * 0.5 - 0.35, 0.0)
 	)
 	var center: Vector3 = model_bounds.position + model_bounds.size * 0.5
+	if exterior_construction_started:
+		half_size = Vector2(model_bounds.size.x, model_bounds.size.z) * 0.5 + Vector2.ONE
+		var side: int = worker_index % 4
+		var offset: float = float(worker_index / 4) * 0.7
+		if side == 0: return Vector3(center.x + offset, 0, center.z + half_size.y)
+		if side == 1: return Vector3(center.x + half_size.x, 0, center.z + offset)
+		if side == 2: return Vector3(center.x - offset, 0, center.z - half_size.y)
+		return Vector3(center.x - half_size.x, 0, center.z - offset)
 	var angle: float = TAU * (float(worker_index) + 0.5) / float(maxi(worker_count, 1))
 	return Vector3(center.x + cos(angle) * half_size.x, 0.0, center.z + sin(angle) * half_size.y)
 
@@ -795,7 +821,7 @@ func _calculate_model_bounds() -> void:
 	var model: Node3D = visual_scene.instantiate() as Node3D
 	if model == null:
 		return
-	add_child(model)
+	add_child(BuildingBase.create_entrance_arrow(model.transform * BuildingBase.get_local_entrance(model)))
 
 	var mesh_nodes: Array[Node] = model.find_children(
 		"*",
@@ -807,9 +833,11 @@ func _calculate_model_bounds() -> void:
 		var mesh_instance: MeshInstance3D = mesh_node as MeshInstance3D
 		if mesh_instance == null or mesh_instance.mesh == null:
 			continue
-		var mesh_to_model: Transform3D = (
-			model.global_transform.affine_inverse() * mesh_instance.global_transform
-		)
+		var mesh_to_model := Transform3D.IDENTITY
+		var current: Node3D = mesh_instance
+		while current != model:
+			mesh_to_model = current.transform * mesh_to_model
+			current = current.get_parent() as Node3D
 		var mesh_bounds: AABB = _transform_aabb(mesh_instance.get_aabb(), mesh_to_model)
 		if not has_model_bounds:
 			model_bounds = mesh_bounds

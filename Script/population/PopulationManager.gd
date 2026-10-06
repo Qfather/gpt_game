@@ -99,8 +99,29 @@ func refresh_population() -> void:
 
 	current_population = next_population
 	housing_capacity = next_housing_capacity
+	_assign_homes()
 	_ensure_immigration_group()
 	population_changed.emit(current_population, housing_capacity)
+
+
+func _assign_homes() -> void:
+	var homes: Array[Node] = get_tree().get_nodes_in_group("bases")
+	homes.append_array(get_tree().get_nodes_in_group("housing_buildings"))
+	var used: Dictionary = {}
+	var unhoused: Array[Node] = []
+	for resident: Node in get_tree().get_nodes_in_group("villagers"):
+		var home: Variant = resident.home_building
+		if is_instance_valid(home) and homes.has(home) and not home.is_queued_for_deletion() and not home.is_demolition_in_progress() and int(used.get(home, 0)) < home.get_housing_capacity():
+			used[home] = int(used.get(home, 0)) + 1
+		else:
+			resident.home_building = null
+			unhoused.append(resident)
+	for resident: Node in unhoused:
+		for home: Node in homes:
+			if home.is_queued_for_deletion() or home.is_demolition_in_progress() or int(used.get(home, 0)) >= home.get_housing_capacity(): continue
+			resident.home_building = home
+			used[home] = int(used.get(home, 0)) + 1
+			break
 
 
 func get_population() -> int:

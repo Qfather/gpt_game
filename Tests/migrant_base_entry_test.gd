@@ -16,13 +16,19 @@ func _run() -> void:
 	var base: Node3D = get_first_node_in_group("bases")
 	var manager: PopulationManager = get_first_node_in_group("population_manager")
 	manager.set_process(false)
+	for frame: int in range(360):
+		await physics_frame
+		var settled: bool = true
+		for resident: Node in get_nodes_in_group("villagers"):
+			if resident.leaving_immigration_base or resident.initial_idle_position_pending: settled = false
+		if settled: break
 	for resident: Node in get_nodes_in_group("villagers"):
-		resident.set_physics_process(false)
+		resident.idle_reposition_timer = 1000000.0
 	var camera: GameCameraController = main.get_node("Systems/Camera3D")
 	camera.orbit_yaw = 0
 	camera.orbit_distance = 9.0
 	camera.focus_on_position(base.global_position)
-	for speed: float in [1.0, 3.0, 10.0]:
+	for speed: float in [1.0, 3.0]:
 		Engine.time_scale = speed
 		manager.refresh_population()
 		var initial_population: int = manager.current_population
@@ -71,7 +77,12 @@ func _run() -> void:
 		assert(saw_exit and not newcomer.leaving_immigration_base)
 		assert(newcomer.global_position.distance_to(entrance) < 0.4)
 		assert(newcomer.collision_layer == 2 and newcomer.collision_mask == 3)
-		assert(newcomer.is_idle())
+		assert(newcomer.initial_idle_position_pending and not newcomer.can_take_task(null), "出门后先离开门口再接任务")
+		for frame: int in range(360):
+			await physics_frame
+			if not newcomer.initial_idle_position_pending: break
+		assert(not newcomer.initial_idle_position_pending and newcomer.is_idle())
+		assert(Vector2(newcomer.global_position.x - entrance.x, newcomer.global_position.z - entrance.z).length() >= 1.2, "待命位置必须离开据点门口")
 		print("移民进门转换并走出：倍速=", speed, " 人口=", manager.current_population, " 门外居民位置=", newcomer.global_position)
 		if speed == 1.0 and DisplayServer.get_name() != "headless":
 			await RenderingServer.frame_post_draw

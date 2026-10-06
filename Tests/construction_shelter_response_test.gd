@@ -78,6 +78,7 @@ func _run() -> void:
 	_expect(manager.claim_task(task, worker) and camp.begin_training(worker), "注册并开始真实训练任务")
 	worker.idle_reposition_timer = 9.0
 	_expect(camp.complete_training(worker), "完成训练任务")
+	while worker.passing_door: await physics_frame
 	worker.move_to_idle_area()
 	_expect(worker.state == worker.State.RETURN_TO_IDLE and not worker.has_idle_warning(), "训练完成后保持返回状态，不因旧路径结束而原地待命")
 	var before: Vector3 = worker.position
@@ -130,19 +131,23 @@ func _run() -> void:
 	_expect(worker.combat_target == enemy and worker.state == worker.State.COMBAT_MOVE, "剑士看到逃跑居民，追击自身仇恨范围之外的敌人")
 	resident.position = resident.navigation_agent.target_position
 	resident._process_civilian_retreat(0.016)
+	while resident.passing_door: await physics_frame
 	_expect(resident.state == resident.State.SHELTERED and not resident.visible and not resident.can_take_task(null), "进入避难建筑后隐藏，停止领任务")
 	_expect(resident.take_damage(5.0, enemy) == 0.0 and resident.get_damage_protector() == quarry, "建筑保护避难居民，敌人攻击保护建筑")
 	quarry.health_destroyed = true
 	quarry.destroyed = true
 	resident._process_civilian_retreat(0.016)
+	while resident.passing_door: await physics_frame
 	_expect(resident.visible and resident.state == resident.State.RETREAT_TO_BASE and resident.shelter_target == null, "避难建筑失效后居民离开，其他建筑已满则回据点")
 	units[1].position = Vector3(6,0,2)
 	units[1]._begin_civilian_retreat(enemy)
 	units[1].position = units[1].navigation_agent.target_position
 	units[1]._process_civilian_retreat(0.016)
+	while units[1].passing_door: await physics_frame
 	_expect(units[1].state == units[1].State.SHELTERED, "原工人可进入自己的满员工作建筑避难")
 	enemy.position = Vector3(40,0,40)
 	units[1]._process_civilian_retreat(0.016)
+	while units[1].passing_door: await physics_frame
 	_expect(units[1].visible and units[1].state == units[1].State.FIND_RESOURCE and units[1].workplace == lumber, "附近安全后退出避难并恢复伐木职业")
 	panel.queue_free()
 	world.queue_free()

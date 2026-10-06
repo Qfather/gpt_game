@@ -22,6 +22,8 @@ var ghost_material: StandardMaterial3D
 var base_preview_scale: Vector3 = Vector3.ONE
 var preview_model_bounds: AABB = AABB()
 var has_preview_model_bounds: bool = false
+var entrance_arrow: MeshInstance3D
+var entrance_local: Vector3
 var path_warning: Label3D
 var path_check_timer: float = 0.0
 var has_reachable_approach: bool = true
@@ -179,6 +181,10 @@ func _create_preview_mesh() -> void:
 	base_preview_scale = source_root.scale
 	_calculate_preview_model_bounds(source_root)
 	_copy_visual_tree(source_root, preview_model)
+	entrance_local = source_root.transform * BuildingBase.get_local_entrance(source_root)
+	if is_instance_valid(entrance_arrow): entrance_arrow.free()
+	entrance_arrow = BuildingBase.create_entrance_arrow(entrance_local)
+	add_child(entrance_arrow)
 	source_root.free()
 
 
@@ -337,6 +343,8 @@ func _update_preview(delta: float = 0.0) -> void:
 		else Color(1.0, 0.15, 0.15, 0.45)
 	)
 	path_warning.visible = is_valid_position and not has_reachable_approach
+	# 模型镜像时入口也同步，旋转由蓝图根节点继承。
+	entrance_arrow.position.x = entrance_local.x * (-1.0 if mirrored else 1.0)
 	if has_preview_model_bounds:
 		path_warning.position = Vector3(
 			preview_model_bounds.get_center().x * (-1.0 if mirrored else 1.0),
@@ -373,52 +381,17 @@ func _has_reachable_approach_point() -> bool:
 	if start_points.is_empty():
 		return true
 
-	var bounds_center: Vector3 = preview_model_bounds.get_center()
-	var half_width: float = maxf(preview_model_bounds.size.x * 0.5, 0.5)
-	var half_depth: float = maxf(preview_model_bounds.size.z * 0.5, 0.5)
-	var perimeter: float = 2.0 * (half_width * 2.0 + half_depth * 2.0)
-	for point_index: int in range(8):
-		var distance: float = (float(point_index) + 0.5) / 8.0 * perimeter
-		var local_point: Vector3 = bounds_center
-		local_point.y = 0.0
-		if distance < half_width * 2.0:
-			local_point.x = bounds_center.x - half_width + distance
-			local_point.z = bounds_center.z + half_depth + 0.2
-		elif distance < half_width * 2.0 + half_depth * 2.0:
-			local_point.x = bounds_center.x + half_width + 0.2
-			local_point.z = bounds_center.z + half_depth - (distance - half_width * 2.0)
-		elif distance < half_width * 4.0 + half_depth * 2.0:
-			local_point.x = bounds_center.x + half_width - (distance - half_width * 2.0 - half_depth * 2.0)
-			local_point.z = bounds_center.z - half_depth - 0.2
-		else:
-			local_point.x = bounds_center.x - half_width - 0.2
-			local_point.z = bounds_center.z - half_depth + (distance - half_width * 4.0 - half_depth * 2.0)
-		if mirrored:
-			local_point.x = -local_point.x
-		var approach_point: Vector3 = global_transform * local_point
-		var navigation_point: Vector3 = NavigationServer3D.map_get_closest_point(
-			navigation_map,
-			approach_point
-		)
-		if _horizontal_distance(navigation_point, approach_point) > 0.8:
-			continue
-		if absf(navigation_point.y - approach_point.y) > 1.0:
-			continue
-		for start_position: Vector3 in start_points:
-			var navigation_start: Vector3 = NavigationServer3D.map_get_closest_point(
-				navigation_map,
-				start_position
-			)
-			var path: PackedVector3Array = NavigationServer3D.map_get_path(
-				navigation_map,
-				navigation_start,
-				navigation_point,
-				true
-			)
-			if not path.is_empty() and path[path.size() - 1].distance_to(navigation_point) <= 0.5:
-				return true
+	var local_point: Vector3 = entrance_local
+	if mirrored: local_point.x = -local_point.x
+	var approach_point: Vector3 = global_transform * local_point
+	var navigation_point: Vector3 = NavigationServer3D.map_get_closest_point(navigation_map, approach_point)
+	if _horizontal_distance(navigation_point, approach_point) > 0.75 or absf(navigation_point.y - approach_point.y) > 1.0:
+		return false
+	for start_position: Vector3 in start_points:
+		var path: PackedVector3Array = NavigationServer3D.map_get_path(navigation_map, start_position, navigation_point, true)
+		if not path.is_empty() and path[-1].distance_to(navigation_point) <= 0.5:
+			return true
 	return false
-
 
 func _horizontal_distance(a: Vector3, b: Vector3) -> float:
 	return Vector2(a.x, a.z).distance_to(Vector2(b.x, b.z))

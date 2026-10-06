@@ -175,6 +175,19 @@ func restart_game() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if (
+			event.keycode == KEY_G
+			and not building_ghost.is_placement_active()
+			and road_tool.mode == 0
+			and not enemy_placement_active
+		):
+			var building: BuildingBase = selected_object as BuildingBase
+			if is_instance_valid(building) and building.can_be_moved():
+				_on_building_move_requested(building)
+				get_viewport().set_input_as_handled()
+				return
+
 	if enemy_placement_active:
 		if event is InputEventKey and event.pressed and not event.echo:
 			if event.keycode == KEY_ESCAPE:

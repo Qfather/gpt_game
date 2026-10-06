@@ -1,16 +1,15 @@
-[gd_resource type="Resource" script_class="BuildingData" format=3]
+[gd_resource type="Resource" script_class="BuildingData" format=3 uid="uid://bqu51harns8oo"]
 
-[ext_resource type="Script" path="res://Script/building_data.gd" id="1_farm_data"]
-[ext_resource type="PackedScene" path="res://Scene/building/game/farm.tscn" id="2_farm_scene"]
+[ext_resource type="Script" uid="uid://b2vt2lwsdilgf" path="res://Script/building_data.gd" id="1_farm_data"]
+[ext_resource type="PackedScene" uid="uid://dfxc50wo2brsd" path="res://Scene/building/game/farm.tscn" id="2_farm_scene"]
 
 [resource]
 script = ExtResource("1_farm_data")
-category = 0
-sort_id = 40
 id = &"farm"
 display_name = "农场"
 description = "为居民提供种植粮食的工作地点。
 阶段 1 为空壳建筑，暂不生产粮食。"
+sort_id = 40
 building_scene = ExtResource("2_farm_scene")
 storage_capacities = Dictionary[StringName, float]({
 &"grain": 50.0
@@ -21,5 +20,3 @@ construction_cost = Dictionary[StringName, float]({
 })
 construction_time = 20.0
 max_construction_workers = 3
-allow_rotation = true
-allow_mirror = true

@@ -43,6 +43,7 @@ signal wood_changed(new_amount: int)
 # 无业居民待命范围
 @export var idle_radius: float = 5.0
 @export var base_housing_capacity: int = 5
+var idle_space: RefCounted = preload("res://Script/unit/settlement_idle_space.gd").new()
 
 
 # ============================================================

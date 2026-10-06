@@ -45,7 +45,8 @@ func _run() -> void:
 	for resident: Node3D in residents:
 		var offset: Vector3 = resident.navigation_agent.target_position - resident.global_position
 		_expect(not resident.leaving_immigration_base and not resident.initial_idle_position_pending and Vector2(offset.x, offset.z).length() <= 0.25 and absf(offset.y) <= 0.8, "居民走出据点并抵达分配的待命点")
-		_expect(absf(resident.global_position.y - base.global_position.y) < 0.8, "居民站在生成地图的地面高度，没有走到地下")
+		print("[高度] 地面=", base.global_position.y, " 居民脚底=", resident.global_position.y, " 导航偏移=", resident.navigation_agent.path_height_offset)
+		_expect(absf(resident.global_position.y - base.global_position.y) < 0.1, "居民脚底贴合据点周围地面")
 		_expect(resident.collision_layer == 2 and resident.collision_mask == 3 and resident.is_idle(), "出门后恢复碰撞并可领取工作")
 	for first: int in range(residents.size()):
 		for second: int in range(first + 1, residents.size()):

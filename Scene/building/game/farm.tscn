@@ -1,27 +1,26 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://dfxc50wo2brsd"]
 
+[ext_resource type="Script" uid="uid://bp21kjur0524b" path="res://Script/building/game/farm.gd" id="1_farm"]
+[ext_resource type="Script" uid="uid://c8iasvdn8ygnl" path="res://Script/resource/ResourceStorage.gd" id="2_storage"]
+[ext_resource type="Script" uid="uid://vlenpf06uy0v" path="res://Script/building/game/farm_field.gd" id="3_field"]
 [ext_resource type="PackedScene" path="res://Scene/building/visual/farm_visual.tscn" id="visual_detail"]
-
-[ext_resource type="Script" path="res://Script/building/game/farm.gd" id="1_farm"]
-[ext_resource type="Script" path="res://Script/resource/ResourceStorage.gd" id="2_storage"]
-[ext_resource type="Script" path="res://Script/building/game/farm_field.gd" id="3_field"]
 
 [sub_resource type="StandardMaterial3D" id="Material_FieldA"]
 albedo_color = Color(0.34, 0.22, 0.12, 1)
-
-[sub_resource type="StandardMaterial3D" id="Material_FieldB"]
-albedo_color = Color(0.42, 0.28, 0.14, 1)
-
-[sub_resource type="StandardMaterial3D" id="Material_FieldC"]
-albedo_color = Color(0.30, 0.25, 0.16, 1)
 
 [sub_resource type="BoxMesh" id="Mesh_FieldA"]
 material = SubResource("Material_FieldA")
 size = Vector3(2, 0.12, 2)
 
+[sub_resource type="StandardMaterial3D" id="Material_FieldB"]
+albedo_color = Color(0.42, 0.28, 0.14, 1)
+
 [sub_resource type="BoxMesh" id="Mesh_FieldB"]
 material = SubResource("Material_FieldB")
 size = Vector3(2, 0.12, 2)
+
+[sub_resource type="StandardMaterial3D" id="Material_FieldC"]
+albedo_color = Color(0.3, 0.25, 0.16, 1)
 
 [sub_resource type="BoxMesh" id="Mesh_FieldC"]
 material = SubResource("Material_FieldC")
@@ -33,58 +32,57 @@ size = Vector3(4, 1, 4)
 [sub_resource type="BoxShape3D" id="Shape_Shed"]
 size = Vector3(1.72, 1.3, 1.72)
 
-[node name="Farm" type="Node3D" groups=["resource_buildings"]]
+[node name="Farm" type="Node3D" unique_id=310875578 groups=["resource_buildings"]]
 script = ExtResource("1_farm")
+plow_time = 5.0
+sow_time = 5.0
+harvest_time = 10.0
 production_resource_id = &"grain"
-max_workers = 3
 work_radius = 12.0
-idle_radius = 2.5
 
-[node name="FieldA" type="Node3D" parent="." groups=["farm_fields"]]
+[node name="FieldA" type="Node3D" parent="." unique_id=1159753326 groups=["farm_fields"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 0, -1)
 script = ExtResource("3_field")
-position = Vector3(-1, 0, -1)
-field_id = "A"
-debug_initial_state = 0
 
-[node name="FieldMesh" type="MeshInstance3D" parent="FieldA"]
-position = Vector3(0, 0.06, 0)
+[node name="FieldMesh" type="MeshInstance3D" parent="FieldA" unique_id=1367949727]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.06, 0)
 mesh = SubResource("Mesh_FieldA")
 
-[node name="FieldB" type="Node3D" parent="." groups=["farm_fields"]]
+[node name="FieldB" type="Node3D" parent="." unique_id=2143771906 groups=["farm_fields"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, -1)
 script = ExtResource("3_field")
-position = Vector3(1, 0, -1)
 field_id = "B"
 
-[node name="FieldMesh" type="MeshInstance3D" parent="FieldB"]
-position = Vector3(0, 0.06, 0)
+[node name="FieldMesh" type="MeshInstance3D" parent="FieldB" unique_id=1065274345]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.06, 0)
 mesh = SubResource("Mesh_FieldB")
 
-[node name="FieldC" type="Node3D" parent="." groups=["farm_fields"]]
+[node name="FieldC" type="Node3D" parent="." unique_id=386983320 groups=["farm_fields"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 0, 1)
 script = ExtResource("3_field")
-position = Vector3(-1, 0, 1)
 field_id = "C"
 
-[node name="FieldMesh" type="MeshInstance3D" parent="FieldC"]
-position = Vector3(0, 0.06, 0)
+[node name="FieldMesh" type="MeshInstance3D" parent="FieldC" unique_id=2115788366]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.06, 0)
 mesh = SubResource("Mesh_FieldC")
 
-[node name="ClickArea" type="Area3D" parent="."]
+[node name="ClickArea" type="Area3D" parent="." unique_id=1219598185]
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="ClickArea"]
-position = Vector3(0, 0.5, 0)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ClickArea" unique_id=1897620531]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("Shape_Farm")
 
-[node name="ResourceStorage" type="Node" parent="."]
+[node name="ResourceStorage" type="Node" parent="." unique_id=160852874]
 script = ExtResource("2_storage")
 wood_capacity = 0.0
 stone_capacity = 0.0
 food_capacity = 50.0
 
-[node name="VisualDetail" parent="." instance=ExtResource("visual_detail")]
+[node name="VisualDetail" parent="." unique_id=1047707019 instance=ExtResource("visual_detail")]
 
-[node name="StaticBody3D" type="StaticBody3D" parent="."]
+[node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=1943711062]
 input_ray_pickable = false
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D"]
-position = Vector3(1, 0.65, 1)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D" unique_id=1311461039]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0.65, 1)
 shape = SubResource("Shape_Shed")

@@ -123,14 +123,6 @@ text = "2X"
 layout_mode = 2
 text = "3X"
 
-[node name="Speed5Button" type="Button" parent="PanelContainer/VBoxContainer/HBoxContainer"]
-layout_mode = 2
-text = "5X"
-
-[node name="Speed10Button" type="Button" parent="PanelContainer/VBoxContainer/HBoxContainer"]
-layout_mode = 2
-text = "10X"
-
 [node name="BuildMenu" type="PanelContainer" parent="." unique_id=2095081821]
 anchors_preset = 7
 anchor_left = 0.5
@@ -159,5 +151,3 @@ current_tab = 0
 [connection signal="pressed" from="PanelContainer/VBoxContainer/HBoxContainer/Speed1Button" to="." method="_on_speed_1_button_pressed"]
 [connection signal="pressed" from="PanelContainer/VBoxContainer/HBoxContainer/Speed2Button" to="." method="_on_speed_2_button_pressed"]
 [connection signal="pressed" from="PanelContainer/VBoxContainer/HBoxContainer/Speed3Button" to="." method="_on_speed_3_button_pressed"]
-[connection signal="pressed" from="PanelContainer/VBoxContainer/HBoxContainer/Speed5Button" to="." method="_on_speed_5_button_pressed"]
-[connection signal="pressed" from="PanelContainer/VBoxContainer/HBoxContainer/Speed10Button" to="." method="_on_speed_10_button_pressed"]
