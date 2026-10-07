@@ -24,6 +24,17 @@ func _wait_navigation(runtime: MapGenerateRuntime, revision: int) -> void:
 	_expect(runtime.navigation_revision > revision, "城墙变更未更新导航")
 
 
+func _wall_at(scene: Node, grid: BuildGrid, cell: Vector2i) -> Wall:
+	var data: BuildingData = load("res://data/buildings/WallData.tres")
+	var wall: Wall = data.building_scene.instantiate() as Wall
+	wall.building_data = data
+	grid.occupy_area(cell, Vector2i.ONE, 0, false, true)
+	scene.add_child(wall)
+	wall.global_position = grid.grid_to_world(cell)
+	wall.set_build_grid_occupancy(cell, Vector2i.ONE, 0)
+	return wall
+
+
 func _run() -> void:
 	var scene: Node = load("res://Scene/main.tscn").instantiate()
 	var runtime: MapGenerateRuntime = scene.get_node("Systems/MapGenerateRuntime") as MapGenerateRuntime
@@ -34,13 +45,17 @@ func _run() -> void:
 	scene.get_node("Villagers").queue_free()
 	var base: Node3D = get_first_node_in_group("bases") as Node3D
 	var center: Vector3 = base.global_position + Vector3(0, 0, -3)
+	var grid: BuildGrid = scene.get_node("Systems/BuildGrid") as BuildGrid
+	var cell: Vector2i = grid.world_to_grid(center)
+	center = grid.grid_to_world(cell)
 	var start: Vector3 = center + Vector3(0, 0, -3)
 	# 终点放在据点旁的可行走位置，不能放进据点实体碰撞内。
 	var finish: Vector3 = center + Vector3(2, 0, 3)
 	var revision: int = runtime.navigation_revision
-	var wall: Wall = load("res://Scene/building/game/wall.tscn").instantiate() as Wall
-	scene.add_child(wall)
-	wall.global_position = center
+	# 三格城墙现在由三个1×1墙段组成，而不是一个旧的3×1实例。
+	var wall: Wall = _wall_at(scene, grid, cell)
+	var left: Wall = _wall_at(scene, grid, cell + Vector2i.LEFT)
+	var right: Wall = _wall_at(scene, grid, cell + Vector2i.RIGHT)
 	await _wait_navigation(runtime, revision)
 	var map: RID = (scene.get_node("Systems/NavigationRegion3D") as NavigationRegion3D).get_navigation_map()
 	var path: PackedVector3Array = NavigationServer3D.map_get_path(map, start, finish, true)
@@ -88,25 +103,28 @@ func _run() -> void:
 	target.queue_free()
 	revision = runtime.navigation_revision
 	wall.take_damage(1000)
+	left.take_damage(1000)
+	right.take_damage(1000)
 	await _wait_navigation(runtime, revision)
 	_expect(not is_instance_valid(wall), "摧毁后仍保留隐形城墙")
 	var cleared: PackedVector3Array = NavigationServer3D.map_get_path(map, start, finish, true)
 	_expect(not cleared.is_empty() and _length(cleared) < _length(path) - 0.2, "摧毁后未恢复通道")
-	wall = load("res://Scene/building/game/wall.tscn").instantiate() as Wall
 	revision = runtime.navigation_revision
-	scene.add_child(wall)
-	wall.global_position = center
-	wall.rotation.y = PI * 0.5
+	wall = _wall_at(scene, grid, cell)
+	left = _wall_at(scene, grid, cell + Vector2i.UP)
+	right = _wall_at(scene, grid, cell + Vector2i.DOWN)
 	await _wait_navigation(runtime, revision)
 	path = NavigationServer3D.map_get_path(map, center + Vector3(-3, 0, 0), center + Vector3(3, 0, 0), true)
-	_expect(path.size() > 2, "旋转城墙没有加入导航")
+	_expect(path.size() > 2, "南北连接城墙没有加入导航")
 	revision = runtime.navigation_revision
 	wall._complete_demolition()
+	left._complete_demolition()
+	right._complete_demolition()
 	await _wait_navigation(runtime, revision)
 	_expect(not is_instance_valid(wall), "拆除未移除城墙")
 	scene.queue_free()
 	await process_frame
-	print("城墙导航测试", "失败" if failed else "通过", "：实体阻挡、移民/敌人绕行、旋转、摧毁与拆除更新")
+	print("城墙导航测试", "失败" if failed else "通过", "：实体阻挡、移民/敌人绕行、四向连接、摧毁与拆除更新")
 	quit(1 if failed else 0)
 
 

@@ -1,0 +1,71 @@
+[gd_scene format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material"]
+albedo_color = Color(0.48, 0.51, 0.55, 1)
+roughness = 0.95
+
+[sub_resource type="BoxMesh" id="Mesh_0"]
+material = SubResource("Material")
+size = Vector3(0.42, 1.5, 0.42)
+
+[sub_resource type="BoxMesh" id="Mesh_1"]
+material = SubResource("Material")
+size = Vector3(0.46, 0.2, 0.46)
+
+[sub_resource type="BoxMesh" id="Mesh_2"]
+material = SubResource("Material")
+size = Vector3(0.36, 1.5, 0.5)
+
+[sub_resource type="BoxMesh" id="Mesh_3"]
+material = SubResource("Material")
+size = Vector3(0.18, 0.22, 0.18)
+
+[sub_resource type="BoxMesh" id="Mesh_4"]
+material = SubResource("Material")
+size = Vector3(0.5, 1.5, 0.36)
+
+[sub_resource type="BoxMesh" id="Mesh_5"]
+material = SubResource("Material")
+size = Vector3(0.18, 0.22, 0.18)
+
+[sub_resource type="BoxMesh" id="Mesh_6"]
+material = SubResource("Material")
+size = Vector3(0.5, 1.5, 0.36)
+
+[sub_resource type="BoxMesh" id="Mesh_7"]
+material = SubResource("Material")
+size = Vector3(0.18, 0.22, 0.18)
+
+[node name="Model" type="Node3D"]
+
+[node name="Part_0" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.75, 0)
+mesh = SubResource("Mesh_0")
+
+[node name="Part_1" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.6, 0)
+mesh = SubResource("Mesh_1")
+
+[node name="Part_2" type="MeshInstance3D" parent="."]
+position = Vector3(0.0, 0.75, -0.25)
+mesh = SubResource("Mesh_2")
+
+[node name="Part_3" type="MeshInstance3D" parent="."]
+position = Vector3(0.0, 1.61, -0.43)
+mesh = SubResource("Mesh_3")
+
+[node name="Part_4" type="MeshInstance3D" parent="."]
+position = Vector3(0.25, 0.75, 0.0)
+mesh = SubResource("Mesh_4")
+
+[node name="Part_5" type="MeshInstance3D" parent="."]
+position = Vector3(0.43, 1.61, 0.0)
+mesh = SubResource("Mesh_5")
+
+[node name="Part_6" type="MeshInstance3D" parent="."]
+position = Vector3(-0.25, 0.75, 0.0)
+mesh = SubResource("Mesh_6")
+
+[node name="Part_7" type="MeshInstance3D" parent="."]
+position = Vector3(-0.43, 1.61, 0.0)
+mesh = SubResource("Mesh_7")

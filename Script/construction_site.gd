@@ -21,6 +21,8 @@ signal state_changed(new_state: State)
 
 @export var debug_delivery_amount: float = 5.0
 
+var foundation_wall: Wall
+
 var delivery_priority: int = 0
 var construction_priority: int = 0
 var grid_position: Vector2i
@@ -113,6 +115,11 @@ func _ready() -> void:
 	_create_click_area()
 	super._ready()
 	add_to_group("construction_sites")
+	if is_instance_valid(foundation_wall):
+		foundation_wall.tower_site = self
+		foundation_wall.tree_exiting.connect(func() -> void:
+			if is_inside_tree() and can_cancel_construction(): cancel_construction()
+		)
 	_calculate_model_bounds()
 	_create_site_visual()
 	_print_status()
@@ -126,7 +133,7 @@ func is_blueprint() -> bool:
 
 
 func can_be_moved() -> bool:
-	return building_data != null and is_blueprint() and state in [State.WAITING_RESOURCES, State.READY_TO_BUILD] and not is_destroyed() and not is_queued_for_deletion()
+	return building_data != null and not building_data.is_wall_tower() and is_blueprint() and state in [State.WAITING_RESOURCES, State.READY_TO_BUILD] and not is_destroyed() and not is_queued_for_deletion()
 
 
 func get_relocation_cost(_new_position: Vector3) -> Dictionary[StringName, float]:
@@ -142,7 +149,7 @@ func relocate(grid: BuildGrid, new_grid_position: Vector2i, new_rotation_step: i
 
 
 func take_damage(amount: float, source: Node = null) -> float:
-	if is_blueprint():
+	if is_blueprint() or _has_no_construction_health():
 		return 0.0
 	return super.take_damage(amount, source)
 
@@ -250,7 +257,14 @@ func _complete_construction() -> void:
 	if state == State.COMPLETED or building_data == null:
 		return
 
+	if building_data.is_wall_tower() and (not is_instance_valid(foundation_wall) or foundation_wall.get_health() <= 0):
+		cancel_construction()
+		return
 	state = State.COMPLETED
+	if is_instance_valid(foundation_wall):
+		preload("res://Script/building/wall_connections.gd").remove_wall(foundation_wall, false)
+		foundation_wall.tower_site = null
+		foundation_wall = null
 	state_changed.emit(state)
 	print("ConstructionSite 状态：", _state_name())
 
@@ -834,7 +848,7 @@ func _calculate_model_bounds() -> void:
 	if building_data == null or building_data.building_scene == null:
 		return
 
-	var visual_scene: PackedScene = building_data.model_scene if building_data.model_scene != null else building_data.building_scene
+	var visual_scene: PackedScene = building_data.wall_scene_isolated if building_data.is_wall() else (building_data.model_scene if building_data.model_scene != null else building_data.building_scene)
 	var model: Node3D = visual_scene.instantiate() as Node3D
 	if model == null:
 		return
@@ -1487,3 +1501,23 @@ func _create_site_visual() -> void:
 
 	rotation.y = float(rotation_step) * PI * 0.5
 	scale.x = -1.0 if mirrored else 1.0
+
+
+func _has_no_construction_health() -> bool:
+	return building_data != null and (building_data.is_gate() or building_data.is_wall_tower())
+
+func get_health() -> float:
+	return 0.0 if _has_no_construction_health() else super.get_health()
+
+func get_max_health() -> float:
+	return 0.0 if _has_no_construction_health() else super.get_max_health()
+
+func _create_health_bar() -> void:
+	if not _has_no_construction_health(): super._create_health_bar()
+
+func release_build_grid_area() -> bool:
+	if is_instance_valid(foundation_wall) and not foundation_wall.is_queued_for_deletion() and foundation_wall.get_health() > 0:
+		foundation_wall.tower_site = null
+		build_grid_area_registered = false
+		return true
+	return super.release_build_grid_area()

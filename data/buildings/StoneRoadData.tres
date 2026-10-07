@@ -10,7 +10,7 @@ description = "每格消耗石头，由居民施工；升级期间保留土路�
 category = 3
 sort_id = 20
 road_kind = 2
-road_speed_multiplier = 1.10
+road_speed_percent = 10.0
 construction_cost = Dictionary[StringName, float]({
 &"stone": 1.0
 })

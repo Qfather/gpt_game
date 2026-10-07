@@ -1,6 +1,6 @@
 [gd_scene format=3]
 
-[ext_resource type="PackedScene" path="res://Scene/building/visual/fortifications/stone_gate.tscn" id="visual_detail"]
+[ext_resource type="PackedScene" path="res://Scene/building/visual/fortifications/wood_gate.tscn" id="visual_detail"]
 
 [ext_resource type="Script" path="res://Script/building/game/gate.gd" id="1_gate"]
 [ext_resource type="Script" path="res://Script/building/building_durability.gd" id="2_durability"]
@@ -8,7 +8,7 @@
 [sub_resource type="BoxShape3D" id="BoxShape_gate"]
 size = Vector3(4, 2.8, 0.6)
 
-[node name="Gate" type="Node3D" groups=["buildings"]]
+[node name="WoodGate" type="Node3D" groups=["buildings"]]
 script = ExtResource("1_gate")
 
 [node name="ClickArea" type="Area3D" parent="."]

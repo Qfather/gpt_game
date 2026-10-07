@@ -1,6 +1,14 @@
 class_name BuildingGhost
 extends Node3D
 
+const WALL_CONNECTIONS: Script = preload("res://Script/building/wall_connections.gd")
+var wall_dragging: bool = false
+var wall_drag_start: Vector2i
+var wall_stroke: Array[Vector2i] = []
+var wall_preview_from := Vector2i(2147483647, 0)
+var wall_preview_to := Vector2i(2147483647, 0)
+var wall_preview_refresh_msec: int = 0
+
 const CONSTRUCTION_SITE_SCENE: PackedScene = preload(
 	"res://Scene/building/construction_site.tscn"
 )
@@ -63,6 +71,9 @@ func select_building(data: BuildingData) -> void:
 		placement_cancelled_during_pause = false
 
 	building_data = data
+	wall_dragging = false
+	wall_stroke.clear()
+	wall_preview_from = Vector2i(2147483647, 0)
 	rotation_step = 0
 	mirrored = false
 	start_preview = true
@@ -122,6 +133,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not start_preview:
 		return
 
+	if building_data.is_wall():
+		_wall_input(event)
+		return
+
 	if event is InputEventKey and event.pressed and not event.echo:
 
 		var key_event := event as InputEventKey
@@ -172,7 +187,7 @@ func _create_preview_mesh() -> void:
 	if building_data == null or building_data.building_scene == null:
 		return
 
-	var visual_scene: PackedScene = building_data.model_scene if building_data.model_scene != null else building_data.building_scene
+	var visual_scene: PackedScene = building_data.wall_scene_isolated if building_data.is_wall() and building_data.wall_scene_isolated != null else (building_data.model_scene if building_data.model_scene != null else building_data.building_scene)
 	var source_root: Node3D = (
 		visual_scene.instantiate()
 		as Node3D
@@ -184,7 +199,7 @@ func _create_preview_mesh() -> void:
 	entrance_local = source_root.transform * BuildingBase.get_local_entrance(source_root)
 	if is_instance_valid(entrance_arrow): entrance_arrow.free()
 	entrance_arrow = BuildingBase.create_entrance_arrow(entrance_local)
-	entrance_arrow.visible = building_data.id != &"torch"
+	entrance_arrow.visible = building_data.id != &"torch" and not building_data.is_wall()
 	add_child(entrance_arrow)
 	source_root.free()
 
@@ -294,14 +309,10 @@ func _update_preview(delta: float = 0.0) -> void:
 		return
 
 	grid_position = build_grid.world_to_grid(world_position)
-	is_valid_position = build_grid.is_area_free(
-		grid_position,
-		building_data.grid_size,
-		rotation_step,
-		building_data.id == &"wall",
-		true,
-		_moving_building_cells()
-	)
+	if building_data.is_wall():
+		_update_wall_preview()
+		return
+	is_valid_position = can_place_at(building_data, grid_position, rotation_step)
 
 	var rotated_size := build_grid.get_rotated_size(
 		building_data.grid_size,
@@ -315,6 +326,16 @@ func _update_preview(delta: float = 0.0) -> void:
 		0.0,
 		float(rotated_size.y - 1) * build_grid.cell_size * 0.5
 	)
+	if building_data.is_gate():
+		var discounted: bool = _gate_walls(building_data, grid_position, rotation_step).size() == building_data.grid_size.x
+		var costs: PackedStringArray = []
+		var database: ResourceDatabase = preload("res://data/resources/resource_database.tres")
+		for resource_id: StringName in building_data.construction_cost:
+			var resource: ResourceData = database.get_resource_data(resource_id)
+			costs.append("%s %s" % [resource.display_name if resource != null else String(resource_id), str(building_data.construction_cost[resource_id] * (0.5 if discounted else 1.0))])
+		relocation_cost_label.text = ("城墙改建（-50%）：" if discounted else "空地建造：") + "、".join(costs)
+		relocation_cost_label.position = Vector3(0, 3.5, 0)
+		relocation_cost_label.show()
 	if moving_existing_building and is_instance_valid(moving_building):
 		var can_pay: bool = moving_building.can_pay_relocation_cost(global_position)
 		is_valid_position = is_valid_position and can_pay
@@ -502,37 +523,27 @@ func _create_construction_site(
 ) -> bool:
 	if placed_data == null:
 		return false
-	if (
-		not area_already_occupied
-		and not build_grid.occupy_area(
-			placed_grid_position,
-			placed_data.grid_size,
-			placed_rotation_step,
-			placed_data.id == &"wall",
-			true
-		)
-	):
-		print("BuildingGhost 放置时网格已被占用：", placed_grid_position)
-		return false
-
-	var site: ConstructionSite = (
-		CONSTRUCTION_SITE_SCENE.instantiate()
-		as ConstructionSite
-	)
-	var cleared_resources: Array[ResourceBase] = []
-	if placed_data.id == &"wall":
-		cleared_resources = _get_wall_clearance_resources(placed_data, placed_transform)
+	var foundation: Wall = _tower_wall(placed_data, placed_grid_position) if placed_data.is_wall_tower() else null
+	var replaced_walls: Array[Wall] = []
+	if placed_data.is_gate(): replaced_walls = _gate_walls(placed_data, placed_grid_position, placed_rotation_step)
+	if not area_already_occupied and not can_place_at(placed_data, placed_grid_position, placed_rotation_step): return false
 	var site_data: BuildingData = placed_data
-	if not cleared_resources.is_empty():
-		# 仅复制本墙段的数据，避免修改共享预设或按资源个数重复累加。
+	if not replaced_walls.is_empty():
 		site_data = placed_data.duplicate() as BuildingData
-		site_data.construction_time = placed_data.construction_time * 1.5
+		site_data.construction_cost = placed_data.construction_cost.duplicate()
+		for resource_id: StringName in site_data.construction_cost: site_data.construction_cost[resource_id] *= 0.5
+		for wall: Wall in replaced_walls: WALL_CONNECTIONS.remove_wall(wall)
+	if not area_already_occupied and foundation == null and not build_grid.occupy_area(placed_grid_position, placed_data.grid_size, placed_rotation_step, false, true): return false
+	var site: ConstructionSite = CONSTRUCTION_SITE_SCENE.instantiate() as ConstructionSite
+	site.foundation_wall = foundation
+
 	site.setup(
 		site_data,
 		placed_grid_position,
 		placed_rotation_step,
 		placed_mirrored
 	)
+	site.exterior_construction_started = placed_data.is_wall_tower()
 	site.set_activation_deferred_until_unpause(
 		defer_activation_until_unpause
 	)
@@ -540,10 +551,6 @@ func _create_construction_site(
 	site.global_transform = placed_transform
 	site.rotation.y = float(placed_rotation_step) * PI * 0.5
 	site.scale.x = -1.0 if placed_mirrored else 1.0
-	for resource: ResourceBase in cleared_resources:
-		resource.clear_for_construction()
-	if not cleared_resources.is_empty():
-		print("城墙清障：移除资源=", cleared_resources.size(), "，施工时间增加50%：", site_data.construction_time)
 
 	print(
 		"BuildingGhost 确认：",
@@ -558,23 +565,6 @@ func _create_construction_site(
 	return true
 
 
-func _get_wall_clearance_resources(data: BuildingData, wall_transform: Transform3D) -> Array[ResourceBase]:
-	var result: Array[ResourceBase] = []
-	var wall: Node3D = data.building_scene.instantiate() as Node3D
-	var collision: CollisionShape3D = wall.get_node("StaticBody3D/CollisionShape3D") as CollisionShape3D
-	var transform: Transform3D = wall_transform * wall.transform * (collision.get_parent() as Node3D).transform * collision.transform
-	var bounds: AABB = collision.shape.get_debug_mesh().get_aabb()
-	# 只在水平面外扩，给施工站位及居民身体留出空间。
-	bounds.position -= Vector3(0.5, 0.0, 0.5)
-	bounds.size += Vector3(1.0, 0.0, 1.0)
-	for node: Node in get_tree().get_nodes_in_group("resources"):
-		var resource: ResourceBase = node as ResourceBase
-		if resource != null and not resource.is_queued_for_deletion() and resource.overlaps_clearance_box(bounds, transform):
-			result.append(resource)
-	wall.free()
-	return result
-
-
 func cancel_preview() -> void:
 
 	print("BuildingGhost 取消")
@@ -582,6 +572,131 @@ func cancel_preview() -> void:
 		placement_cancelled_during_pause = true
 	start_preview = false
 	visible = false
+	wall_dragging = false
+	wall_stroke.clear()
 	moving_building = null
 	moving_existing_building = false
 	relocation_cost_label.hide()
+
+
+func _tower_wall(data: BuildingData, cell: Vector2i) -> Wall:
+	var layout: Dictionary = WALL_CONNECTIONS.cells(get_tree())
+	var wall: Wall = layout.get(cell) as Wall
+	if wall == null or wall.building_data.wall_family() != data.wall_family() or is_instance_valid(wall.tower_site) or wall.is_demolition_in_progress(): return null
+	return wall
+
+func _gate_walls(data: BuildingData, cell: Vector2i, turns: int) -> Array[Wall]:
+	var result: Array[Wall] = []
+	var layout: Dictionary = WALL_CONNECTIONS.cells(get_tree())
+	var axis_mask: int = 10 if turns % 2 == 0 else 5
+	for point: Vector2i in build_grid._get_area_cells(cell, data.grid_size, turns):
+		var wall: Wall = layout.get(point) as Wall
+		if wall == null or wall.building_data.wall_family() != data.wall_family() or is_instance_valid(wall.tower_site) or wall.is_demolition_in_progress(): return []
+		if WALL_CONNECTIONS.connection_mask(point, layout, build_grid) & ~axis_mask: return []
+		result.append(wall)
+	return result
+
+func can_place_at(data: BuildingData, cell: Vector2i, turns: int) -> bool:
+	var ignored: Array[Vector2i] = _moving_building_cells()
+	if data.is_gate():
+		if not moving_existing_building and not _gate_walls(data, cell, turns).is_empty(): ignored = build_grid._get_area_cells(cell, data.grid_size, turns)
+	elif data.is_wall_tower():
+		if _tower_wall(data, cell) == null: return false
+		ignored = [cell]
+	return build_grid.is_area_free(cell, data.grid_size, turns, false, true, ignored)
+
+func plan_wall_stroke(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
+	var roads: Node = get_tree().get_first_node_in_group("road_manager")
+	if roads == null: return []
+	var ignored: Array[Vector2i] = []
+	var layout: Dictionary = WALL_CONNECTIONS.cells(get_tree(), true)
+	for cell: Vector2i in layout:
+		if layout[cell].building_data.is_wall(): ignored.append(cell)
+	return roads.plan_stroke(from, to, ignored)
+
+func place_wall_stroke(requested: Array[Vector2i]) -> bool:
+	if requested.is_empty() or building_data == null or not building_data.is_wall(): return false
+	var layout: Dictionary = WALL_CONNECTIONS.cells(get_tree(), true)
+	# 整条路线先校验，不能在中间被阻挡后只留下半条墙。
+	for cell: Vector2i in requested:
+		if layout.has(cell) and layout[cell].building_data.is_wall(): continue
+		if not can_place_at(building_data, cell, 0): return false
+	for cell: Vector2i in requested:
+		if layout.has(cell) and layout[cell].building_data.is_wall(): continue
+		var transform := Transform3D(Basis.IDENTITY, build_grid.grid_to_world(cell))
+		if not _create_construction_site(building_data, cell, 0, false, transform, false, get_tree().paused): return false
+	return true
+
+func _wall_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		cancel_preview()
+		get_viewport().set_input_as_handled()
+	elif event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			cancel_preview()
+		elif event.button_index == MOUSE_BUTTON_LEFT:
+			var camera: Camera3D = get_viewport().get_camera_3d()
+			if camera == null: return
+			var point: Vector3 = _get_mouse_world_position(camera, event.position)
+			if point == Vector3.INF: return
+			var cell: Vector2i = build_grid.world_to_grid(point)
+			if event.pressed:
+				wall_dragging = true
+				wall_drag_start = cell
+			elif wall_dragging:
+				place_wall_stroke(plan_wall_stroke(wall_drag_start, cell))
+				wall_dragging = false
+				wall_preview_from = Vector2i(2147483647, 0)
+				_update_preview()
+		get_viewport().set_input_as_handled()
+
+func _update_wall_preview() -> void:
+	var from: Vector2i = wall_drag_start if wall_dragging else grid_position
+	if from == wall_preview_from and grid_position == wall_preview_to and Time.get_ticks_msec() < wall_preview_refresh_msec:
+		visible = true
+		return
+	wall_preview_from = from
+	wall_preview_to = grid_position
+	wall_preview_refresh_msec = Time.get_ticks_msec() + 200
+	wall_stroke = plan_wall_stroke(from, grid_position)
+	is_valid_position = not wall_stroke.is_empty()
+	if wall_stroke.is_empty():
+		var cursor: Vector2i = from
+		wall_stroke = [cursor]
+		while cursor != grid_position:
+			if absi(grid_position.x - cursor.x) >= absi(grid_position.y - cursor.y): cursor.x += signi(grid_position.x - cursor.x)
+			else: cursor.y += signi(grid_position.y - cursor.y)
+			wall_stroke.append(cursor)
+	global_transform = Transform3D.IDENTITY
+	for child: Node in preview_model.get_children(): child.free()
+	var layout: Dictionary = WALL_CONNECTIONS.cells(get_tree(), true)
+	var count: int = 0
+	var marker := BuildingBase.new()
+	marker.building_data = building_data
+	for cell: Vector2i in wall_stroke:
+		if layout.has(cell): continue
+		layout[cell] = marker
+		count += 1
+	for cell: Vector2i in wall_stroke:
+		var shape: Vector2i = WALL_CONNECTIONS.shape_for_mask(WALL_CONNECTIONS.connection_mask(cell, layout, build_grid))
+		var source: Node3D = building_data.wall_scenes()[shape.x].instantiate() as Node3D
+		var branch := Node3D.new()
+		preview_model.add_child(branch)
+		branch.position = build_grid.grid_to_world(cell)
+		branch.rotation.y = -shape.y * PI * 0.5
+		branch.scale = Vector3(build_grid.cell_size, 1, build_grid.cell_size)
+		_copy_visual_tree(source, branch)
+		source.free()
+	marker.free()
+	ghost_material.albedo_color = Color(0.2, 1, 0.2, 0.45) if is_valid_position else Color(1, 0.15, 0.15, 0.45)
+	var costs: PackedStringArray = []
+	var database: ResourceDatabase = preload("res://data/resources/resource_database.tres")
+	for resource_id: StringName in building_data.construction_cost:
+		var resource: ResourceData = database.get_resource_data(resource_id)
+		costs.append("%s %s" % [resource.display_name if resource != null else String(resource_id), str(building_data.construction_cost[resource_id] * count)])
+	relocation_cost_label.text = "%d 格 · %s" % [count, "、".join(costs)] if is_valid_position else "无法连通，不能建造"
+	relocation_cost_label.position = build_grid.grid_to_world(grid_position) + Vector3.UP * 2.8
+	relocation_cost_label.show()
+	path_warning.hide()
+	entrance_arrow.hide()
+	visible = true

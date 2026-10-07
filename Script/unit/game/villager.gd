@@ -242,7 +242,7 @@ func get_named_display_name() -> String:
 
 
 func get_move_speed() -> float:
-	return super.get_move_speed() * road_navigation.speed_multiplier(self)
+	return road_navigation.move_speed(self, super.get_move_speed())
 
 
 func get_combat_role() -> int:

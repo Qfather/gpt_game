@@ -1,0 +1,168 @@
+[gd_scene format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material"]
+albedo_color = Color(0.38, 0.22, 0.1, 1)
+roughness = 0.95
+
+[sub_resource type="BoxMesh" id="Mesh_0"]
+material = SubResource("Material")
+size = Vector3(0.4, 2.6, 0.55)
+
+[sub_resource type="BoxMesh" id="Mesh_1"]
+material = SubResource("Material")
+size = Vector3(0.52, 0.2, 0.65)
+
+[sub_resource type="BoxMesh" id="Mesh_2"]
+material = SubResource("Material")
+size = Vector3(0.4, 2.6, 0.55)
+
+[sub_resource type="BoxMesh" id="Mesh_3"]
+material = SubResource("Material")
+size = Vector3(0.52, 0.2, 0.65)
+
+[sub_resource type="BoxMesh" id="Mesh_4"]
+material = SubResource("Material")
+size = Vector3(3.6, 0.35, 0.5)
+
+[sub_resource type="CylinderMesh" id="Mesh_5"]
+material = SubResource("Material")
+top_radius = 0.1
+bottom_radius = 0.1
+height = 2.2
+radial_segments = 8
+
+[sub_resource type="CylinderMesh" id="Mesh_6"]
+material = SubResource("Material")
+top_radius = 0.1
+bottom_radius = 0.1
+height = 2.2
+radial_segments = 8
+
+[sub_resource type="CylinderMesh" id="Mesh_7"]
+material = SubResource("Material")
+top_radius = 0.1
+bottom_radius = 0.1
+height = 2.2
+radial_segments = 8
+
+[sub_resource type="CylinderMesh" id="Mesh_8"]
+material = SubResource("Material")
+top_radius = 0.1
+bottom_radius = 0.1
+height = 2.2
+radial_segments = 8
+
+[sub_resource type="CylinderMesh" id="Mesh_9"]
+material = SubResource("Material")
+top_radius = 0.1
+bottom_radius = 0.1
+height = 2.2
+radial_segments = 8
+
+[sub_resource type="CylinderMesh" id="Mesh_10"]
+material = SubResource("Material")
+top_radius = 0.1
+bottom_radius = 0.1
+height = 2.2
+radial_segments = 8
+
+[sub_resource type="CylinderMesh" id="Mesh_11"]
+material = SubResource("Material")
+top_radius = 0.1
+bottom_radius = 0.1
+height = 2.2
+radial_segments = 8
+
+[sub_resource type="CylinderMesh" id="Mesh_12"]
+material = SubResource("Material")
+top_radius = 0.1
+bottom_radius = 0.1
+height = 2.2
+radial_segments = 8
+
+[sub_resource type="CylinderMesh" id="Mesh_13"]
+material = SubResource("Material")
+top_radius = 0.1
+bottom_radius = 0.1
+height = 2.2
+radial_segments = 8
+
+[sub_resource type="CylinderMesh" id="Mesh_14"]
+material = SubResource("Material")
+top_radius = 0.1
+bottom_radius = 0.1
+height = 2.2
+radial_segments = 8
+
+[sub_resource type="CylinderMesh" id="Mesh_15"]
+material = SubResource("Material")
+top_radius = 0.1
+bottom_radius = 0.1
+height = 2.2
+radial_segments = 8
+
+[node name="Model" type="Node3D"]
+
+[node name="Part_0" type="MeshInstance3D" parent="."]
+position = Vector3(-1.8, 1.3, 0)
+mesh = SubResource("Mesh_0")
+
+[node name="Part_1" type="MeshInstance3D" parent="."]
+position = Vector3(-1.8, 2.7, 0)
+mesh = SubResource("Mesh_1")
+
+[node name="Part_2" type="MeshInstance3D" parent="."]
+position = Vector3(1.8, 1.3, 0)
+mesh = SubResource("Mesh_2")
+
+[node name="Part_3" type="MeshInstance3D" parent="."]
+position = Vector3(1.8, 2.7, 0)
+mesh = SubResource("Mesh_3")
+
+[node name="Part_4" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2.5, 0)
+mesh = SubResource("Mesh_4")
+
+[node name="Part_5" type="MeshInstance3D" parent="."]
+position = Vector3(-1.5, 1.1, 0)
+mesh = SubResource("Mesh_5")
+
+[node name="Part_6" type="MeshInstance3D" parent="."]
+position = Vector3(-1.2, 1.1, 0)
+mesh = SubResource("Mesh_6")
+
+[node name="Part_7" type="MeshInstance3D" parent="."]
+position = Vector3(-0.9, 1.1, 0)
+mesh = SubResource("Mesh_7")
+
+[node name="Part_8" type="MeshInstance3D" parent="."]
+position = Vector3(-0.6, 1.1, 0)
+mesh = SubResource("Mesh_8")
+
+[node name="Part_9" type="MeshInstance3D" parent="."]
+position = Vector3(-0.3, 1.1, 0)
+mesh = SubResource("Mesh_9")
+
+[node name="Part_10" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.1, 0)
+mesh = SubResource("Mesh_10")
+
+[node name="Part_11" type="MeshInstance3D" parent="."]
+position = Vector3(0.3, 1.1, 0)
+mesh = SubResource("Mesh_11")
+
+[node name="Part_12" type="MeshInstance3D" parent="."]
+position = Vector3(0.6, 1.1, 0)
+mesh = SubResource("Mesh_12")
+
+[node name="Part_13" type="MeshInstance3D" parent="."]
+position = Vector3(0.9, 1.1, 0)
+mesh = SubResource("Mesh_13")
+
+[node name="Part_14" type="MeshInstance3D" parent="."]
+position = Vector3(1.2, 1.1, 0)
+mesh = SubResource("Mesh_14")
+
+[node name="Part_15" type="MeshInstance3D" parent="."]
+position = Vector3(1.5, 1.1, 0)
+mesh = SubResource("Mesh_15")

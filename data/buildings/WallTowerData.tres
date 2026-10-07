@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="BuildingData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Script/building_data.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scene/building/game/wall_tower.tscn" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"wall_tower"
+display_name = "塔楼"
+description = "只能修建在对应类型的已完工墙段上，可驻守一名弓箭手；施工期间保留原墙防御。"
+category = 1
+sort_id = 70
+building_scene = ExtResource("2")
+grid_size = Vector2i(1, 1)
+max_health = 500.0
+construction_cost = Dictionary[StringName, float]({&"wood": 30.0, &"stone": 10.0})
+construction_time = 20.0
+max_construction_workers = 3
+garrison_capacity = 1
+allow_mirror = false
+storage_capacities = Dictionary[StringName, float]({&"grain": 10.0})

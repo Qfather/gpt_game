@@ -5,7 +5,13 @@ const BUILDING_FOLDER: String = "res://data/buildings/"
 const LABELS: Dictionary = {
 	"surface_drying_enabled": "启用地表干燥", "surface_drying_strength": "干燥强度（湿润度减量）",
 	"surface_drying_range": "向外影响范围（米）", "surface_drying_noise": "边缘起伏与内部变化",
-	"category": "建筑分类", "sort_id": "排序ID（越小越靠前）", "road_kind": "道路类型", "road_speed_multiplier": "道路移速倍率",
+	"category": "建筑分类", "sort_id": "排序ID（越小越靠前）", "road_speed_mode": "加速类型", "road_speed_add": "移速增加", "road_speed_percent": "移速增加比例",
+	"wall_scene_isolated": "独立墙段场景", "wall_scene_end": "尽头墙段场景（朝北）",
+	"wall_scene_straight": "直墙场景（南北）", "wall_scene_corner": "拐角场景（北东）",
+	"wall_scene_t": "三通场景（北东西）", "wall_scene_cross": "四通场景",
+	"road_material": "共享材质", "road_texture_isolated": "独立贴图", "road_texture_end": "尽头贴图（朝北）",
+	"road_texture_straight": "直线贴图（南北）", "road_texture_corner": "拐角贴图（北东）",
+	"road_texture_t": "三通贴图（北东西）", "road_texture_cross": "四通贴图",
 	"training_role": "训练兵种（1剑士／2弓箭手）", "processing_min": "处理最短时间（秒）", "processing_max": "处理最长时间（秒）",
 	"attack_range_multiplier": "驻塔射程倍率", "base_sight_radius": "基础视野（米）", "occupied_sight_multiplier": "驻塔视野倍率",
 	"id": "稳定ID", "display_name": "名称", "description": "说明", "function_text": "功能说明",
@@ -35,6 +41,8 @@ var scene_root: Node
 var scene_dirty: bool = false
 var field_controls: Dictionary = {}
 var preview: Control
+var model_label: Label
+var tabs: TabContainer
 var model_picker: EditorResourcePicker
 var storage_fields: VBoxContainer
 var resources: Array[ResourceData] = []
@@ -60,7 +68,7 @@ func _init() -> void:
 	for title: String in BuildingData.CATEGORY_NAMES: category_tabs.add_tab(title)
 	category_tabs.tab_changed.connect(func(_index: int) -> void: _refresh_building_list())
 	left.add_child(category_tabs)
-	var model_label := Label.new()
+	model_label = Label.new()
 	model_label.text = "外观模型（留空使用功能场景外观）"
 	model_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	left.add_child(model_label)
@@ -82,13 +90,14 @@ func _init() -> void:
 	status = Label.new()
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	right.add_child(status)
-	var tabs := TabContainer.new()
+	tabs = TabContainer.new()
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	right.add_child(tabs)
 	inspector = EditorInspector.new()
 	inspector.name = "通用建筑属性"
 	tabs.add_child(inspector)
 	inspector.property_edited.connect(func(property: String) -> void:
+		if property.begins_with("road_") or property.begins_with("wall_scene_"): _update_preview()
 		if property == "building_scene":
 			_load_scene()
 		if property in ["category", "sort_id", "display_name"]:
@@ -205,10 +214,16 @@ func _load_scene() -> void:
 		scene_fields.remove_child(child)
 		child.queue_free()
 	field_controls.clear()
+	var is_road: bool = current.road_kind > 0
+	model_label.visible = not is_road and not current.is_wall()
+	model_picker.visible = model_label.visible
+	if is_road: tabs.current_tab = 0
+	tabs.set_tab_hidden(1, is_road)
+	tabs.set_tab_hidden(2, is_road)
 	_update_preview()
 	_update_storage_fields()
 	status.text = "参数修改自动保存。\n建筑配置：" + data_path
-	if current.building_scene == null:
+	if is_road or current.building_scene == null:
 		return
 	status.text += "\n专属参数保存到场景：" + current.building_scene.resource_path + "（影响所有引用此场景的建筑）"
 	# 不加入场景树，避免编辑时执行建筑生产、注册或导航逻辑。
@@ -220,6 +235,9 @@ func _add_node_fields(node: Node) -> void:
 	var section_added: bool = false
 	for property: Dictionary in node.get_property_list():
 		var key: String = property.name
+		if (current.id == &"arrow_tower" or current.is_wall_tower()) and key == "patrol_point_reach_radius": continue
+		if key in ["training_role", "training_slots", "training_time"] and current.id not in [&"swordsman_camp", &"archer_camp"]: continue
+		if key in ["resupply_trigger", "food_capacity"] and current.id not in [&"barracks", &"arrow_tower"] and not current.is_wall_tower() and node.name != &"ResourceStorage": continue
 		if key == "max_health" or (node.name == &"ResourceStorage" and key in ["wood_capacity", "stone_capacity", "food_capacity"]):
 			continue
 		if not LABELS.has(key) or not (int(property.usage) & PROPERTY_USAGE_EDITOR):
@@ -280,8 +298,7 @@ func _update_preview() -> void:
 		var mesh := PlaneMesh.new()
 		mesh.size = Vector2.ONE
 		surface.mesh = mesh
-		var material := StandardMaterial3D.new()
-		material.albedo_color = Color(0.43, 0.28, 0.13) if current.road_kind == 1 else Color(0.55, 0.59, 0.63)
+		var material: StandardMaterial3D = current.road_shape_material(0)
 		surface.material_override = material
 		root.add_child(surface)
 		surface.owner = root
@@ -290,16 +307,17 @@ func _update_preview() -> void:
 		preview.show_scene(packed)
 		root.free()
 		return
-	preview.show_scene(current.model_scene if current.model_scene != null else current.building_scene)
+	preview.show_scene(current.wall_scene_isolated if current.is_wall() else (current.model_scene if current.model_scene != null else current.building_scene))
 
 
 func _update_storage_fields() -> void:
 	for child: Node in storage_fields.get_children():
 		storage_fields.remove_child(child)
 		child.queue_free()
+	if current.road_kind > 0: return
 	resources = ResourceEditorDataService.scan_resources()
 	var tip := Label.new()
-	tip.text = "军粮仅存食物；各项容量还受专属参数里的军粮总容量限制。" if current.id in [&"barracks", &"arrow_tower"] else "每项独立容量；未添加的资源不能存储。"
+	tip.text = "军粮仅存食物；各项容量还受专属参数里的军粮总容量限制。" if (current.id in [&"barracks", &"arrow_tower"] or current.is_wall_tower()) else "每项独立容量；未添加的资源不能存储。"
 	storage_fields.add_child(tip)
 	for resource_id: StringName in current.storage_capacities:
 		_add_storage_row(resource_id)
@@ -307,7 +325,7 @@ func _update_storage_fields() -> void:
 	add.text = "添加可储存资源"
 	add.pressed.connect(func() -> void:
 		for data: ResourceData in resources:
-			if current.id in [&"barracks", &"arrow_tower"] and data.food_properties == null: continue
+			if (current.id in [&"barracks", &"arrow_tower"] or current.is_wall_tower()) and data.food_properties == null: continue
 			if not current.storage_capacities.has(data.id):
 				current.storage_capacities[data.id] = 1.0
 				_update_storage_fields()
@@ -323,7 +341,7 @@ func _add_storage_row(resource_id: StringName) -> void:
 	options.custom_minimum_size.x = 200
 	row.add_child(options)
 	for data: ResourceData in resources:
-		if current.id in [&"barracks", &"arrow_tower"] and data.food_properties == null: continue
+		if (current.id in [&"barracks", &"arrow_tower"] or current.is_wall_tower()) and data.food_properties == null: continue
 		options.add_item(data.display_name + "（" + String(data.id) + "）")
 		var index: int = options.item_count - 1
 		options.set_item_metadata(index, data.id)
@@ -359,6 +377,32 @@ func save_current() -> bool:
 	if current.grid_size.x < 1 or current.grid_size.y < 1 or current.construction_time < 0 or current.max_construction_workers < 1:
 		status.text = "保存失败：占地、建造时间或施工人数无效"
 		return false
+	if current.road_kind > 0 and (current.road_speed_mode not in [0, 1] or current.road_speed_add < 0 or current.road_speed_percent < 0):
+		status.text = "保存失败：道路加速类型或增加量无效"
+		return false
+	if current.id == &"arrow_tower" and current.garrison_capacity not in range(3):
+		status.text = "保存失败：箭塔驻军容量只能为 0～2"
+		return false
+	if current.is_wall_tower() and current.garrison_capacity not in range(2):
+		status.text = "保存失败：塔楼驻军容量只能为 0～1"
+		return false
+	if (current.is_wall() or current.is_wall_tower()) and current.grid_size != Vector2i.ONE:
+		status.text = "保存失败：城墙与塔楼占地必须为 1×1"
+		return false
+	if current.is_gate() and current.grid_size != Vector2i(4, 1):
+		status.text = "保存失败：城门占地必须为 4×1"
+		return false
+	if current.is_wall():
+		for scene: PackedScene in current.wall_scenes():
+			if scene == null:
+				status.text = "保存失败：请指定全部六种城墙形态场景"
+				return false
+			var model: Node = scene.instantiate()
+			var valid_model: bool = model is Node3D
+			model.free()
+			if not valid_model:
+				status.text = "保存失败：城墙形态必须是 3D 场景"
+				return false
 	var available_resources: Array[ResourceData] = ResourceEditorDataService.scan_resources()
 	for costs: Dictionary in [current.construction_cost, current.training_cost]:
 		for resource_id: StringName in costs:
@@ -414,6 +458,7 @@ func _translate_labels() -> void:
 func _translate_node(node: Node) -> void:
 	if node is EditorProperty and LABELS.has(node.get_edited_property()):
 		node.label = LABELS[node.get_edited_property()]
+		if node.get_edited_property() == &"construction_time" and current != null and current.road_kind > 0: node.label = "每格施工时间（秒）"
 		if node.get_edited_property() == &"id": node.set_read_only(true)
 	for child: Node in node.get_children(true):
 		_translate_node(child)

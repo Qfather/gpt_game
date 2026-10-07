@@ -866,17 +866,20 @@ func _navigation_geometry() -> NavigationMeshSourceGeometryData3D:
 		var body: StaticBody3D = resource.get_node_or_null("StaticBody3D") as StaticBody3D
 		if resource is ResourceBase and body != null and (body.collision_layer & 1) == 0:
 			continue
-		var collision: CollisionShape3D = resource.get_node_or_null("StaticBody3D/CollisionShape3D") as CollisionShape3D
-		if collision == null or collision.shape == null or collision.disabled:
-			continue
-		var bounds: AABB = collision.shape.get_debug_mesh().get_aabb()
-		var footprint: PackedVector3Array = PackedVector3Array()
-		for corner: Vector3 in [bounds.position, Vector3(bounds.end.x, bounds.position.y, bounds.position.z), Vector3(bounds.end.x, bounds.position.y, bounds.end.z), Vector3(bounds.position.x, bounds.position.y, bounds.end.z)]:
-			var projected: Vector3 = collision.global_transform * corner
-			projected.y = 0.0
-			footprint.append(projected)
-		var world_bounds: AABB = collision.global_transform * bounds
-		source.add_projected_obstruction(footprint, world_bounds.position.y - 0.1, world_bounds.size.y + 0.2, false)
+		if body == null: continue
+		# 连接城墙包含中心与各方向连接臂，所有实体碰撞都须进入导航。
+		for child: Node in body.get_children():
+			var collision: CollisionShape3D = child as CollisionShape3D
+			if collision == null or collision.shape == null or collision.disabled:
+				continue
+			var bounds: AABB = collision.shape.get_debug_mesh().get_aabb()
+			var footprint: PackedVector3Array = PackedVector3Array()
+			for corner: Vector3 in [bounds.position, Vector3(bounds.end.x, bounds.position.y, bounds.position.z), Vector3(bounds.end.x, bounds.position.y, bounds.end.z), Vector3(bounds.position.x, bounds.position.y, bounds.end.z)]:
+				var projected: Vector3 = collision.global_transform * corner
+				projected.y = 0.0
+				footprint.append(projected)
+			var world_bounds: AABB = collision.global_transform * bounds
+			source.add_projected_obstruction(footprint, world_bounds.position.y - 0.1, world_bounds.size.y + 0.2, false)
 	return source
 
 

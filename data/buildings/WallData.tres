@@ -1,7 +1,19 @@
-[gd_resource type="Resource" script_class="BuildingData" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="BuildingData" load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://Script/building_data.gd" id="1_data"]
 [ext_resource type="PackedScene" path="res://Scene/building/game/wall.tscn" id="2_scene"]
+
+[ext_resource type="PackedScene" path="res://Scene/building/visual/fortifications/stone_wall_isolated.tscn" id="shape_0"]
+
+[ext_resource type="PackedScene" path="res://Scene/building/visual/fortifications/stone_wall_end.tscn" id="shape_1"]
+
+[ext_resource type="PackedScene" path="res://Scene/building/visual/fortifications/stone_wall_straight.tscn" id="shape_2"]
+
+[ext_resource type="PackedScene" path="res://Scene/building/visual/fortifications/stone_wall_corner.tscn" id="shape_3"]
+
+[ext_resource type="PackedScene" path="res://Scene/building/visual/fortifications/stone_wall_t.tscn" id="shape_4"]
+
+[ext_resource type="PackedScene" path="res://Scene/building/visual/fortifications/stone_wall_cross.tscn" id="shape_5"]
 
 [resource]
 script = ExtResource("1_data")
@@ -13,7 +25,7 @@ description = "阻挡敌人前进的基础防御建筑。
 提供物理阻挡，并可承受敌人攻击。"
 building_scene = ExtResource("2_scene")
 max_health = 500.0
-grid_size = Vector2i(3, 1)
+grid_size = Vector2i(1, 1)
 construction_cost = Dictionary[StringName, float]({
 &"wood": 10.0,
 &"stone": 10.0
@@ -21,4 +33,11 @@ construction_cost = Dictionary[StringName, float]({
 construction_time = 15.0
 max_construction_workers = 3
 allow_mirror = false
-allow_rotation = true
+allow_rotation = false
+
+wall_scene_isolated = ExtResource("shape_0")
+wall_scene_end = ExtResource("shape_1")
+wall_scene_straight = ExtResource("shape_2")
+wall_scene_corner = ExtResource("shape_3")
+wall_scene_t = ExtResource("shape_4")
+wall_scene_cross = ExtResource("shape_5")

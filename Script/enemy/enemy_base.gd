@@ -454,7 +454,7 @@ func _find_nearest_building_target(
 			continue
 		if not building is Node3D or not building.has_method("take_damage"):
 			continue
-		if building is ConstructionSite and building.is_blueprint():
+		if building is ConstructionSite and (building.is_blueprint() or building.get_max_health() <= 0):
 			continue
 		if building.has_method("is_destroyed") and building.is_destroyed():
 			continue

@@ -30,7 +30,7 @@ func _run() -> void:
 		await process_frame
 		quit()
 		return
-	assert(panel.buildings.size() == 15)
+	assert(panel.buildings.size() == 19)
 	assert(panel.category_tabs.tab_count == 5)
 	assert(load("res://data/buildings/ArcherCampData.tres").category == BuildingData.Category.MILITARY)
 	assert(load("res://data/buildings/TorchData.tres").category == BuildingData.Category.STRATEGY)
@@ -148,7 +148,7 @@ func _run() -> void:
 		root.get_texture().get_image().save_png("res://.godot/building_editor_base_preview.png")
 	background.queue_free()
 	await process_frame
-	print("建筑编辑器测试通过：15种建筑与道路预览、分类排序、施工配置、隔离保存读回")
+	print("建筑编辑器测试通过：19种建筑与道路预览、分类排序、施工配置、隔离保存读回")
 	quit()
 
 func _node_count(node: Node) -> int:

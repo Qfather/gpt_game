@@ -4,7 +4,8 @@ signal roads_changed
 
 enum Kind { DIRT = 1, STONE = 2 }
 const CHUNK_SIZE: int = 8
-const COLORS: Array[Color] = [Color.BLACK, Color(0.43, 0.28, 0.13), Color(0.55, 0.59, 0.63)]
+const DIRECTIONS: Array[Vector2i] = [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
+const SHAPE_MASKS: Array[int] = [0, 1, 5, 3, 11, 15]
 const ROAD_DATA: Array[BuildingData] = [null, preload("res://data/buildings/DirtRoadData.tres"), preload("res://data/buildings/StoneRoadData.tres")]
 
 class RoadGraph extends AStar3D:
@@ -16,6 +17,7 @@ var cells: Dictionary = {}
 var placement_order: Array[Vector2i] = []
 var revision: int = 0
 var chunks: Dictionary = {}
+var shape_materials: Dictionary = {}
 var graph := RoadGraph.new()
 var graph_ids: Dictionary = {}
 var graph_inputs: Array = []
@@ -85,7 +87,7 @@ func refresh_stroke_obstacles() -> void:
 		stroke_resource_cells.merge(covered)
 	stroke_resource_footprints = footprints
 
-func _refresh_stroke_graph() -> void:
+func _refresh_stroke_graph(ignored_cells: Array[Vector2i] = []) -> void:
 	var inputs: Array = [grid.grid_min, grid.grid_max, grid.cell_size, grid.global_position, grid.buildability_rule, grid.ground_height_rule]
 	if inputs != stroke_graph_inputs:
 		stroke_graph_inputs = inputs
@@ -111,6 +113,8 @@ func _refresh_stroke_graph() -> void:
 	refresh_stroke_obstacles()
 	var blocked: Dictionary = stroke_resource_cells.duplicate()
 	blocked.merge(grid.occupied_cells, true)
+	for cell: Vector2i in ignored_cells:
+		if not stroke_resource_cells.has(cell): blocked.erase(cell)
 	for cell: Vector2i in stroke_blocked:
 		if not blocked.has(cell) and stroke_ids.has(cell): stroke_graph.set_point_disabled(stroke_ids[cell], false)
 	for cell: Vector2i in blocked:
@@ -118,9 +122,9 @@ func _refresh_stroke_graph() -> void:
 	stroke_blocked = blocked
 
 # 不返回部分路径：两端无法连通时交给预览显示整条红色。
-func plan_stroke(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
+func plan_stroke(from: Vector2i, to: Vector2i, ignored_cells: Array[Vector2i] = []) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
-	_refresh_stroke_graph()
+	_refresh_stroke_graph(ignored_cells)
 	if not stroke_ids.has(from) or not stroke_ids.has(to) or stroke_blocked.has(from) or stroke_blocked.has(to): return result
 	for point: Vector2 in stroke_graph.get_point_path(stroke_ids[from], stroke_ids[to]): result.append(Vector2i(point))
 	return result
@@ -250,37 +254,64 @@ func remove_cells(requested: Array[Vector2i]) -> void:
 func dirt_count() -> int:
 	return cells.values().count(Kind.DIRT)
 
-func speed_multiplier(position: Vector3) -> float:
+func move_speed(position: Vector3, base_speed: float) -> float:
 	var cell: Vector2i = grid.world_to_grid(position)
-	if not cells.has(cell) or grid.occupied_cells.has(cell): return 1.0
-	if absf(position.y - grid.get_ground_height(cell)) > 0.8: return 1.0
-	return ROAD_DATA[cells[cell]].road_speed_multiplier
+	if not cells.has(cell) or grid.occupied_cells.has(cell): return base_speed
+	if absf(position.y - grid.get_ground_height(cell)) > 0.8: return base_speed
+	return ROAD_DATA[cells[cell]].road_move_speed(base_speed)
+
+func speed_multiplier(position: Vector3) -> float:
+	return move_speed(position, 1.0)
 
 func _commit(changed: Array[Vector2i]) -> void:
 	if changed.is_empty(): return
 	revision += 1
 	var dirty: Dictionary = {}
 	for cell: Vector2i in changed:
-		dirty[Vector2i(floori(float(cell.x) / CHUNK_SIZE), floori(float(cell.y) / CHUNK_SIZE))] = true
+		for offset: Vector2i in [Vector2i.ZERO, Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]:
+			var neighbor: Vector2i = cell + offset
+			dirty[Vector2i(floori(float(neighbor.x) / CHUNK_SIZE), floori(float(neighbor.y) / CHUNK_SIZE))] = true
 	for chunk: Vector2i in dirty: _rebuild_chunk(chunk)
 	roads_changed.emit()
 
+# 返回形态索引与顺时针旋转次数；土路、石路可互相连接。
+func tile_shape(cell: Vector2i) -> Vector2i:
+	var mask: int = 0
+	for index: int in range(4):
+		var neighbor: Vector2i = cell + DIRECTIONS[index]
+		if cells.has(neighbor) and absf(grid.get_ground_height(cell) - grid.get_ground_height(neighbor)) < 0.1:
+			mask |= 1 << index
+	for shape: int in range(SHAPE_MASKS.size()):
+		var rotated: int = SHAPE_MASKS[shape]
+		for turns: int in range(4):
+			if rotated == mask: return Vector2i(shape, turns)
+			rotated = ((rotated << 1) & 15) | (rotated >> 3)
+	return Vector2i.ZERO
+
 func _rebuild_chunk(chunk: Vector2i) -> void:
-	var vertices := PackedVector3Array()
-	var normals := PackedVector3Array()
-	var colors := PackedColorArray()
+	var surfaces: Dictionary = {}
 	var half: float = grid.cell_size * 0.5
 	for y: int in range(chunk.y * CHUNK_SIZE, (chunk.y + 1) * CHUNK_SIZE):
 		for x: int in range(chunk.x * CHUNK_SIZE, (chunk.x + 1) * CHUNK_SIZE):
 			var cell := Vector2i(x, y)
 			if not cells.has(cell) and not pending.has(cell): continue
+			var shape: Vector2i = tile_shape(cell)
+			var key: Vector2i = Vector2i.ZERO if pending.has(cell) else Vector2i(cells[cell], shape.x)
+			if not surfaces.has(key):
+				var arrays: Array = []
+				arrays.resize(Mesh.ARRAY_MAX)
+				arrays[Mesh.ARRAY_VERTEX] = PackedVector3Array()
+				arrays[Mesh.ARRAY_NORMAL] = PackedVector3Array()
+				arrays[Mesh.ARRAY_TEX_UV] = PackedVector2Array()
+				surfaces[key] = arrays
 			var center: Vector3 = grid.grid_to_world(cell) + Vector3.UP * 0.03
 			var corners: Array[Vector3] = [center + Vector3(-half, 0, -half), center + Vector3(half, 0, -half), center + Vector3(half, 0, half), center + Vector3(-half, 0, half)]
+			var uvs: Array[Vector2] = [Vector2.ZERO, Vector2.RIGHT, Vector2.ONE, Vector2.DOWN]
 			for index: int in [0, 1, 3, 1, 2, 3]:
-				vertices.append(corners[index])
-				normals.append(Vector3.UP)
-				colors.append(Color(0.8, 0.65, 0.25) if pending.has(cell) else COLORS[cells[cell]])
-	if vertices.is_empty():
+				surfaces[key][Mesh.ARRAY_VERTEX].append(corners[index])
+				surfaces[key][Mesh.ARRAY_NORMAL].append(Vector3.UP)
+				surfaces[key][Mesh.ARRAY_TEX_UV].append(uvs[posmod(index - shape.y, 4)])
+	if surfaces.is_empty():
 		if chunks.has(chunk):
 			chunks[chunk].queue_free()
 			chunks.erase(chunk)
@@ -288,19 +319,21 @@ func _rebuild_chunk(chunk: Vector2i) -> void:
 	if not chunks.has(chunk):
 		var instance := MeshInstance3D.new()
 		instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var material := StandardMaterial3D.new()
-		material.vertex_color_use_as_albedo = true
-		material.roughness = 1.0
-		instance.material_override = material
 		add_child(instance)
 		chunks[chunk] = instance
-	var arrays: Array = []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = vertices
-	arrays[Mesh.ARRAY_NORMAL] = normals
-	arrays[Mesh.ARRAY_COLOR] = colors
 	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	for key: Vector2i in surfaces:
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, surfaces[key])
+		if not shape_materials.has(key):
+			var material: StandardMaterial3D
+			if key.x == 0:
+				material = StandardMaterial3D.new()
+				material.albedo_color = Color(0.8, 0.65, 0.25)
+				material.roughness = 1.0
+			else:
+				material = ROAD_DATA[key.x].road_shape_material(key.y)
+			shape_materials[key] = material
+		mesh.surface_set_material(mesh.get_surface_count() - 1, shape_materials[key])
 	chunks[chunk].mesh = mesh
 
 func _refresh_graph(map: RID) -> void:

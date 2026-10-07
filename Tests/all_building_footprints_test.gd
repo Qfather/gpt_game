@@ -3,11 +3,12 @@ extends SceneTree
 const EXPECTED: Dictionary = {
 	"ArcherCampData": Vector2i(3,3), "ArrowTowerData": Vector2i(2,2),
 	"BarracksData": Vector2i(2,3), "BaseData": Vector2i(2,3),
-	"FarmData": Vector2i(4,4), "GateData": Vector2i(3,1),
+	"FarmData": Vector2i(4,4), "GateData": Vector2i(4,1),
 	"HouseData": Vector2i(2,2), "HunterHutData": Vector2i(2,2),
 	"LumberCampData": Vector2i(2,2), "QuarryData": Vector2i(2,2),
 	"SwordsmanCampData": Vector2i(3,3), "TorchData": Vector2i(1,1),
-	"WallData": Vector2i(3,1)
+	"WallData": Vector2i(1,1), "WoodWallData": Vector2i(1,1),
+	"WoodGateData": Vector2i(4,1)
 }
 
 func _init() -> void:
@@ -73,5 +74,5 @@ func _run() -> void:
 		print("[通过] ", data.display_name, " ", data.grid_size, " 四种旋转与镜像施工／竣工占位一致")
 	world.queue_free()
 	await process_frame
-	print("全部13类建筑占位验证通过")
+	print("全部15类可独立施工建筑占位验证通过")
 	quit()

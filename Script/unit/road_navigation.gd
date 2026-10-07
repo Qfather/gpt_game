@@ -12,8 +12,8 @@ func _manager(unit: Node) -> Node:
 	if not is_instance_valid(manager): manager = unit.get_tree().get_first_node_in_group("road_manager")
 	return manager
 
-func speed_multiplier(unit: Node3D) -> float:
-	return manager.speed_multiplier(unit.global_position) if is_instance_valid(_manager(unit)) else 1.0
+func move_speed(unit: Node3D, base_speed: float) -> float:
+	return manager.move_speed(unit.global_position, base_speed) if is_instance_valid(_manager(unit)) else base_speed
 
 func next_position(unit: Node3D, agent: NavigationAgent3D) -> Vector3:
 	var ordinary: Vector3 = agent.get_next_path_position()
