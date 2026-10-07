@@ -32,6 +32,7 @@ var status: Label
 var current: BuildingData
 var data_path: String
 var scene_root: Node
+var scene_dirty: bool = false
 var field_controls: Dictionary = {}
 var preview: Control
 var model_picker: EditorResourcePicker
@@ -196,6 +197,7 @@ func select_building(index: int) -> void:
 
 
 func _load_scene() -> void:
+	scene_dirty = false
 	if scene_root != null:
 		scene_root.free()
 		scene_root = null
@@ -246,12 +248,22 @@ func _add_node_fields(node: Node) -> void:
 				spin.max_value = float(limits[1])
 				if limits.size() > 2: spin.step = float(limits[2])
 			spin.value = float(node.get(key))
-			spin.value_changed.connect(func(value: float) -> void: node.set(key, int(value) if property.type == TYPE_INT else value))
+			spin.value_changed.connect(func(value: float) -> void:
+				var next_value: Variant = int(value) if property.type == TYPE_INT else value
+				if node.get(key) != next_value:
+					node.set(key, next_value)
+					scene_dirty = true
+			)
 			control = spin
 		else:
 			var edit := LineEdit.new()
 			edit.text = String(node.get(key))
-			edit.text_changed.connect(func(value: String) -> void: node.set(key, StringName(value) if property.type == TYPE_STRING_NAME else value))
+			edit.text_changed.connect(func(value: String) -> void:
+				var next_value: Variant = StringName(value) if property.type == TYPE_STRING_NAME else value
+				if node.get(key) != next_value:
+					node.set(key, next_value)
+					scene_dirty = true
+			)
 			control = edit
 		control.custom_minimum_size.x = 170
 		row.add_child(control)
@@ -372,13 +384,14 @@ func save_current() -> bool:
 			status.text = "保存失败：仓储容量不能为负数"
 			return false
 	var scene_path: String = ""
-	if current.road_kind == 0:
+	if current.road_kind == 0 and scene_dirty:
 		scene_path = current.building_scene.resource_path
 		var packed: PackedScene = current.building_scene.duplicate() as PackedScene
 		if packed.pack(scene_root) != OK or ResourceSaver.save(packed, scene_path) != OK:
 			status.text = "建筑场景保存失败：" + scene_path
 			return false
 		current.building_scene = ResourceLoader.load(scene_path, "", ResourceLoader.CACHE_MODE_REPLACE) as PackedScene
+		scene_dirty = false
 	if ResourceSaver.save(current, data_path) != OK:
 		status.text = "建筑配置保存失败：" + data_path
 		return false
