@@ -64,6 +64,7 @@ var category_option: OptionButton
 var weight_spin: SpinBox
 
 var save_button: Button
+var autosave = preload("res://addons/editor_autosave.gd").new()
 
 # ============================================================
 # 等级效果编辑区
@@ -89,6 +90,7 @@ func _enter_tree():
 	_create_icon_dialog()
 
 	_refresh_trait_list()
+	autosave.configure(self, _on_save_pressed, editor_panel)
 
 
 # ============================================================
@@ -96,6 +98,7 @@ func _enter_tree():
 # ============================================================
 
 func _exit_tree():
+	autosave.flush()
 
 	print("🏷️ Trait Editor 插件关闭")
 
@@ -183,6 +186,7 @@ func _create_main_panel():
 
 	save_button = Button.new()
 	save_button.text = "保存修改"
+	save_button.hide()
 	save_button.disabled = true
 	save_button.pressed.connect(
 		_on_save_pressed
@@ -904,7 +908,7 @@ func _on_add_level_pressed():
 	level_data.level = new_level_number
 
 	# 这里只创建界面。
-	# 真正的数据统一在“保存修改”时由 _write_levels_from_editor() 写回，
+	# 真正的数据统一在自动保存时由 _write_levels_from_editor() 写回，
 	# 避免编辑器 UI 和 Resource 同时修改导致状态不同步。
 	_create_level_editor(level_data)
 
@@ -985,7 +989,7 @@ func _write_levels_from_editor() -> bool:
 		var level_number = int(level_row["level_spin"].value)
 
 		if used_levels.has(level_number):
-			push_warning("等级 Lv.%d 重复，请修改后再保存" % level_number)
+			push_warning("等级 Lv.%d 重复，修正后会自动保存" % level_number)
 			return false
 
 		used_levels[level_number] = true
@@ -1409,6 +1413,7 @@ func _on_trait_selected(index):
 # ============================================================
 
 func _load_trait_into_editor(trait_data):
+	if not autosave.pause(): return
 
 	current_trait_data = trait_data
 
@@ -1417,6 +1422,7 @@ func _load_trait_into_editor(trait_data):
 
 		save_button.disabled = true
 		delete_button.disabled = true
+		autosave.suspended = false
 
 		return
 
@@ -1486,6 +1492,7 @@ func _load_trait_into_editor(trait_data):
 
 
 	save_button.disabled = false
+	autosave.suspended = false
 
 	delete_button.disabled = false
 
@@ -1520,10 +1527,10 @@ func _select_option_by_id(
 # 保存
 # ============================================================
 
-func _on_save_pressed():
+func _on_save_pressed() -> bool:
 
 	if current_trait_data == null:
-		return
+		return false
 
 
 	# ========================================================
@@ -1539,7 +1546,7 @@ func _on_save_pressed():
 			"标签名称不能为空"
 		)
 
-		return
+		return false
 
 
 	current_trait_data.trait_name = (
@@ -1589,7 +1596,7 @@ func _on_save_pressed():
 	# ========================================================
 
 	if not _write_levels_from_editor():
-		return
+		return false
 
 
 	# ========================================================
@@ -1614,7 +1621,7 @@ func _on_save_pressed():
 			+ str(error)
 		)
 
-		return
+		return false
 
 
 	print(
@@ -1643,6 +1650,7 @@ func _on_save_pressed():
 			trait_list.ensure_current_is_visible()
 			current_trait_data = resource_data
 			break
+	return true
 
 
 # ============================================================
@@ -1688,6 +1696,7 @@ func _on_icon_file_selected(path):
 
 	icon_preview.icon = texture
 	icon_preview.text = ""
+	autosave.request()
 
 
 # ============================================================
@@ -1750,6 +1759,7 @@ func _on_delete_trait_pressed():
 # ============================================================
 
 func _delete_trait(trait_data):
+	autosave.cancel()
 
 	if trait_data == null:
 		return
@@ -1803,6 +1813,8 @@ func _delete_trait(trait_data):
 # ============================================================
 
 func _clear_editor():
+	autosave.cancel()
+	autosave.suspended = true
 
 	id_edit.text = ""
 	name_edit.text = ""
@@ -1822,3 +1834,4 @@ func _clear_editor():
 	save_button.disabled = true
 
 	delete_button.disabled = true
+	autosave.suspended = false

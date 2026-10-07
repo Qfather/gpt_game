@@ -42,6 +42,8 @@ var new_resource_window: Window
 var new_id_edit: LineEdit
 var new_name_edit: LineEdit
 var new_error_label: Label
+var autosave = preload("res://addons/editor_autosave.gd").new()
+var inspector_autosave: Node
 
 
 func _enter_tree() -> void:
@@ -52,10 +54,17 @@ func _enter_tree() -> void:
 	add_control_to_bottom_panel(building_panel, "建筑")
 	unit_panel = preload("res://addons/resource_editor/unit_editor_panel.gd").new()
 	add_control_to_bottom_panel(unit_panel, "单位")
+	autosave.configure(self, _on_save_pressed, name_edit)
+	for control in [category_option, tier_spin, tags_edit, stack_size_spin, food_enabled, nutrition_spin, quality_spin, variety_group_edit]:
+		autosave.watch(control)
+	inspector_autosave = preload("res://addons/inspector_parameter_autosave.gd").new()
+	add_child(inspector_autosave)
 	print("Resource Editor 插件启动")
 
 
 func _exit_tree() -> void:
+	autosave.flush()
+	if inspector_autosave != null: inspector_autosave.flush()
 	if unit_panel != null:
 		remove_control_from_bottom_panel(unit_panel)
 		unit_panel.queue_free()
@@ -92,6 +101,7 @@ func _create_main_panel() -> void:
 
 	save_button = Button.new()
 	save_button.text = "保存修改"
+	save_button.hide()
 	save_button.disabled = true
 	save_button.pressed.connect(_on_save_pressed)
 	toolbar.add_child(save_button)
@@ -340,6 +350,7 @@ func _create_new_resource_window() -> void:
 
 
 func _refresh_resource_list() -> void:
+	if not autosave.pause(): return
 	var selected_id: StringName = current_resource.id if current_resource != null else &""
 	resource_items = ResourceEditorDataService.scan_resources()
 	current_resource = null
@@ -348,6 +359,7 @@ func _refresh_resource_list() -> void:
 
 	if selected_id != &"":
 		_select_resource_by_id(selected_id)
+	autosave.suspended = false
 
 
 func _apply_filters() -> void:
@@ -398,6 +410,7 @@ func _on_resource_selected(index: int) -> void:
 
 
 func _load_resource(resource_data: ResourceData) -> void:
+	if not autosave.pause(): return
 	current_resource = resource_data
 	id_edit.text = str(resource_data.id)
 	name_edit.text = resource_data.display_name
@@ -423,9 +436,11 @@ func _load_resource(resource_data: ResourceData) -> void:
 
 	_set_editor_enabled(true)
 	_update_food_fields()
+	autosave.suspended = false
 
 
 func _clear_editor() -> void:
+	if not autosave.pause(): return
 	id_edit.text = ""
 	name_edit.text = ""
 	icon_button.icon = null
@@ -438,6 +453,7 @@ func _clear_editor() -> void:
 	quality_spin.value = 0.0
 	variety_group_edit.text = ""
 	_set_editor_enabled(false)
+	autosave.suspended = false
 
 
 func _set_editor_enabled(enabled: bool) -> void:
@@ -477,16 +493,17 @@ func _on_icon_selected(path: String) -> void:
 		return
 	icon_button.icon = texture
 	icon_button.text = ""
+	autosave.request()
 
 
-func _on_save_pressed() -> void:
+func _on_save_pressed() -> bool:
 	if current_resource == null:
-		return
+		return false
 
 	var display_name: String = name_edit.text.strip_edges()
 	if display_name.is_empty():
-		_show_message("无法保存", "显示名称不能为空。")
-		return
+		push_warning("资源名称不能为空；自动保存等待填写完整。")
+		return false
 
 	current_resource.display_name = display_name
 	current_resource.icon = icon_button.icon
@@ -509,12 +526,18 @@ func _on_save_pressed() -> void:
 	var save_error: Error = ResourceSaver.save(current_resource, current_resource.resource_path)
 	if save_error != OK:
 		_show_message("保存失败", "错误代码：%s" % save_error)
-		return
+		return false
 
 	current_resource.emit_changed()
-	get_editor_interface().get_resource_filesystem().scan()
-	_refresh_resource_list()
+	get_editor_interface().get_resource_filesystem().update_file(current_resource.resource_path)
+	# 自动保存只更新列表，不重载输入框，避免连续输入时光标被重置。
+	_apply_filters()
+	for index in range(resource_list.item_count):
+		if resource_list.get_item_metadata(index) == current_resource:
+			resource_list.select(index)
+			break
 	print("Resource Editor 已保存：", current_resource.id if current_resource != null else id_edit.text)
+	return true
 
 
 func _on_new_resource_pressed() -> void:
@@ -607,6 +630,7 @@ func _on_delete_pressed() -> void:
 
 
 func _delete_resource(resource_data: ResourceData, dialog: ConfirmationDialog) -> void:
+	autosave.cancel()
 	var file_path: String = resource_data.resource_path
 	var remove_error: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(file_path))
 	dialog.queue_free()

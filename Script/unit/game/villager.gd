@@ -12,6 +12,7 @@ const ARCHER_DATA: UnitDataResource = preload("res://data/units/ArcherData.tres"
 const HUNTER_DATA: UnitDataResource = preload("res://data/units/HunterData.tres")
 const ARROW_SCRIPT: Script = preload("res://Script/combat/arrow.gd")
 var hunting: RefCounted = preload("res://Script/unit/hunting_behavior.gd").new()
+var ranged_shot_remaining: float = 0.0
 var visual_instance: Node3D
 var visual_root: Node3D
 
@@ -114,10 +115,10 @@ var state: State = State.IDLE:
 		if state == value:
 			return
 		if navigation_agent != null:
-			if state in [State.MOVE_TO_RESOURCE, State.MOVE_TO_FIELD, State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.WAIT_CONSTRUCTION_SITE, State.RETURN_TO_IDLE]:
+			if state in [State.MOVE_TO_RESOURCE, State.MOVE_TO_FIELD, State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.WAIT_CONSTRUCTION_SITE, State.RETURN_TO_IDLE, State.HUNTING]:
 				navigation_agent.target_desired_distance = gather_previous_target_desired_distance
 				navigation_agent.path_desired_distance = gather_previous_path_desired_distance
-			if value in [State.MOVE_TO_RESOURCE, State.MOVE_TO_FIELD, State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.WAIT_CONSTRUCTION_SITE, State.RETURN_TO_IDLE]:
+			if value in [State.MOVE_TO_RESOURCE, State.MOVE_TO_FIELD, State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.WAIT_CONSTRUCTION_SITE, State.RETURN_TO_IDLE, State.HUNTING]:
 				gather_previous_target_desired_distance = navigation_agent.target_desired_distance
 				gather_previous_path_desired_distance = navigation_agent.path_desired_distance
 				navigation_agent.target_desired_distance = 0.2
@@ -895,6 +896,10 @@ func _physics_process(delta):
 		return
 	if hunting.inside_processing:
 		update_needs(delta)
+		if is_instance_valid(workplace) and _find_nearest_hostile() != null:
+			hunting.inside_processing = false
+			_pass_building_door(workplace, false)
+			return
 		hunting.process(self, delta)
 		return
 	if leaving_immigration_base:
@@ -941,6 +946,12 @@ func _physics_process(delta):
 		velocity = external_force
 		move_and_slide()
 		external_force = external_force.move_toward(Vector3.ZERO, 20.0 * delta)
+		return
+	if ranged_shot_remaining > 0.0:
+		ranged_shot_remaining = maxf(ranged_shot_remaining - delta, 0.0)
+		combat_attack_cooldown = maxf(combat_attack_cooldown - delta, 0.0)
+		velocity = Vector3.ZERO
+		update_needs(delta)
 		return
 	if _process_civilian_retreat(delta):
 		return
@@ -1208,7 +1219,7 @@ func _process_combat(delta: float) -> bool:
 	# 箭塔补粮员完成往返，由留在塔上的弓箭手负责射击。
 	if is_instance_valid(resupply_barracks) and resupply_barracks.has_method("allows_garrison_attacks"):
 		return false
-	if not has_combat_role():
+	if not has_combat_role() and not is_hunter():
 		return false
 	if is_dead():
 		return false
@@ -1241,7 +1252,10 @@ func _process_combat(delta: float) -> bool:
 	if (
 		combat_target == null
 		or not is_instance_valid(combat_target)
+		or combat_target.is_queued_for_deletion()
+		or not combat_target.is_visible_in_tree()
 		or combat_target.has_method("is_dead") and combat_target.is_dead()
+		or unit_data.uses_arrows and Vector2(global_position.x - combat_target.global_position.x, global_position.z - combat_target.global_position.z).length() > combat_detection_range
 	):
 		combat_target = _find_retreat_threat()
 		if combat_target == null: combat_target = _find_nearest_hostile()
@@ -1263,6 +1277,8 @@ func _process_combat(delta: float) -> bool:
 		target_position.z
 	)
 	var distance: float = global_position.distance_to(flat_target)
+	if unit_data.uses_arrows:
+		return _process_ranged_retreat(delta, distance)
 	if distance > combat_attack_range:
 		state = State.COMBAT_MOVE
 		if navigation_agent.target_position.distance_squared_to(target_position) > 0.25:
@@ -1280,10 +1296,6 @@ func _process_combat(delta: float) -> bool:
 	if combat_attack_cooldown > 0.0:
 		return true
 	if combat_target.has_method("take_damage"):
-		if unit_data.uses_arrows:
-			fire_arrow(combat_target)
-			combat_attack_cooldown = combat_attack_interval
-			return true
 		var actual_damage: float = float(
 			combat_target.take_damage(combat_damage, self)
 		)
@@ -1295,14 +1307,39 @@ func _process_combat(delta: float) -> bool:
 	return true
 
 
+func _process_ranged_retreat(delta: float, distance: float) -> bool:
+	combat_attack_cooldown = maxf(combat_attack_cooldown - delta, 0.0)
+	if distance <= combat_attack_range and combat_attack_cooldown <= 0.0:
+		state = State.COMBAT_ATTACK
+		fire_arrow(combat_target)
+		combat_attack_cooldown = combat_attack_interval
+		return true
+	if not is_instance_valid(target_base): find_base()
+	state = State.COMBAT_MOVE
+	if not is_instance_valid(target_base):
+		velocity = Vector3.ZERO
+		return true
+	var destination: Vector3 = NavigationServer3D.map_get_closest_point(navigation_agent.get_navigation_map(), target_base.get_interaction_position(self))
+	if navigation_agent.target_position.distance_squared_to(destination) > 0.25:
+		navigation_agent.target_position = destination
+	var offset: Vector3 = destination - global_position
+	offset.y = 0.0
+	if offset.length() > navigation_agent.target_desired_distance + 0.5:
+		move_along_navigation()
+	else:
+		velocity = Vector3.ZERO
+	return true
+
+
 func _find_retreat_threat() -> Node3D:
 	if combat_role != CombatRole.Type.SWORDSMAN: return null
 	var nearest: Node3D
 	var distance: float = combat_detection_range
 	for resident: Node in get_tree().get_nodes_in_group("villagers"):
 		if resident == self or resident.state != State.RETREAT_TO_BASE or not resident.is_visible_in_tree(): continue
+		if not is_instance_valid(resident.retreat_threat): continue
 		var threat: Node3D = resident.retreat_threat
-		if not is_instance_valid(threat) or threat.is_queued_for_deletion() or threat.is_dead() or not threat.is_visible_in_tree(): continue
+		if threat.is_queued_for_deletion() or threat.is_dead() or not threat.is_visible_in_tree(): continue
 		if not EnemyData.are_factions_hostile(get_faction(), threat.get_faction()): continue
 		var candidate_distance: float = Vector2(resident.global_position.x - global_position.x, resident.global_position.z - global_position.z).length()
 		if candidate_distance < distance:
@@ -1315,7 +1352,7 @@ func _find_nearest_hostile(search_range: float = -1.0) -> Node3D:
 	var nearest: Node3D = null
 	var nearest_distance: float = combat_detection_range if search_range < 0.0 else search_range
 	for candidate: Node in get_tree().get_nodes_in_group("enemies"):
-		if not candidate is Node3D or not is_instance_valid(candidate):
+		if not is_instance_valid(candidate) or not candidate is Node3D or candidate.is_queued_for_deletion():
 			continue
 		if candidate.has_method("is_dead") and candidate.is_dead():
 			continue
@@ -1332,6 +1369,8 @@ func _find_nearest_hostile(search_range: float = -1.0) -> Node3D:
 
 
 func fire_arrow(target: Node3D) -> void:
+	velocity = Vector3.ZERO
+	ranged_shot_remaining = 0.3
 	_face_direction(target.global_position - global_position)
 	var damage: float = ARCHER_DATA.damage * 0.5 if is_hunter() and target.is_in_group("enemies") else combat_damage
 	ARROW_SCRIPT.launch(self, target, global_position + Vector3.UP, damage, unit_data.arrow_speed)
@@ -1359,7 +1398,7 @@ func take_damage(amount: float, source: Node = null) -> float:
 	if get_damage_protector() != null:
 		return 0.0
 	var damage: float = super.take_damage(amount, source)
-	if damage > 0.0 and not is_dead() and not has_combat_role():
+	if damage > 0.0 and not is_dead() and not has_combat_role() and not is_hunter():
 		_begin_civilian_retreat(source as Node3D)
 	return damage
 
@@ -1513,6 +1552,16 @@ func _resume_after_retreat(at_base: bool = false) -> void:
 
 func _process_civilian_retreat(delta: float) -> bool:
 	if is_dead(): return false
+	if is_hunter():
+		if state == State.SHELTERED:
+			_exit_shelter_and_resume()
+			return true
+		if state == State.RETREAT_TO_BASE:
+			if is_instance_valid(shelter_target): shelter_target.release_shelter(self)
+			shelter_target = null
+			retreat_threat = null
+			state = State.HUNTING
+		return false
 	if current_task is GameTask and current_task.type == GameTask.TaskType.TRAIN_SWORDSMAN: return false
 	if state == State.SHELTERED:
 		update_needs(delta)
@@ -1597,6 +1646,10 @@ func _finish_combat() -> void:
 	combat_resume_navigation_target = Vector3.ZERO
 	combat_attack_cooldown = 0.0
 	velocity = Vector3.ZERO
+	if is_hunter():
+		state = resume_state if resume_state >= 0 else State.HUNTING
+		navigation_agent.target_position = resume_navigation_target
+		return
 	if resume_state == State.MOVE_TO_BARRACKS:
 		if is_instance_valid(garrison_target) and not garrison_target.is_demolition_in_progress():
 			navigation_agent.target_position = resume_navigation_target
@@ -3618,6 +3671,9 @@ func finish_demolition_pickup() -> void:
 
 func on_building_relocated(building: BuildingBase, old_transform: Transform3D) -> void:
 	if is_dead():
+		return
+	if task_site == building and building is ConstructionSite and state in [State.MOVE_TO_BUILD_SITE, State.WAIT_CONSTRUCTION_SITE, State.MOVE_TO_TASK_SITE]:
+		_set_task_site_navigation_target()
 		return
 	if garrisoned_in == building:
 		var old_entrance: Vector3 = old_transform * building.to_local(building.get_garrison_entrance_position(self))

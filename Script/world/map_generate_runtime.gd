@@ -37,6 +37,9 @@ func _scene_count(scene: PackedScene) -> int:
 @export var world_bounds_path: NodePath = ^"../WorldBounds"
 @export var navigation_region_path: NodePath = ^"../NavigationRegion3D"
 @export var build_grid_path: NodePath = ^"../BuildGrid"
+## 可选的游戏专用配置；留空时读取地图编辑器保存的地表设置。
+@export var surface_settings: WFCSurfaceSettings
+@export_file("*.tres") var surface_source_map_path: String = "res://addons/MapGenerate/自动岛屿.tres"
 
 var map_data: WFCMapData
 var height_field: WFCHeightField:
@@ -83,6 +86,8 @@ func _ready() -> void:
 	_visual_rng.seed = _resource_rng.seed
 	_regrowth_rng.seed = _resource_rng.seed
 	map_data = level_config.generate_map()
+	if map_data != null and map_data.surface == null:
+		map_data.surface = _load_surface_settings()
 	generation_timings_ms["地形数据"] = Time.get_ticks_msec() - started
 	if map_data == null:
 		push_error("MapGenerate 关卡配置生成地图失败")
@@ -109,6 +114,11 @@ func _ready() -> void:
 	_build_navigation()
 	_sync_world_bounds()
 	_configure_build_grid()
+	var drying := preload("res://Script/world/building_surface_drying.gd").new()
+	drying.generator = self
+	drying.name = "BuildingSurfaceDrying"
+	add_child(drying)
+	drying.refresh()
 	var roads: Node = get_tree().get_first_node_in_group("road_manager")
 	if roads != null: roads._refresh_stroke_graph()
 	var camera: GameCameraController = get_viewport().get_camera_3d() as GameCameraController
@@ -120,6 +130,25 @@ func _ready() -> void:
 	generation_timings_ms["总计"] = Time.get_ticks_msec() - started
 	print("地图初始化耗时（毫秒）：", generation_timings_ms)
 	print("MapGenerate 地图完成：尺寸=", map_data.map_size, "单格尺寸=", map_data.cell_size_m, "中心空地=", map_data.generation_center_clear_size, "格子=", map_data.occupied_cells.size(), "资源=", _resource_points.size())
+
+
+func _load_surface_settings() -> WFCSurfaceSettings:
+	if surface_settings != null:
+		return surface_settings.duplicate(true)
+	if ResourceLoader.exists(surface_source_map_path):
+		var source := ResourceLoader.load(surface_source_map_path, "", ResourceLoader.CACHE_MODE_IGNORE) as WFCMapData
+		if source != null and source.surface != null:
+			return source.surface.duplicate(true)
+	return WFCSurfaceSettings.new()
+
+
+func set_surface_drying_sources(sources: Array[Dictionary]) -> void:
+	if is_instance_valid(_terrain_demo):
+		_terrain_demo.set_surface_drying_sources(sources)
+
+
+func sample_moisture_world(position: Vector3) -> float:
+	return map_data.sample_moisture_world(position, global_transform) if map_data != null else -1.0
 
 
 func _hide_demo_only_nodes() -> void:
@@ -603,6 +632,13 @@ func _try_place_resource(root: Node3D, scene: PackedScene, cell: Vector2i, base:
 func _place_resource_at(root: Node3D, scene: PackedScene, position: Vector3, base: Node3D, yaw: float = NAN, regrowth: Dictionary = {}) -> bool:
 	if not _resource_specs.has(scene):
 		return false
+	if _active_resource != null:
+		var probability := _active_resource.moisture_spawn_probability(sample_moisture_world(position))
+		if probability <= 0.0:
+			return false
+		var rng := _regrowth_rng if not regrowth.is_empty() else _resource_rng
+		if probability < 1.0 and rng.randf() >= probability:
+			return false
 	var spec: Vector2 = _resource_specs[scene]
 	var radius: float = spec.x
 	if _overlaps_resource_passage(position, radius):

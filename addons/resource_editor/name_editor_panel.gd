@@ -11,13 +11,10 @@ var rows: Dictionary = {}
 var status: Label
 var preview: Label
 var rng := RandomNumberGenerator.new()
+var autosave = preload("res://addons/editor_autosave.gd").new()
 
 func _init() -> void:
 	rng.randomize()
-	var save_button := Button.new()
-	save_button.text = "保存名称池"
-	save_button.pressed.connect(func() -> void: save_pool())
-	add_child(save_button)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(scroll)
@@ -25,7 +22,7 @@ func _init() -> void:
 	form.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(form)
 	var note := Label.new()
-	note.text = "每行一项。保存后统一用于该类别新生成的角色，已有角色保留原名。\n人类名字为空时随机抽两个备用字；备用字也为空时使用内置字池。"
+	note.text = "每行一项，修改后自动保存，用于新生成的角色，已有角色保留原名。\n人类名字为空时随机抽两个备用字；备用字也为空时使用内置字池。"
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	form.add_child(note)
 	pool_name = LineEdit.new()
@@ -52,8 +49,10 @@ func _init() -> void:
 	status = Label.new()
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(status)
+	autosave.configure(self, save_pool, form)
 
 func edit_pool(path: String) -> void:
+	if not autosave.pause(): return
 	pool_path = path
 	pool = load(path).duplicate(true)
 	pool_name.text = pool.display_name
@@ -62,6 +61,7 @@ func edit_pool(path: String) -> void:
 		rows[key].visible = (key == "full_names") == (pool.mode == PoolResource.Mode.FULL_NAME)
 	preview.text = ""
 	status.text = pool_path
+	autosave.suspended = false
 
 func _read_fields() -> bool:
 	pool.display_name = pool_name.text.strip_edges()

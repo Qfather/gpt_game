@@ -4,6 +4,7 @@
 
 [resource]
 albedo_texture = ExtResource("2_grass")
+normal_enabled = true
 uv1_scale = Vector3(0.75, 0.75, 0.75)
 uv1_triplanar = true
 uv1_world_triplanar = true

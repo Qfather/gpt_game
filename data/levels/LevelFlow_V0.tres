@@ -66,6 +66,7 @@ center_clear_circle = true
 [sub_resource type="Resource" id="Trees"]
 script = ExtResource("5_resource")
 display_name = "树木"
+moisture_min = 0.5
 scene = ExtResource("6_tree")
 distribution = 0
 count = 520

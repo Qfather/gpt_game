@@ -30,6 +30,14 @@ static func menu_less(a: BuildingData, b: BuildingData) -> bool:
 @export_category("建造参数")
 @export var grid_size: Vector2i = Vector2i(1, 1)
 
+@export_category("地表干燥影响")
+@export var surface_drying_enabled: bool = true
+## 从自然湿润度中最多减去的值；多个建筑取最强影响。
+@export_range(0.0, 1.0, 0.01) var surface_drying_strength: float = 0.35
+## 从占地边缘向外延伸的距离，单位米。
+@export_range(0.0, 20.0, 0.1) var surface_drying_range: float = 2.0
+@export_range(0.0, 1.0, 0.01) var surface_drying_noise: float = 0.3
+
 @export_category("资源消耗")
 ## 键填写资源ID，例如 wood（木材）、stone（石头）；值填写所需数量。
 @export var construction_cost: Dictionary[StringName, float] = {}

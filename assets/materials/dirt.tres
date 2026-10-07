@@ -1,0 +1,9 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://bmvx32l4xeorg"]
+
+[ext_resource type="Texture2D" uid="uid://bwjqtelbpc5ky" path="res://assets/textures/Dirt_Cracked_Texture_01.png" id="1_jy2vk"]
+[ext_resource type="Texture2D" uid="uid://dfirnh0khpjt8" path="res://assets/textures/Dirt_Cracked_Pebbles_Normals_01.png" id="2_biugn"]
+
+[resource]
+albedo_texture = ExtResource("1_jy2vk")
+normal_enabled = true
+normal_texture = ExtResource("2_biugn")

@@ -5,9 +5,9 @@ var failed: bool = false
 
 func _initialize() -> void:
 	for entry: Array in [
-		["res://Scene/unit/villager.tscn", 0.15, 1.6, 0.3],
-		["res://Scene/unit/migrant.tscn", 0.15, 1.6, 0.0],
-		["res://Scene/unit/enemy_base.tscn", 0.24, 1.2, 0.48]
+		["res://Scene/unit/villager.tscn", 0.075, 1.6, 0.3],
+		["res://Scene/unit/migrant.tscn", 0.075, 1.6, 0.0],
+		["res://Scene/unit/enemy_base.tscn", 0.12, 1.2, 0.48]
 	]:
 		var unit: CharacterBody3D = load(entry[0]).instantiate() as CharacterBody3D
 		var collision: CollisionShape3D = unit.get_node("CollisionShape3D") as CollisionShape3D

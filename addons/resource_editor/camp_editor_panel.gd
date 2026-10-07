@@ -54,7 +54,7 @@ func _init() -> void:
 	pool_list.item_selected.connect(_select_entry)
 	column.add_child(pool_list)
 	var hint := Label.new()
-	hint.text = "展开营地方案编辑奖励和守卫池；权重是相对抽取权重。\n保存关卡会同时保存引用的营地配置与方案；仅改本关请先复制为本关独有。"
+	hint.text = "展开营地方案编辑奖励和守卫池；权重是相对抽取权重。\n修改后自动保存引用的营地配置与方案；仅改本关请先复制为本关独有。"
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(hint)
 	inspector = EditorInspector.new()

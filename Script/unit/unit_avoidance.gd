@@ -13,11 +13,11 @@ func steer(body: CharacterBody3D, agent: NavigationAgent3D, desired: Vector3, de
 	check_time -= delta
 	turn_time -= delta
 	if check_time <= 0.0:
-		check_time = 0.15
-		shape.radius = 0.85
+		check_time = 0.075
+		shape.radius = 0.425
 		var query := PhysicsShapeQueryParameters3D.new()
 		query.shape = shape
-		query.transform = Transform3D(Basis.IDENTITY, body.global_position + Vector3(0, 0.8, 0) + forward * 0.65)
+		query.transform = Transform3D(Basis.IDENTITY, body.global_position + Vector3(0, 0.8, 0) + forward * 0.325)
 		query.collision_mask = 2
 		query.exclude = [body.get_rid()]
 		var nearest: CharacterBody3D
@@ -29,9 +29,9 @@ func steer(body: CharacterBody3D, agent: NavigationAgent3D, desired: Vector3, de
 			var offset: Vector3 = other.global_position - body.global_position
 			offset.y = 0
 			if offset.dot(forward) <= 0.0: continue
-			var predicted: Vector3 = offset + (other.velocity - desired) * 0.3
+			var predicted: Vector3 = offset + (other.velocity - desired) * 0.15
 			predicted.y = 0
-			if predicted.length() > 0.8 and offset.length() > 0.65: continue
+			if predicted.length() > 0.4 and offset.length() > 0.325: continue
 			if offset.length_squared() < nearest_distance:
 				nearest = other
 				nearest_distance = offset.length_squared()
@@ -40,28 +40,28 @@ func steer(body: CharacterBody3D, agent: NavigationAgent3D, desired: Vector3, de
 	if not is_instance_valid(other): return desired
 	var offset: Vector3 = other.global_position - body.global_position
 	offset.y = 0
-	if offset.dot(forward) <= 0.0 or offset.length() > 1.6: return desired
+	if offset.dot(forward) <= 0.0 or offset.length() > 0.8: return desired
 	if other.has_method("yield_to_unit"):
 		other.yield_to_unit(body, forward)
 	var speed: float = Vector2(desired.x, desired.z).length()
 	# 同向跟随先减速，避免后方角色不断推挤前方角色。
 	if other.velocity.length() > 0.1 and other.velocity.normalized().dot(forward) > 0.7:
-		return desired * clampf((offset.length() - 0.4) / 0.8, 0.0, 1.0)
+		return desired * clampf((offset.length() - 0.2) / 0.4, 0.0, 1.0)
 	if turn_time <= 0.0:
 		var right := Vector3(-forward.z, 0, forward.x)
 		turn_direction = Vector3.ZERO
 		for side: Vector3 in [right, -right]:
-			if can_step(body, agent, side * 0.85):
+			if can_step(body, agent, side * 0.425):
 				turn_direction = side
 				break
 		turn_time = 0.7
 	if turn_direction != Vector3.ZERO:
 		var adjusted: Vector3 = forward * 0.35 + turn_direction * 0.85
-		if can_step(body, agent, adjusted.normalized() * 0.4):
+		if can_step(body, agent, adjusted.normalized() * 0.2):
 			return Vector3(adjusted.x * speed, desired.y, adjusted.z * speed)
 	# 窄处保持固定优先级，避免双方同时前进或同时退让。
 	if body.get_instance_id() > other.get_instance_id():
-		return -forward * speed * 0.45 if can_step(body, agent, -forward * 0.5) else Vector3.ZERO
+		return -forward * speed * 0.45 if can_step(body, agent, -forward * 0.25) else Vector3.ZERO
 	return desired * 0.45
 
 

@@ -21,8 +21,7 @@ func request_return(hunter: Node) -> void:
 	hunter.state = hunter.State.HUNTING
 
 func process(hunter: Node3D, delta: float) -> void:
-	var house: Node3D = hunter.workplace
-	if not is_instance_valid(house) or house.is_queued_for_deletion():
+	if not is_instance_valid(hunter.workplace) or hunter.workplace.is_queued_for_deletion():
 		inside_processing = false
 		hunter.visible = true
 		hunter.collision_layer = 2
@@ -34,6 +33,7 @@ func process(hunter: Node3D, delta: float) -> void:
 		raw_meat = 0.0
 		hunter.finish_quit_job()
 		return
+	var house: Node3D = hunter.workplace
 	hunter.combat_attack_cooldown = maxf(hunter.combat_attack_cooldown - delta, 0.0)
 	if returning:
 		if return_destination == Vector3.INF:
@@ -71,8 +71,9 @@ func process(hunter: Node3D, delta: float) -> void:
 		return
 	if is_instance_valid(target):
 		if target.is_dead():
-			if hunter.global_position.distance_to(target.global_position) > 1.8:
-				move(hunter, target.global_position)
+			var destination: Vector3 = NavigationServer3D.map_get_closest_point(hunter.navigation_agent.get_navigation_map(), target.global_position)
+			if Vector2(hunter.global_position.x, hunter.global_position.z).distance_to(Vector2(destination.x, destination.z)) > 1.8 or absf(hunter.global_position.y - destination.y) > 1.0:
+				move(hunter, destination)
 				return
 			prey_count += 1
 			raw_meat += target.data.meat_yield
@@ -107,8 +108,8 @@ func process(hunter: Node3D, delta: float) -> void:
 	hunter.move_along_navigation()
 
 func move(hunter: Node, destination: Vector3) -> void:
-	# 静止目标只设置一次；移动猎物走出半米后才更新路径。
-	if hunter.navigation_agent.target_position.distance_squared_to(destination) > 0.25:
+	# 行走中保留路径；旧路径已经走完但仍需接近时，更新不足半米的目标移动。
+	if hunter.navigation_agent.target_position.distance_squared_to(destination) > 0.25 or hunter.navigation_agent.is_navigation_finished() and hunter.navigation_agent.target_position.distance_squared_to(destination) > 0.0001:
 		hunter.navigation_agent.target_position = destination
 	hunter.move_along_navigation()
 

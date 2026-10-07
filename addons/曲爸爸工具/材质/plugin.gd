@@ -78,6 +78,8 @@ func _apply_material() -> void:
 		undo_redo.add_undo_property(mesh_instance, "material_override", mesh_instance.material_override)
 	undo_redo.commit_action()
 	EditorInterface.mark_scene_as_unsaved()
+	if edited_scene_root != null and not edited_scene_root.scene_file_path.is_empty():
+		EditorInterface.save_scene()
 
 func _collect_mesh_instances(node: Node, targets: Array[MeshInstance3D]) -> void:
 	if node is MeshInstance3D and not targets.has(node):

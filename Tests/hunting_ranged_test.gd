@@ -184,7 +184,13 @@ func _run() -> void:
 	if not camp.training_workers.is_empty():
 		var trainee: Node = camp.training_workers[0]
 		_check(not trainee.visible, "弓箭手训练期间隐藏居民")
+		var indicator: Node = camp.get_node("OccupancyIndicator")
+		indicator._process(0)
+		var training_bars: Array = indicator.role_cards[&"resident"].training_bars
+		_check(not training_bars.is_empty() and training_bars[0].visible and training_bars[0].value < 1.0, "居民实际训练时建筑头像下显示进度，无需选中建筑")
 		_check(await _wait(func() -> bool: return trainee.get_combat_role() == CombatRole.Type.ARCHER, 600), "训练完成获得弓箭手身份")
+		indicator._process(0)
+		_check(not training_bars[0].visible, "实际训练完成后隐藏进度条")
 		_check(trainee.visible and trainee.unit_data.id == &"archer", "训练后出营并应用弓箭手配置")
 	if DisplayServer.get_name() != "headless":
 		await RenderingServer.frame_post_draw

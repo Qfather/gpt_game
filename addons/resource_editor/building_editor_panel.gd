@@ -3,6 +3,8 @@ extends HSplitContainer
 
 const BUILDING_FOLDER: String = "res://data/buildings/"
 const LABELS: Dictionary = {
+	"surface_drying_enabled": "启用地表干燥", "surface_drying_strength": "干燥强度（湿润度减量）",
+	"surface_drying_range": "向外影响范围（米）", "surface_drying_noise": "边缘起伏与内部变化",
 	"category": "建筑分类", "sort_id": "排序ID（越小越靠前）", "road_kind": "道路类型", "road_speed_multiplier": "道路移速倍率",
 	"training_role": "训练兵种（1剑士／2弓箭手）", "processing_min": "处理最短时间（秒）", "processing_max": "处理最长时间（秒）",
 	"attack_range_multiplier": "驻塔射程倍率", "base_sight_radius": "基础视野（米）", "occupied_sight_multiplier": "驻塔视野倍率",
@@ -36,6 +38,7 @@ var model_picker: EditorResourcePicker
 var storage_fields: VBoxContainer
 var resources: Array[ResourceData] = []
 var category_tabs: TabBar
+var autosave = preload("res://addons/editor_autosave.gd").new()
 
 
 func _init() -> void:
@@ -44,11 +47,11 @@ func _init() -> void:
 	var left := VBoxContainer.new()
 	left.custom_minimum_size.x = 230
 	add_child(left)
-	for action: String in ["刷新建筑列表", "保存建筑与专属参数"]:
+	for action: String in ["刷新建筑列表"]:
 		var button := Button.new()
 		button.text = action
 		left.add_child(button)
-		button.pressed.connect(refresh if action == "刷新建筑列表" else save_current)
+		button.pressed.connect(refresh)
 	preview = preload("res://addons/resource_editor/building_scene_preview.gd").new()
 	left.add_child(preview)
 	category_tabs = TabBar.new()
@@ -109,6 +112,8 @@ func _init() -> void:
 	visibility_changed.connect(func() -> void:
 		if is_visible_in_tree(): call_deferred("_translate_labels")
 	)
+	autosave.configure(self, save_current, right)
+	autosave.watch(model_picker)
 
 
 func _ready() -> void:
@@ -116,12 +121,14 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	autosave.flush()
 	if scene_root != null:
 		scene_root.free()
 		scene_root = null
 
 
 func refresh() -> void:
+	if not autosave.pause(): return
 	inspector.edit(null)
 	current = null
 	buildings.clear()
@@ -134,9 +141,11 @@ func refresh() -> void:
 			if data != null:
 				buildings.append(data)
 	_refresh_building_list()
+	autosave.suspended = false
 
 
 func _refresh_building_list(select_first: bool = true) -> void:
+	if select_first and not autosave.flush(): return
 	if building_list == null: return
 	building_list.clear()
 	var indices: Array[int] = []
@@ -174,6 +183,7 @@ func _refresh_building_list(select_first: bool = true) -> void:
 
 
 func select_building(index: int) -> void:
+	if not autosave.pause(): return
 	data_path = buildings[index].resource_path
 	current = buildings[index].duplicate(true) as BuildingData
 	current.building_scene = buildings[index].building_scene
@@ -182,6 +192,7 @@ func select_building(index: int) -> void:
 	inspector.edit(current)
 	_load_scene()
 	call_deferred("_translate_labels")
+	autosave.suspended = false
 
 
 func _load_scene() -> void:
@@ -194,7 +205,7 @@ func _load_scene() -> void:
 	field_controls.clear()
 	_update_preview()
 	_update_storage_fields()
-	status.text = "切换建筑或刷新会放弃未保存修改。\n建筑配置：" + data_path
+	status.text = "参数修改自动保存。\n建筑配置：" + data_path
 	if current.building_scene == null:
 		return
 	status.text += "\n专属参数保存到场景：" + current.building_scene.resource_path + "（影响所有引用此场景的建筑）"

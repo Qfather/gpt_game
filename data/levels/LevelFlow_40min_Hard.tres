@@ -1,14 +1,20 @@
 [gd_resource type="Resource" script_class="LevelFlowData" format=3 uid="uid://btv3w3sxavkxb"]
 
 [ext_resource type="Script" uid="uid://cyjav6b6b6q4g" path="res://Script/world/camp_pool_entry.gd" id="1_m7y26"]
-[ext_resource type="Resource" uid="uid://c28udpva1umya" path="res://data/camps/slime_camp.tres" id="2_2dml3"]
-[ext_resource type="Resource" uid="uid://cl1lij88vufrx" path="res://data/camps/wolf_camp.tres" id="3_42f0i"]
+[ext_resource type="Script" uid="uid://bgf6yenqu412o" path="res://Script/world/camp_guard_entry.gd" id="2_fshfi"]
+[ext_resource type="Resource" uid="uid://dfvxcsy3qegu1" path="res://data/enemies/raid/SlimeData.tres" id="3_go71x"]
 [ext_resource type="Script" uid="uid://bfclkuso5c6ip" path="res://Script/world/camp_spawn_config.gd" id="4_af0xk"]
+[ext_resource type="Script" uid="uid://27wnb3ml07f7" path="res://Script/world/camp_reward_entry.gd" id="4_e0era"]
+[ext_resource type="Resource" path="res://data/resources/wood.tres" id="5_nftf8"]
 [ext_resource type="Script" uid="uid://b5bj88yjc8g2j" path="res://Script/enemy/level_event_entry.gd" id="5_swnqa"]
+[ext_resource type="Resource" path="res://data/resources/stone.tres" id="6_5wver"]
 [ext_resource type="Resource" uid="uid://ctj3q8wxxytyh" path="res://data/enemies/raid/FortyMinuteGroups.tres" id="6_ou7le"]
 [ext_resource type="Script" uid="uid://bb178be55hilu" path="res://addons/MapGenerate/core/level_config.gd" id="7_8masj"]
+[ext_resource type="Script" uid="uid://c8bkg48dmhljt" path="res://Script/world/treasure_camp_data.gd" id="7_cx6x4"]
 [ext_resource type="Script" uid="uid://dimwhbjvo6um7" path="res://Script/world/map_resource_entry.gd" id="8_0v8oa"]
+[ext_resource type="Resource" uid="uid://b1056inxxe4ef" path="res://data/enemies/raid/WolfData.tres" id="8_n5qtq"]
 [ext_resource type="PackedScene" uid="uid://bjhgmbhk67241" path="res://Scene/resource/tree.tscn" id="9_bfu8i"]
+[ext_resource type="Resource" uid="uid://bcnlw6jhdnmcw" path="res://data/resources/grain.tres" id="9_nawew"]
 [ext_resource type="Script" uid="uid://cidyr0y3xr730" path="res://Script/resource/resource_hit_effect.gd" id="9_y2to8"]
 [ext_resource type="PackedScene" uid="uid://b35h0wuf0qn8a" path="res://Scene/resource/stone.tscn" id="10_2veba"]
 [ext_resource type="Script" uid="uid://bkxnpn082gwig" path="res://Script/enemy/level_flow_data.gd" id="11_ir40n"]
@@ -20,21 +26,78 @@
 [ext_resource type="Script" uid="uid://2fkm0m0oilvi" path="res://Script/trait/trait_level_data.gd" id="15_7ckty"]
 [ext_resource type="Script" uid="uid://b2ilqqawkrpyb" path="res://Script/trait/trait_data.gd" id="16_2xdbb"]
 [ext_resource type="Resource" uid="uid://bccdhdh8h8b78" path="res://data/buildings/HouseData.tres" id="17_y27eg"]
-[ext_resource type="Resource" path="res://data/buildings/FarmData.tres" id="18_y2to8"]
+[ext_resource type="Resource" uid="uid://bqu51harns8oo" path="res://data/buildings/FarmData.tres" id="18_y2to8"]
 [ext_resource type="Script" uid="uid://bouo0ry5acg1w" path="res://Script/world/prey_data.gd" id="21_y27eg"]
 [ext_resource type="PackedScene" path="res://Scene/unit/prey/rabbit.tscn" id="22_y2to8"]
 [ext_resource type="PackedScene" path="res://Scene/unit/prey/pheasant.tscn" id="23_rmmnu"]
 [ext_resource type="PackedScene" path="res://Scene/unit/prey/boar.tscn" id="24_hew13"]
 [ext_resource type="Script" uid="uid://dmvctc0klx7q8" path="res://Script/world/wildlife_config.gd" id="25_wpcg3"]
 
+[sub_resource type="Resource" id="Resource_tw8tk"]
+script = ExtResource("2_fshfi")
+enemy = ExtResource("3_go71x")
+
+[sub_resource type="Resource" id="Resource_ukhk3"]
+script = ExtResource("4_e0era")
+resource = ExtResource("5_nftf8")
+weight = 2.0
+
+[sub_resource type="Resource" id="Resource_hxlj0"]
+script = ExtResource("4_e0era")
+resource = ExtResource("6_5wver")
+minimum_amount = 3
+maximum_amount = 6
+
+[sub_resource type="Resource" id="Resource_gtj4u"]
+script = ExtResource("7_cx6x4")
+display_name = "史莱姆宝箱营地"
+guard_pool = Array[ExtResource("2_fshfi")]([SubResource("Resource_tw8tk")])
+reward_pool = Array[ExtResource("4_e0era")]([SubResource("Resource_ukhk3"), SubResource("Resource_hxlj0")])
+
 [sub_resource type="Resource" id="Resource_1vuhi"]
 script = ExtResource("1_m7y26")
-camp = ExtResource("2_2dml3")
+camp = SubResource("Resource_gtj4u")
 end_time = 600.0
+
+[sub_resource type="Resource" id="Resource_osk2r"]
+script = ExtResource("2_fshfi")
+enemy = ExtResource("8_n5qtq")
+weight = 2.0
+
+[sub_resource type="Resource" id="Resource_eiu6d"]
+script = ExtResource("2_fshfi")
+enemy = ExtResource("3_go71x")
+
+[sub_resource type="Resource" id="Resource_0id2m"]
+script = ExtResource("4_e0era")
+resource = ExtResource("5_nftf8")
+minimum_amount = 10
+maximum_amount = 15
+
+[sub_resource type="Resource" id="Resource_utvwj"]
+script = ExtResource("4_e0era")
+resource = ExtResource("6_5wver")
+weight = 2.0
+minimum_amount = 8
+maximum_amount = 12
+
+[sub_resource type="Resource" id="Resource_btxjc"]
+script = ExtResource("4_e0era")
+resource = ExtResource("9_nawew")
+minimum_amount = 8
+maximum_amount = 12
+
+[sub_resource type="Resource" id="Resource_d5e3l"]
+script = ExtResource("7_cx6x4")
+display_name = "狼群物资营地"
+minimum_guards = 2
+maximum_guards = 3
+guard_pool = Array[ExtResource("2_fshfi")]([SubResource("Resource_osk2r"), SubResource("Resource_eiu6d")])
+reward_pool = Array[ExtResource("4_e0era")]([SubResource("Resource_0id2m"), SubResource("Resource_utvwj"), SubResource("Resource_btxjc")])
 
 [sub_resource type="Resource" id="Resource_7ckty"]
 script = ExtResource("1_m7y26")
-camp = ExtResource("3_42f0i")
+camp = SubResource("Resource_d5e3l")
 start_time = 600.0
 
 [sub_resource type="Resource" id="Resource_2xdbb"]
@@ -305,6 +368,7 @@ cell_size_m = 3.0
 island_ratio_percent = 45
 center_clear_size = 8
 center_clear_circle = true
+link_expansion_rounds = 2
 
 [sub_resource type="Resource" id="Resource_qw5tw"]
 script = ExtResource("9_y2to8")
@@ -330,6 +394,7 @@ base_weight = 1.2
 altitude_weight = -0.1
 cliff_foot_bonus = 0.6
 cliff_top_bonus = 0.0
+moisture_min = 0.5
 
 [sub_resource type="Resource" id="Resource_uhyek"]
 script = ExtResource("9_y2to8")
@@ -474,6 +539,7 @@ script = ExtResource("21_y27eg")
 id = &"rabbit"
 display_name = "兔子"
 scene = ExtResource("22_y2to8")
+meat_yield = 2
 flee_speed = 3.0
 
 [sub_resource type="Resource" id="Resource_77ct0"]
@@ -482,7 +548,7 @@ id = &"pheasant"
 display_name = "野鸡"
 scene = ExtResource("23_rmmnu")
 health = 2
-meat_yield = 2
+meat_yield = 4
 
 [sub_resource type="Resource" id="Resource_3m11f"]
 script = ExtResource("21_y27eg")
@@ -490,7 +556,7 @@ id = &"boar"
 display_name = "野猪"
 scene = ExtResource("24_hew13")
 health = 3
-meat_yield = 3
+meat_yield = 6
 
 [sub_resource type="Resource" id="Resource_s437n"]
 script = ExtResource("25_wpcg3")

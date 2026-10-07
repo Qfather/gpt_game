@@ -1,7 +1,7 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene format=3 uid="uid://7nbxvx8f3js6"]
 
-[ext_resource type="Script" path="res://Script/world/forest_grid_preview.gd" id="1"]
-[ext_resource type="Script" path="res://Script/camera_controller.gd" id="2"]
+[ext_resource type="Script" uid="uid://ctkmri3xjjubv" path="res://Script/world/forest_grid_preview.gd" id="1"]
+[ext_resource type="Script" uid="uid://c1rhcaj4urwjd" path="res://Script/camera_controller.gd" id="2"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMaterial"]
 sky_top_color = Color(0.2, 0.48, 0.85, 1)
@@ -16,26 +16,25 @@ sky = SubResource("Sky")
 ambient_light_source = 3
 ambient_light_color = Color(0.8, 0.9, 1, 1)
 ambient_light_energy = 0.65
-tonemap_mode = 0
 
-[node name="ForestGridPreview" type="Node3D"]
+[node name="ForestGridPreview" type="Node3D" unique_id=610938045]
 script = ExtResource("1")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=512246812]
 environment = SubResource("Environment")
 
-[node name="Sun" type="DirectionalLight3D" parent="."]
-rotation_degrees = Vector3(-55, -30, 0)
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=746766202]
+transform = Transform3D(0.8660254, 0.40957603, -0.28678823, 0, 0.57357645, 0.81915206, 0.5, -0.7094065, 0.49673176, 0, 0, 0)
 light_color = Color(1, 0.95, 0.85, 1)
 light_energy = 1.1
 shadow_enabled = true
 directional_shadow_max_distance = 180.0
 
-[node name="Camera3D" type="Camera3D" parent="."]
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1164571265]
 current = true
 far = 500.0
 script = ExtResource("2")
 "初始视距" = 65.0
+"缩放步长" = 4.0
 "最远视距" = 170.0
 "键盘平移速度" = 25.0
-"缩放步长" = 4.0

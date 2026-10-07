@@ -9,7 +9,7 @@ radius = 0.3
 height = 1.6
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_t2dwb"]
-radius = 0.15
+radius = 0.075
 height = 1.6
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_click"]

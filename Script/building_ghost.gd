@@ -184,6 +184,7 @@ func _create_preview_mesh() -> void:
 	entrance_local = source_root.transform * BuildingBase.get_local_entrance(source_root)
 	if is_instance_valid(entrance_arrow): entrance_arrow.free()
 	entrance_arrow = BuildingBase.create_entrance_arrow(entrance_local)
+	entrance_arrow.visible = building_data.id != &"torch"
 	add_child(entrance_arrow)
 	source_root.free()
 

@@ -28,6 +28,7 @@ var status: Label
 var current: Resource
 var data_path: String
 var name_panel: Control
+var autosave = preload("res://addons/editor_autosave.gd").new()
 
 func _init() -> void:
 	custom_minimum_size = Vector2(900, 420)
@@ -37,11 +38,11 @@ func _init() -> void:
 	var left := VBoxContainer.new()
 	left.custom_minimum_size.x = 230
 	details.add_child(left)
-	for action: String in ["刷新单位列表", "保存单位配置"]:
+	for action: String in ["刷新单位列表"]:
 		var button := Button.new()
 		button.text = action
 		left.add_child(button)
-		button.pressed.connect(refresh if action == "刷新单位列表" else save_current)
+		button.pressed.connect(refresh)
 	preview = preload("res://addons/resource_editor/building_scene_preview.gd").new()
 	left.add_child(preview)
 	unit_list = ItemList.new()
@@ -75,11 +76,13 @@ func _init() -> void:
 	details.visibility_changed.connect(func() -> void:
 		if details.is_visible_in_tree(): call_deferred("_translate_labels")
 	)
+	autosave.configure(self, save_current, inspector)
 
 func _ready() -> void:
 	refresh()
 
 func refresh() -> void:
+	if not autosave.pause(): return
 	inspector.edit(null)
 	current = null
 	items.clear()
@@ -97,19 +100,22 @@ func refresh() -> void:
 	if not items.is_empty():
 		unit_list.select(0)
 		select_unit(0)
+	autosave.suspended = false
 
 func select_unit(index: int) -> void:
+	if not autosave.pause(): return
 	data_path = items[index].resource_path
 	current = items[index].duplicate(true)
 	current.set("visual_scene", items[index].get("visual_scene"))
 	inspector.edit(current)
 	_update_preview()
-	status.text = "切换或刷新会放弃未保存修改；保存只修改当前配置。\n" + data_path
+	status.text = "参数修改自动保存，仅修改当前配置。\n" + data_path
 	if current is UnitDataResource:
 		status.text += "\n居民职业共用行为场景，外观留空时使用原胶囊模型；普通居民不主动参战。"
 	else:
 		status.text += "\n敌人沿用关卡引用的原资源；改动将影响所有引用它的关卡和营地。"
 	call_deferred("_translate_labels")
+	autosave.suspended = false
 
 func _update_preview() -> void:
 	var visual: PackedScene = current.get("visual_scene") as PackedScene

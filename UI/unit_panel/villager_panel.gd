@@ -141,6 +141,10 @@ func refresh():
 	job_label.text = "职业：" + _get_display_name(JOB_DISPLAY_NAMES, job_index)
 	combat_role_label.text = "军事职业：" + CombatRole.get_display_name(combat_role_index)
 	state_label.text = "状态：" + _get_display_name(STATE_DISPLAY_NAMES, state_index)
+	if state_index == villager.State.COMBAT_MOVE and villager.unit_data.uses_arrows:
+		var remaining: Vector3 = villager.navigation_agent.target_position - villager.global_position
+		remaining.y = 0.0
+		state_label.text = "状态：退回据点" if remaining.length() > villager.navigation_agent.target_desired_distance + 0.5 else "状态：据点警戒"
 	if villager.is_waiting_for_crop():
 		state_label.text = "状态：等待庄稼成熟"
 	if state_index == villager.State.WORKING_FIELD and is_instance_valid(villager.target_field):
@@ -172,9 +176,9 @@ func refresh():
 
 	var carried_amount: float = float(villager.call("get_carried_amount"))
 	if villager.is_hunter() and villager.hunting.prey_count > 0:
-		carry_label.text = "携带：猎物 %d / 3（处理后产肉%d）" % [villager.hunting.prey_count, villager.hunting.raw_meat]
+		carry_label.text = "携带猎物：%d / 3只\n处理后产肉：%.0f" % [villager.hunting.prey_count, villager.hunting.raw_meat]
 		if carried_amount > 0.0:
-			carry_label.text += "；运肉 %.1f" % carried_amount
+			carry_label.text += "\n运肉：%.1f" % carried_amount
 	elif carried_amount <= 0.0:
 		carry_label.text = "携带：无"
 	else:

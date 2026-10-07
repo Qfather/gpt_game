@@ -41,6 +41,8 @@ const LABELS: Dictionary = {
 	"near_distance_max": "近处最大距离", "far_distance_min": "远处最小距离",
 	"base_weight": "基础权重", "altitude_weight": "每层海拔权重增量",
 	"cliff_foot_bonus": "崖脚权重加成", "cliff_top_bonus": "崖顶权重加成",
+	"moisture_min": "最低湿润度（0 干燥）", "moisture_max": "最高湿润度（1 潮湿）",
+	"moisture_outside_probability": "适宜范围外生成概率（0.1=10%）",
 	"regrowth_enabled": "启用资源再生", "regrowth_mode": "再生方式",
 	"regrowth_wait_min": "再生等待最短时间（秒）", "regrowth_wait_max": "再生等待最长时间（秒）",
 	"growth_time_min": "最短生长时间（秒）", "growth_time_max": "最长生长时间（秒）",

@@ -16,6 +16,8 @@
 
 [resource]
 script = ExtResource("1_j88lm")
+use_moisture = true
+use_moisture = true
 count = 1000
 scale_min = 0.51
 scale_max = 1.21
@@ -48,6 +50,7 @@ species = Array[Dictionary]([{
 "scene": ExtResource("5_myqvs"),
 "weight": 1.0
 }]),
+"moisture_min": 0.5,
 "name": "示例小草",
 "weight": 8.0
 }, {
@@ -80,6 +83,7 @@ species = Array[Dictionary]([{
 "scene": ExtResource("9_vwngo"),
 "weight": 1.0
 }]),
+"moisture_min": 0.7,
 "name": "示例小花",
 "weight": 2.0
 }, {

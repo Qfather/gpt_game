@@ -31,6 +31,7 @@ var required_resources: Dictionary[StringName, float] = {}
 var delivered_resources: Dictionary[StringName, float] = {}
 var reserved_resources: Dictionary[StringName, float] = {}
 var construction_progress: float = 0.0
+var construction_started: bool = false
 var exterior_construction_started: bool = false
 var cancellation_progress: float = 0.0
 var cancellation_duration: float = 0.0
@@ -121,7 +122,23 @@ func _ready() -> void:
 
 
 func is_blueprint() -> bool:
-	return construction_progress <= 0.0 and state != State.BUILDING
+	return not construction_started and construction_progress <= 0.0 and state != State.BUILDING
+
+
+func can_be_moved() -> bool:
+	return building_data != null and is_blueprint() and state in [State.WAITING_RESOURCES, State.READY_TO_BUILD] and not is_destroyed() and not is_queued_for_deletion()
+
+
+func get_relocation_cost(_new_position: Vector3) -> Dictionary[StringName, float]:
+	return {}
+
+
+func relocate(grid: BuildGrid, new_grid_position: Vector2i, new_rotation_step: int, new_mirrored: bool, new_transform: Transform3D) -> bool:
+	if not super.relocate(grid, new_grid_position, new_rotation_step, new_mirrored, new_transform): return false
+	grid_position = new_grid_position
+	rotation_step = new_rotation_step
+	mirrored = new_mirrored
+	return true
 
 
 func take_damage(amount: float, source: Node = null) -> float:
@@ -821,7 +838,8 @@ func _calculate_model_bounds() -> void:
 	var model: Node3D = visual_scene.instantiate() as Node3D
 	if model == null:
 		return
-	add_child(BuildingBase.create_entrance_arrow(model.transform * BuildingBase.get_local_entrance(model)))
+	if building_data.id != &"torch":
+		add_child(BuildingBase.create_entrance_arrow(model.transform * BuildingBase.get_local_entrance(model)))
 
 	var mesh_nodes: Array[Node] = model.find_children(
 		"*",
@@ -1278,6 +1296,7 @@ func add_builder(worker: Node) -> bool:
 	waiting_workers.erase(worker)
 	delivery_workers.erase(worker)
 	builders.append(worker)
+	construction_started = true
 	if state == State.READY_TO_BUILD:
 		state = State.BUILDING
 		state_changed.emit(state)

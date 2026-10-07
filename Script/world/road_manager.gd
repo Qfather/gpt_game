@@ -56,7 +56,7 @@ func refresh_stroke_obstacles() -> void:
 	for node: Node in get_tree().get_nodes_in_group("resources"):
 		var resource: ResourceBase = node as ResourceBase
 		if resource == null or resource.is_queued_for_deletion(): continue
-		var bounds: AABB = resource.get_build_obstacle_bounds()
+		var bounds: AABB = resource.get_build_obstacle_bounds(true)
 		if bounds.size == Vector3.ZERO: continue
 		resources.append(resource)
 		inputs.append([resource.get_instance_id(), bounds, resource.global_transform])
@@ -65,7 +65,7 @@ func refresh_stroke_obstacles() -> void:
 	stroke_resource_cells.clear()
 	var footprints: Dictionary = {}
 	for resource: ResourceBase in resources:
-		var bounds: AABB = resource.get_build_obstacle_bounds()
+		var bounds: AABB = resource.get_build_obstacle_bounds(true)
 		var id: int = resource.get_instance_id()
 		var snapshot: Array = [bounds, resource.global_transform]
 		if stroke_resource_footprints.has(id) and stroke_resource_footprints[id][0] == snapshot:
@@ -80,7 +80,7 @@ func refresh_stroke_obstacles() -> void:
 				var cell := Vector2i(x, y)
 				var center: Vector3 = grid.grid_to_world(cell)
 				var box := AABB(Vector3(center.x - grid.cell_size * 0.5, bounds.position.y, center.z - grid.cell_size * 0.5), Vector3(grid.cell_size, bounds.size.y, grid.cell_size))
-				if resource.overlaps_clearance_box(box, Transform3D.IDENTITY): covered[cell] = true
+				if resource.overlaps_clearance_box(box, Transform3D.IDENTITY, true): covered[cell] = true
 		footprints[id] = [snapshot, covered]
 		stroke_resource_cells.merge(covered)
 	stroke_resource_footprints = footprints
@@ -130,7 +130,8 @@ func _ready() -> void:
 	if grid == null: grid = get_node("../Systems/BuildGrid")
 
 func can_place(cell: Vector2i) -> bool:
-	return grid.is_area_free(cell, Vector2i.ONE, 0, false, true)
+	refresh_stroke_obstacles()
+	return can_work_cell(cell)
 
 # 同一物理帧的全部施工居民共用资源占地；建筑占地仍逐次检查。
 func can_work_cell(cell: Vector2i) -> bool:

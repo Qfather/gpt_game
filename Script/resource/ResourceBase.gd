@@ -49,8 +49,8 @@ var _build_obstacle_shape: Shape3D
 var _build_obstacle_bounds: AABB
 
 
-func get_build_obstacle_bounds() -> AABB:
-	var collision: CollisionShape3D = get_node_or_null("ClickArea/CollisionShape3D") as CollisionShape3D
+func get_build_obstacle_bounds(physical_only: bool = false) -> AABB:
+	var collision: CollisionShape3D = get_node_or_null("StaticBody3D/CollisionShape3D" if physical_only else "ClickArea/CollisionShape3D") as CollisionShape3D
 	if collision == null:
 		collision = get_node_or_null("StaticBody3D/CollisionShape3D") as CollisionShape3D
 	if collision == null or collision.disabled or collision.shape == null:
@@ -69,12 +69,12 @@ func _refresh_build_obstacle_bounds() -> void:
 	_build_obstacle_bounds = _build_obstacle_shape.get_debug_mesh().get_aabb()
 
 
-func overlaps_clearance_box(bounds: AABB, box_transform: Transform3D) -> bool:
-	var own_bounds: AABB = get_build_obstacle_bounds()
+func overlaps_clearance_box(bounds: AABB, box_transform: Transform3D, physical_only: bool = false) -> bool:
+	var own_bounds: AABB = get_build_obstacle_bounds(physical_only)
 	var box_bounds: AABB = box_transform * bounds
 	if own_bounds.size == Vector3.ZERO or not own_bounds.intersects(box_bounds):
 		return false
-	var collision: CollisionShape3D = get_node_or_null("ClickArea/CollisionShape3D") as CollisionShape3D
+	var collision: CollisionShape3D = get_node_or_null("StaticBody3D/CollisionShape3D" if physical_only else "ClickArea/CollisionShape3D") as CollisionShape3D
 	if collision == null:
 		collision = get_node("StaticBody3D/CollisionShape3D") as CollisionShape3D
 	var outline: PackedVector2Array = ResourceSpacing.projected_box(bounds, box_transform)

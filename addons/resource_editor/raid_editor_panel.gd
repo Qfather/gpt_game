@@ -38,6 +38,7 @@ var preset_path_label: Label
 var environment_panel: Control
 var camp_editor_panel: Control
 var preset_dialog: EditorFileDialog
+var autosave = preload("res://addons/editor_autosave.gd").new()
 
 
 func _ready() -> void:
@@ -47,6 +48,7 @@ func _ready() -> void:
 	_build_ui()
 	_build_preset_tabs()
 	_load_resources()
+	autosave.configure(self, _save_all, self)
 
 
 func _build_preset_tabs() -> void:
@@ -54,7 +56,6 @@ func _build_preset_tabs() -> void:
 	var toolbar := HBoxContainer.new()
 	add_child(toolbar)
 	_add_button(toolbar, "打开关卡预设", _open_preset)
-	_add_button(toolbar, "保存关卡", _save_all)
 	_add_button(toolbar, "另存为关卡预设", _save_preset_as)
 	preset_path_label = Label.new()
 	toolbar.add_child(preset_path_label)
@@ -80,17 +81,8 @@ func _build_preset_tabs() -> void:
 
 
 func _open_preset() -> void:
-	# 显式提醒，避免切换预设时悄悄丢弃未保存修改。
-	var confirm := ConfirmationDialog.new()
-	confirm.dialog_text = "打开其他预设将放弃当前未保存的修改，是否继续？"
-	add_child(confirm)
-	confirm.confirmed.connect(func() -> void:
-		confirm.hide()
-		confirm.queue_free()
-		call_deferred("_show_open_preset")
-	)
-	confirm.canceled.connect(confirm.queue_free)
-	confirm.popup_centered()
+	if autosave.flush():
+		_show_open_preset()
 
 
 func _show_open_preset() -> void:
@@ -106,6 +98,7 @@ func _save_preset_as() -> void:
 
 
 func _preset_file_selected(path: String) -> void:
+	if not autosave.flush(): return
 	if preset_dialog.file_mode == EditorFileDialog.FILE_MODE_OPEN_FILE:
 		if not ResourceLoader.load(path) is LevelFlowData:
 			push_error("所选文件不是关卡预设")
@@ -127,7 +120,6 @@ func _build_ui() -> void:
 	title.add_theme_font_size_override("font_size", 20)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	toolbar.add_child(title)
-	_add_button(toolbar, "保存全部", _save_all)
 	_add_button(toolbar, "刷新时间线", _refresh_pressed)
 	delete_group_dialog = ConfirmationDialog.new()
 	delete_group_dialog.title = "删除怪物组"
@@ -296,6 +288,7 @@ func _make_spin(parent: VBoxContainer, caption: String, minimum: float, maximum:
 
 
 func _load_resources() -> void:
+	if not autosave.pause(): return
 	selected_event = null
 	selected_group = null
 	level_flow = ResourceLoader.load(preset_path, "", ResourceLoader.CACHE_MODE_IGNORE) as LevelFlowData
@@ -326,6 +319,7 @@ func _load_resources() -> void:
 	if timeline.get_root() != null and timeline.get_root().get_first_child() != null:
 		timeline.get_root().get_first_child().select(0)
 		_on_timeline_selected()
+	autosave.suspended = false
 
 
 func _ensure_group_ids() -> void:
@@ -622,6 +616,7 @@ func _on_delete_group_confirmed() -> void:
 	_refresh_group_options()
 	_refresh_timeline()
 	_update_config_visibility()
+	autosave.request()
 
 
 func _make_unique_group_id() -> StringName:

@@ -253,6 +253,10 @@ func _on_health_component_changed(
 func _on_health_component_damaged(amount: float, source: Node) -> void:
 	if amount > 0.0:
 		preload("res://Script/combat/damage_flash.gd").flash(get_node_or_null("VisualRoot"))
+		if is_instance_valid(source) and source is Node3D:
+			var direction: Vector3 = global_position - source.global_position
+			direction.y = 0.0
+			external_force = direction.normalized() * 3.0
 	damaged.emit(amount, source)
 
 

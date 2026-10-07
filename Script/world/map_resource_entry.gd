@@ -31,6 +31,11 @@ extends Resource
 @export var cliff_foot_bonus: float = 1.0
 @export var cliff_top_bonus: float = 0.4
 
+@export_group("适宜湿润度")
+@export_range(0, 1, 0.01) var moisture_min: float = 0.0
+@export_range(0, 1, 0.01) var moisture_max: float = 1.0
+@export_range(0, 1, 0.01) var moisture_outside_probability: float = 0.0
+
 @export_group("生长与再生")
 @export var regrowth_enabled: bool = true
 @export_enum("原地再生", "簇内随机再生") var regrowth_mode: int = 1
@@ -73,7 +78,25 @@ func validation_error() -> String:
 		return "生长时间范围无效"
 	if mature_scale_min <= 0 or mature_scale_max < mature_scale_min:
 		return "成熟缩放范围无效"
+	if moisture_min < 0.0 or moisture_max > 1.0 or moisture_max < moisture_min:
+		return "适宜湿润度范围无效：需满足 0 ≤ 最低湿润度 ≤ 最高湿润度 ≤ 1"
+	if moisture_outside_probability < 0.0 or moisture_outside_probability > 1.0:
+		return "适宜范围外生成概率需在 0～1 之间"
 	return ""
+
+
+func accepts_moisture(value: float) -> bool:
+	# 默认范围不限制分布，兼容没有湿润数据的旧地图。
+	if moisture_min == 0.0 and moisture_max == 1.0:
+		return true
+	return value >= moisture_min and value <= moisture_max
+
+
+func moisture_spawn_probability(value: float) -> float:
+	# 0 概率完整保留现有硬范围；完整 0～1 范围也保留旧地图兼容性。
+	if accepts_moisture(value) and (moisture_outside_probability == 0.0 or (moisture_min == 0.0 and moisture_max == 1.0)):
+		return 1.0
+	return WFCMoistureMap.suitability(value, moisture_min, moisture_max, moisture_outside_probability)
 
 
 func _validate_property(property: Dictionary) -> void:

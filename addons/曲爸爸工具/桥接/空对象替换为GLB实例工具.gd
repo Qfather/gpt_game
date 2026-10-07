@@ -182,6 +182,9 @@ func _replace_all_groups() -> void:
 		undo_redo.add_undo_method(self, "_undo_replace", record)
 	undo_redo.commit_action()
 	EditorInterface.mark_scene_as_unsaved()
+	var edited_scene := EditorInterface.get_edited_scene_root()
+	if edited_scene != null and not edited_scene.scene_file_path.is_empty():
+		EditorInterface.save_scene()
 	_dialog.hide()
 
 func _collect_point_groups(node: Node, found: Array[Dictionary]) -> void:

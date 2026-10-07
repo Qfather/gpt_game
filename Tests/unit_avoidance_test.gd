@@ -48,7 +48,8 @@ func _run() -> void:
 			assert(absf(first.position.z) < 1.7 and absf(second.position.z) < 1.7, "避让不能走出导航通道")
 			if first._arrival_notified and second._arrival_notified: break
 		assert(first._arrival_notified and second._arrival_notified, "对向角色必须能通过一格道路")
-		assert(minimum_separation >= 0.29, "角色不能靠穿透通过")
+		print("对向避让最近距离：", minimum_separation)
+		assert(minimum_separation >= 0.145, "两个半径 0.075 米的角色不能靠穿透通过")
 		print("对向避让通过：倍速=", speed, " 最近距离=", minimum_separation)
 		first.queue_free()
 		second.queue_free()
