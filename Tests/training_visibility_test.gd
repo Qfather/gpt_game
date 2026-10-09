@@ -19,7 +19,8 @@ func _run() -> void:
 	var base: Node3D = get_first_node_in_group("bases") as Node3D
 	var camp: SwordsmanCamp = load("res://Scene/building/game/swordsman_camp.tscn").instantiate()
 	camp.building_data = load("res://data/buildings/SwordsmanCampData.tres").duplicate(true)
-	camp.training_time = 2.0
+	camp.building_data = camp.building_data.duplicate(true)
+	camp.building_data.training_recipes[0].time_seconds = 2.0
 	main.add_child(camp)
 	camp.global_position = base.global_position + Vector3(5, 0, 0)
 	var manager: TaskManager = get_first_node_in_group("task_manager") as TaskManager

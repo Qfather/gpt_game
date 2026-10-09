@@ -10,7 +10,7 @@ class ResidentPortrait extends Control:
 		draw_rect(Rect2(11, 14, 2, 3), Color("302b27"))
 		draw_rect(Rect2(20, 14, 2, 3), Color("302b27"))
 		match role:
-			&"swordsman":
+			&"swordsman", &"militia":
 				draw_rect(Rect2(6, 3, 20, 9), Color("91a5b7"))
 				draw_rect(Rect2(7, 22, 18, 12), Color("657e98"))
 				draw_line(Vector2(27, 30), Vector2(27, 13), Color("eef4ff"), 3)
@@ -31,7 +31,7 @@ var building: BuildingBase
 var panel: Control
 var count_label: Label
 var sleep_label: Label
-const ROLE_NAMES: Dictionary = {&"resident": "居民", &"swordsman": "剑士", &"archer": "弓箭手", &"hunter": "猎人"}
+const ROLE_NAMES: Dictionary = {&"resident": "居民", &"militia": "民兵", &"swordsman": "剑士", &"archer": "弓箭手", &"hunter": "猎人"}
 var role_cards: Dictionary = {}
 var role_counts: Dictionary = {}
 
@@ -104,6 +104,7 @@ func _process(_delta: float) -> void:
 	for resident: Node in residents:
 		var role: StringName = &"resident"
 		match resident.get_combat_role():
+			CombatRole.Type.MILITIA: role = &"militia"
 			CombatRole.Type.SWORDSMAN: role = &"swordsman"
 			CombatRole.Type.ARCHER: role = &"archer"
 			_:
@@ -111,7 +112,8 @@ func _process(_delta: float) -> void:
 		role_counts[role] = int(role_counts.get(role, 0)) + 1
 		if resident.state == resident.State.RESTING:
 			sleep_label.visible = true
-		if resident.state == resident.State.TRAINING and resident.task_site == building:
+		var processing: bool = resident.is_hunter() and resident.hunting.inside_processing and resident.workplace == building
+		if (resident.state == resident.State.TRAINING and resident.task_site == building) or processing:
 			var training_index: int = int(training_counts.get(role, 0))
 			var bars: Array = role_cards[role].training_bars
 			if training_index >= bars.size():
@@ -134,7 +136,7 @@ func _process(_delta: float) -> void:
 				role_cards[role].panel.add_child(bar)
 				bars.append(bar)
 			var bar: ProgressBar = bars[training_index]
-			bar.value = resident.get_training_progress()
+			bar.value = resident.hunting.get_processing_progress() if processing else resident.get_training_progress()
 			bar.show()
 			training_counts[role] = training_index + 1
 	var index: int = 0

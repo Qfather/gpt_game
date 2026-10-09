@@ -52,7 +52,7 @@ func _run() -> void:
 		if worker.state == worker.State.DEPOSIT_TO_WORKPLACE: break
 		await physics_frame
 	_expect(worker.state == worker.State.DEPOSIT_TO_WORKPLACE and worker.position.distance_to(Vector3(-7,0,-3)) > 1.0, "居民实际走到可用入口进入卸货状态")
-	if worker.state == worker.State.DEPOSIT_TO_WORKPLACE: worker.deposit_to_workplace()
+	if worker.state == worker.State.DEPOSIT_TO_WORKPLACE: await worker.deposit_to_workplace()
 	_expect(worker.carried_amount == 0 and lumber.get_resource_amount(&"wood") == 3, "木材实际入库，伐木工恢复找树")
 	# 模拟已持有旧入口坐标的居民，停在导航末端但仍未到入口。
 	worker.position = Vector3(-7,0,-3)

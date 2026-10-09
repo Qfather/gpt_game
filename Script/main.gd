@@ -10,6 +10,9 @@ var level_config: LevelConfig = preload("res://data/levels/Level_01.tres")
 
 
 func _enter_tree() -> void:
+	var catalog := BuildingCatalog.new()
+	catalog.name = "BuildingCatalog"
+	add_child(catalog)
 	$buildings/Base.set_building_data(preload("res://data/buildings/BaseData.tres"))
 	if level_preset == null:
 		return
@@ -50,6 +53,7 @@ var road_tool: Node
 var selected_mesh_overlays: Dictionary = {}
 var selection_outline_material: ShaderMaterial
 var selected_building_range: MeshInstance3D
+var selected_entrance_arrow: MeshInstance3D
 var paused_game_commands: Array[Callable] = []
 var enemy_placement_active: bool = false
 var enemy_preview: Node3D = null
@@ -609,6 +613,12 @@ func _select_world_object(target: Node3D) -> void:
 		return
 
 	selected_object = target
+	if is_instance_valid(selected_entrance_arrow): selected_entrance_arrow.queue_free()
+	selected_entrance_arrow = null
+	if target is BuildingBase and not target is ConstructionSite and not (target.building_data != null and (target.building_data.is_wall() or target.building_data.is_wall_tower())):
+		var entrance: Vector3 = target.to_local(target.get_entrance_position())
+		selected_entrance_arrow = BuildingBase.create_entrance_arrow(entrance, BuildingBase.get_entrance_footprint(target))
+		target.add_child(selected_entrance_arrow)
 	_show_selected_building_range(target)
 	selected_objects = [target]
 	if bool(target.get_meta("selection_double_click", false)):
@@ -647,7 +657,10 @@ func _show_selected_building_range(target: Node3D) -> void:
 	var radius: float = 0.0
 	var center: Vector3 = target.global_position
 	var color := Color(0.25, 0.7, 1.0, 0.85)
-	if target is ResourceBuildingBase:
+	if target.has_method("allows_garrison_attacks"):
+		radius = target.alarm_radius
+		color = Color(0.3, 1.0, 0.4, 0.85)
+	elif target is ResourceBuildingBase:
 		radius = target.idle_radius if target is Farm else target.work_radius
 		if not target is Farm:
 			color = Color(0.3, 1.0, 0.4, 0.85)
@@ -681,6 +694,8 @@ func _show_selected_building_range(target: Node3D) -> void:
 
 
 func _clear_selection_highlight() -> void:
+	if is_instance_valid(selected_entrance_arrow): selected_entrance_arrow.queue_free()
+	selected_entrance_arrow = null
 	if is_instance_valid(selected_building_range):
 		selected_building_range.hide()
 	for mesh_variant: Variant in selected_mesh_overlays.keys():

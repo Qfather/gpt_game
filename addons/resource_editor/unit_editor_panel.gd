@@ -5,6 +5,7 @@ const UnitDataResource = preload("res://Script/unit/unit_data.gd")
 
 const FOLDERS: Array[String] = ["res://data/units/", "res://data/enemies/raid/", "res://data/enemies/rift/"]
 const LABELS: Dictionary = {
+	"combat_role": "军事身份／战斗方式",
 	"uses_arrows": "使用箭矢攻击", "arrow_speed": "箭矢速度（米/秒）",
 	"id": "稳定ID", "display_name": "名称", "description": "说明", "visual_scene": "外观模型场景",
 	"fixed_name": "固定名字（留空按类别随机）",

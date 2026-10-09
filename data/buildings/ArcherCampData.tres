@@ -1,6 +1,20 @@
 [gd_resource type="Resource" format=3]
 [ext_resource type="Script" path="res://Script/building_data.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scene/building/game/archer_camp.tscn" id="2"]
+[ext_resource type="Script" path="res://Script/training_recipe.gd" id="recipe_script"]
+
+[sub_resource type="Resource" id="recipe"]
+script = ExtResource("recipe_script")
+unit_id = &"archer"
+cost = Dictionary[StringName, float]({&"wood": 5.0, &"stone": 5.0})
+time_seconds = 10.0
+
+[sub_resource type="Resource" id="militia_recipe"]
+script = ExtResource("recipe_script")
+unit_id = &"militia"
+cost = Dictionary[StringName, float]({&"wood": 5.0})
+time_seconds = 10.0
+
 [resource]
 script = ExtResource("1")
 category = 1
@@ -16,3 +30,10 @@ construction_time = 20.0
 max_construction_workers = 3
 garrison_capacity = 0
 storage_capacities = Dictionary[StringName, float]({})
+
+tier = 1
+allow_direct_build = false
+upgrade_from_id = &"militia_camp"
+upgrade_cost = Dictionary[StringName, float]({&"wood": 15.0, &"stone": 10.0})
+upgrade_time = 20.0
+training_recipes = Array[ExtResource("recipe_script")]([SubResource("recipe"), SubResource("militia_recipe")])

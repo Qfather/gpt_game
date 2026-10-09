@@ -43,7 +43,7 @@ func _run() -> void:
 			_expect(not _visible(data, "road_speed_mode") and not _visible(data, "road_material"), "普通建筑隐藏道路参数：" + String(data.id))
 			_expect(not panel.tabs.is_tab_hidden(1) and not panel.tabs.is_tab_hidden(2) and panel.model_picker.visible == (not data.is_wall()), "切回建筑恢复适用模型和参数页：" + String(data.id))
 			_expect(_visible(data, "garrison_capacity") == (data.id in [&"barracks", &"arrow_tower"] or data.is_wall_tower()), "驻军容量按功能显示：" + String(data.id))
-			_expect(_visible(data, "training_cost") == (data.id in [&"swordsman_camp", &"archer_camp"]), "训练成本按功能显示：" + String(data.id))
+			_expect(_visible(data, "training_cost") == (data.training_recipes.is_empty() and data.id in [&"swordsman_camp", &"archer_camp"]), "公共配方启用后隐藏旧训练成本：" + String(data.id))
 			data.surface_drying_enabled = false
 			_expect(not _visible(data, "surface_drying_range") and _visible(data, "surface_drying_enabled"), "关闭干燥隐藏下方参数：" + String(data.id))
 			data.surface_drying_enabled = true

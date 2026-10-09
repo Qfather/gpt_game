@@ -6,6 +6,7 @@ var raw_meat: float = 0.0
 var returning: bool = false
 var return_destination: Vector3 = Vector3.INF
 var processing_time: float = -1.0
+var processing_duration: float = 0.0
 var inside_processing: bool = false
 var roam_time: float = 0.0
 var bundle: MeshInstance3D
@@ -39,13 +40,16 @@ func process(hunter: Node3D, delta: float) -> void:
 		if return_destination == Vector3.INF:
 			return_destination = hunter._get_reachable_workplace_position()
 		var destination: Vector3 = return_destination
-		if not inside_processing and not house.is_at_entrance_front(hunter.global_position):
+		var near_destination: bool = Vector2(hunter.global_position.x, hunter.global_position.z).distance_to(Vector2(destination.x, destination.z)) <= hunter.navigation_agent.target_desired_distance + 0.05
+		if not inside_processing and (not near_destination or not house.is_at_entrance_front(hunter.global_position, 0.2)):
 			move(hunter, destination)
 			return
 		hunter.velocity = Vector3.ZERO
 		if prey_count > 0:
 			if not inside_processing:
-				if processing_time < 0.0: processing_time = randf_range(house.processing_min, house.processing_max)
+				if processing_time < 0.0:
+					processing_time = randf_range(house.processing_min, house.processing_max)
+					processing_duration = processing_time
 				_enter_house(hunter, house)
 				return
 			processing_time -= delta
@@ -114,6 +118,9 @@ func move(hunter: Node, destination: Vector3) -> void:
 		hunter.navigation_agent.target_position = destination
 	hunter.move_along_navigation()
 
+func get_processing_progress() -> float:
+	return clampf(1.0 - processing_time / processing_duration, 0.0, 1.0) if processing_duration > 0.0 else 0.0
+
 func transport_meat(hunter: Node, house: Node) -> bool:
 	if not is_instance_valid(hunter.target_base): hunter.find_base()
 	if not is_instance_valid(hunter.target_base): return false
@@ -136,7 +143,8 @@ func _enter_house(hunter: Node, house: BuildingBase) -> void:
 
 func _leave_house(hunter: Node, house: BuildingBase, needs_space: bool) -> void:
 	inside_processing = false
-	await hunter._pass_building_door(house, false)
+	var exit_position: Vector3 = house.get_front_entry_position(return_destination) if return_destination != Vector3.INF else Vector3.INF
+	await hunter._pass_building_door(house, false, exit_position)
 	if hunter.is_dead() or not is_instance_valid(house): return
 	if needs_space:
 		transport_meat(hunter, house)

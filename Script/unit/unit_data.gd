@@ -34,6 +34,7 @@ const PARAMETERS: Dictionary = {
 @export_range(1, 1000, 1) var carry_capacity: float = 5.0
 
 @export_category("战斗")
+@export_enum("非军事单位", "近战士兵", "弓箭手", "民兵") var combat_role: int = 0
 @export var uses_arrows: bool = false
 @export_range(1, 100, 0.1) var arrow_speed: float = 18.0
 @export_range(0, 100000, 0.1) var damage: float = 10.0

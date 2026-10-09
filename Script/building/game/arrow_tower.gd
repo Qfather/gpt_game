@@ -4,6 +4,17 @@ extends Barracks
 @export_range(1, 5, 0.1) var attack_range_multiplier: float = 1.5
 @export_range(1, 100, 0.1) var base_sight_radius: float = 12.0
 @export_range(1, 5, 0.1) var occupied_sight_multiplier: float = 1.5
+@export_range(1, 100, 0.1) var alarm_radius: float = 20.0
+
+func _ready() -> void:
+	super._ready()
+	add_to_group("alarm_towers")
+
+func is_staffed() -> bool:
+	if is_destroyed() or is_queued_for_deletion() or is_demolition_in_progress(): return false
+	for unit: Node in garrisoned_units:
+		if is_instance_valid(unit) and not unit.is_queued_for_deletion() and unit.garrisoned_in == self and unit.get_combat_role() == CombatRole.Type.ARCHER and unit.state == unit.State.GARRISONED and not unit.passing_door and not unit.is_dead(): return true
+	return false
 
 func get_garrison_role() -> int:
 	return CombatRole.Type.ARCHER

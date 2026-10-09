@@ -14,7 +14,9 @@ func refresh(base: Node3D) -> void:
 	var map: RID = base.get_world_3d().navigation_map
 	if NavigationServer3D.map_get_iteration_id(map) == 0: return
 	var roads: Node = base.get_tree().get_first_node_in_group("road_manager")
-	var own_cells: Array[Vector2i] = grid._get_area_cells(base.build_grid_position, base.build_grid_size, base.build_grid_rotation_step) if base.build_grid_area_registered else []
+	var own_cells: Array[Vector2i] = []
+	if base.build_grid_area_registered:
+		own_cells = grid._get_area_cells(base.build_grid_position, base.build_grid_size, base.build_grid_rotation_step)
 	var resource_bounds: Array[AABB] = []
 	for resource: Node3D in base.get_tree().get_nodes_in_group("resources"):
 		if resource.is_queued_for_deletion(): continue

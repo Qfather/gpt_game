@@ -4,7 +4,7 @@ extends UnitPanelBase
 const RESOURCE_DATABASE: ResourceDatabase = preload(
 	"res://data/resources/resource_database.tres"
 )
-const JOB_DISPLAY_NAMES: PackedStringArray = ["无业", "伐木工", "矿工", "农夫", "猎户", "瞭望员"]
+const JOB_DISPLAY_NAMES: PackedStringArray = ["无业", "伐木工", "矿工", "农夫", "猎户"]
 const STATE_DISPLAY_NAMES: PackedStringArray = [
 	"待命",
 	"需要进食",
@@ -56,8 +56,7 @@ const STATE_DISPLAY_NAMES: PackedStringArray = [
 	"前往迁移后的建筑",
 	"前往道路施工",
 	"道路施工中",
-	"建筑内避难",
-	"登塔值班"
+	"建筑内避难"
 ]
 const TASK_DISPLAY_NAMES: PackedStringArray = ["运输建造材料", "建筑施工", "训练剑士", "回收战利品", "维修建筑", "道路施工"]
 
@@ -141,6 +140,7 @@ func refresh():
 	var state_index: int = int(villager.get("state"))
 	job_label.text = "职业：" + _get_display_name(JOB_DISPLAY_NAMES, job_index)
 	combat_role_label.text = "军事职业：" + CombatRole.get_display_name(combat_role_index)
+	combat_role_label.text += "\n战斗职责：" + CombatRole.get_duty_display_name(villager.get_combat_duty())
 	state_label.text = "状态：" + _get_display_name(STATE_DISPLAY_NAMES, state_index)
 	if state_index == villager.State.COMBAT_MOVE and villager.unit_data.uses_arrows:
 		var remaining: Vector3 = villager.navigation_agent.target_position - villager.global_position

@@ -4,6 +4,10 @@ extends BuildingPanelBase
 signal move_requested(building: BuildingBase)
 
 var move_button: Button
+var upgrade_choices: VBoxContainer
+var upgrade_choices_key: String = ""
+var training_choices: VBoxContainer
+var training_choices_key: String = ""
 var upgrade_button: Button
 
 var priority_row: HBoxContainer
@@ -54,6 +58,11 @@ func _ready():
 	$Vbox.add_child(upgrade_button)
 	$Vbox.move_child(upgrade_button, close_button.get_index())
 	upgrade_button.pressed.connect(_on_upgrade_pressed)
+	upgrade_choices = VBoxContainer.new()
+	$Vbox.add_child(upgrade_choices)
+	$Vbox.move_child(upgrade_choices, close_button.get_index())
+	training_choices = VBoxContainer.new()
+	$Vbox/Content.add_child(training_choices)
 	patrol_button.pressed.connect(_on_patrol_pressed)
 	priority_row = HBoxContainer.new()
 	priority_row.name = "ConstructionPriority"
@@ -88,7 +97,6 @@ func _on_move_pressed() -> void:
 
 
 func _on_upgrade_pressed() -> void:
-	if _queue_building_panel_action("_on_upgrade_pressed"): return
 	for building: BuildingBase in _get_upgrade_selection():
 		building.request_upgrade()
 	refresh()
@@ -121,6 +129,7 @@ func refresh():
 			for resource_id: StringName in building.get_upgrade_cost(): costs[resource_id] = costs.get(resource_id, 0.0) + building.get_upgrade_cost()[resource_id]
 		upgrade_button.disabled = selection.is_empty()
 		upgrade_button.text = "升级为%s（%d个 · %s）" % [current_building.get_upgrade_data().display_name, selection.size(), _format_resource_dictionary(costs)]
+	_refresh_configured_actions()
 	priority_row.visible = current_building is ConstructionSite and current_building.can_cancel_construction()
 	if priority_row.visible:
 		priority_value.text = str(current_building.construction_priority)
@@ -330,6 +339,7 @@ func refresh():
 		]
 		if current_building.has_method("allows_garrison_attacks"):
 			storage_label.text = "箭塔\n粮食：%d / %d\n视野：%.1f米\n射程倍率：%.1f" % [current_building.get_food_amount(), current_building.get_food_capacity(), current_building.get_sight_radius(), current_building.attack_range_multiplier]
+			storage_label.text += "\n警戒：%.1f米（%s）" % [current_building.alarm_radius, "有人侦察" if current_building.is_staffed() else "无人暂停"]
 		material_label.hide()
 		worker_label.show()
 		hire_button.hide()
@@ -364,10 +374,10 @@ func refresh():
 
 	if current_building.has_method("get_training_slots"):
 		storage_label.show()
-		storage_label.text = "弓箭手营" if current_building.training_role == CombatRole.Type.ARCHER else "剑士营"
+		storage_label.text = current_building.building_data.display_name if current_building.building_data != null else "训练营"
 		material_label.hide()
 		worker_label.show()
-		hire_button.show()
+		hire_button.visible = current_building.building_data == null or current_building.building_data.training_recipes.is_empty()
 		fire_button.hide()
 		worker_label.text = "训练位：%d / %d" % [
 			int(current_building.get_training_worker_count()),
@@ -375,7 +385,7 @@ func refresh():
 		]
 		if current_building.has_method("get_training_slot_status_text"):
 			worker_label.text += "\n" + current_building.get_training_slot_status_text()
-		hire_button.text = "训练" + CombatRole.get_display_name(current_building.training_role)
+		hire_button.text = "训练" + current_building.get_training_name()
 		if current_building.has_method("get_training_cost"):
 			hire_button.text += "（%s）" % _format_resource_dictionary(
 				current_building.get_training_cost()
@@ -386,16 +396,6 @@ func refresh():
 		)
 		return
 
-	if current_building is Watchtower:
-		storage_label.show()
-		material_label.hide()
-		storage_label.text = "警戒半径：%.1f米\n" % current_building.work_radius + ("居民已登塔，警戒中" if current_building.is_staffed() else "无人值班，警戒暂停")
-		worker_label.text = "值班岗位：%d / 1" % current_building.get_worker_count()
-		hire_button.text = "安排值班"
-		hire_button.disabled = not current_building.has_free_slot()
-		fire_button.text = "撤下值班居民"
-		fire_button.disabled = current_building.get_worker_count() == 0
-		return
 	storage_label.show()
 	material_label.hide()
 	hire_button.text = "招募"
@@ -458,8 +458,6 @@ func _on_hire_pressed():
 
 	if current_building == null:
 		return
-	if _queue_building_panel_action("_on_hire_pressed"):
-		return
 	if current_building.has_method("request_training"):
 		current_building.request_training()
 		refresh()
@@ -513,8 +511,6 @@ func _on_fire_pressed():
 
 	if current_building == null:
 		return
-	if _queue_building_panel_action("_on_fire_pressed"):
-		return
 	if current_building.has_method("is_demolition_in_progress") and current_building.is_demolition_in_progress():
 		current_building.cancel_one_demolition_worker()
 		refresh()
@@ -542,8 +538,6 @@ func _on_fire_pressed():
 
 func _on_demolish_pressed() -> void:
 	if current_building == null:
-		return
-	if _queue_building_panel_action("_on_demolish_pressed"):
 		return
 	if (
 		current_building.has_method("is_construction_cancellation_in_progress")
@@ -580,8 +574,6 @@ func _on_demolish_pressed() -> void:
 func _on_patrol_pressed() -> void:
 	if current_building == null or not current_building.has_method("request_patrol"):
 		return
-	if _queue_building_panel_action("_on_patrol_pressed"):
-		return
 	if current_building.request_patrol():
 		refresh()
 
@@ -589,40 +581,10 @@ func _on_patrol_pressed() -> void:
 func _on_barracks_food_button_pressed() -> void:
 	if current_building == null:
 		return
-	if _queue_building_panel_action("_on_barracks_food_button_pressed"):
-		return
 	if current_building.has_method("debug_add_food"):
 		var added_amount: float = current_building.debug_add_food(10.0)
 		print("军营调试增加军粮：", added_amount)
 		refresh()
-
-
-func _queue_building_panel_action(method_name: String) -> bool:
-	if not get_tree().paused:
-		return false
-	var main_node: Node = get_tree().current_scene
-	if main_node == null or not main_node.has_method("execute_game_command"):
-		return false
-	var target: Node = current_building
-	main_node.execute_game_command(
-		Callable(self, "_execute_queued_building_panel_action").bind(
-			method_name,
-			target
-		)
-	)
-	return true
-
-
-func _execute_queued_building_panel_action(
-	method_name: String,
-	target: Node
-) -> void:
-	if not is_instance_valid(target):
-		return
-	var previous_building: Node = current_building
-	current_building = target
-	call(method_name)
-	current_building = previous_building
 
 
 func _format_resource_dictionary(resources: Dictionary) -> String:
@@ -662,3 +624,50 @@ func _process(_delta):
 		return
 
 	refresh()
+
+
+func _refresh_configured_actions() -> void:
+	var targets: Array[BuildingData] = current_building.get_upgrade_targets()
+	upgrade_choices.visible = not targets.is_empty()
+	if not targets.is_empty(): upgrade_button.hide()
+	var key := str(current_building.get_instance_id())
+	for target: BuildingData in targets: key += ":" + str(target.id)
+	if upgrade_choices_key != key:
+		upgrade_choices_key = key
+		for child: Node in upgrade_choices.get_children(): child.free()
+		for target: BuildingData in targets:
+			var button := Button.new()
+			button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			button.set_meta("target", target)
+			button.pressed.connect(func() -> void:
+				if is_instance_valid(current_building): current_building.request_upgrade(target.id)
+				refresh()
+			)
+			upgrade_choices.add_child(button)
+	var catalog := BuildingCatalog.for_tree(get_tree())
+	for button: Button in upgrade_choices.get_children():
+		var target: BuildingData = button.get_meta("target")
+		var locked: bool = catalog == null or not catalog.is_unlocked(target)
+		button.text = "升级为%s%s\n%s · %s秒" % [target.display_name, "（需要蓝图）" if locked else "", _format_resource_dictionary(target.upgrade_cost), target.upgrade_time]
+		button.disabled = not current_building.can_upgrade(target.id)
+	var data: BuildingData = current_building.building_data
+	training_choices.visible = data != null and not data.training_recipes.is_empty() and not current_building is ConstructionSite and current_building.has_method("request_training") and not current_building.is_demolition_in_progress()
+	if not training_choices.visible: return
+	var recipe_key := str(current_building.get_instance_id()) + ":" + str(data.training_recipes.size())
+	if training_choices_key != recipe_key:
+		training_choices_key = recipe_key
+		for child: Node in training_choices.get_children(): child.free()
+		for index: int in range(data.training_recipes.size()):
+			var button := Button.new()
+			button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			button.set_meta("index", index)
+			button.pressed.connect(func() -> void:
+				if is_instance_valid(current_building): current_building.request_training(index)
+				refresh()
+			)
+			training_choices.add_child(button)
+	for button: Button in training_choices.get_children():
+		var index: int = button.get_meta("index")
+		var recipe: TrainingRecipe = data.training_recipes[index]
+		button.text = "训练%s\n%s · %s秒" % [current_building.get_training_name(index), _format_resource_dictionary(recipe.cost), recipe.time_seconds]
+		button.disabled = not current_building.can_request_training(index)

@@ -3,6 +3,8 @@ extends HSplitContainer
 
 const BUILDING_FOLDER: String = "res://data/buildings/"
 const LABELS: Dictionary = {
+	"unit_id": "训练单位ID", "cost": "训练材料（资源ID）", "time_seconds": "训练时间（秒）", "enabled": "启用训练项",
+	"tier": "建筑等级T0～T3", "requires_blueprint": "需要蓝图", "blueprint_pool": "蓝图随机池ID", "allow_direct_build": "允许直接建造", "upgrade_from_id": "前置建筑ID", "upgrade_cost": "升级材料", "upgrade_time": "升级时间（秒）", "training_recipes": "训练配方列表",
 	"surface_drying_enabled": "启用地表干燥", "surface_drying_strength": "干燥强度（湿润度减量）",
 	"surface_drying_range": "向外影响范围（米）", "surface_drying_noise": "边缘起伏与内部变化",
 	"category": "建筑分类", "sort_id": "排序ID（越小越靠前）", "road_speed_mode": "加速类型", "road_speed_add": "移速增加", "road_speed_percent": "移速增加比例",
@@ -30,6 +32,8 @@ const LABELS: Dictionary = {
 	"demolition_refund_ratio": "拆除返还比例",
 }
 
+var evolution_fields: VBoxContainer
+var recipe_list: VBoxContainer
 var buildings: Array[BuildingData] = []
 var building_list: ItemList
 var inspector: EditorInspector
@@ -61,6 +65,14 @@ func _init() -> void:
 		button.text = action
 		left.add_child(button)
 		button.pressed.connect(refresh)
+	var create_button := Button.new()
+	create_button.text = "复制当前模板，新建建筑"
+	create_button.pressed.connect(_show_create_building)
+	left.add_child(create_button)
+	var delete_button := Button.new()
+	delete_button.text = "删除当前建筑定义"
+	delete_button.pressed.connect(_show_delete_building)
+	left.add_child(delete_button)
 	preview = preload("res://addons/resource_editor/building_scene_preview.gd").new()
 	left.add_child(preview)
 	category_tabs = TabBar.new()
@@ -100,7 +112,8 @@ func _init() -> void:
 		if property.begins_with("road_") or property.begins_with("wall_scene_"): _update_preview()
 		if property == "building_scene":
 			_load_scene()
-		if property in ["category", "sort_id", "display_name"]:
+		if property == "tier": _update_evolution_fields()
+		if property in ["category", "sort_id", "display_name", "tier"]:
 			category_tabs.set_block_signals(true)
 			category_tabs.current_tab = current.category
 			category_tabs.set_block_signals(false)
@@ -119,6 +132,33 @@ func _init() -> void:
 	storage_fields = VBoxContainer.new()
 	storage_fields.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	storage_scroll.add_child(storage_fields)
+	var evolution_scroll := ScrollContainer.new()
+	evolution_scroll.name = "等级与前置关联"
+	tabs.add_child(evolution_scroll)
+	evolution_fields = VBoxContainer.new()
+	evolution_fields.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	evolution_scroll.add_child(evolution_fields)
+	var training_box := VBoxContainer.new()
+	training_box.name = "公共训练配方"
+	tabs.add_child(training_box)
+	var hint := Label.new()
+	hint.text = "使用公共训练功能场景；单位从数据库选择，材料键为资源ID。"
+	training_box.add_child(hint)
+	var add_recipe := Button.new()
+	add_recipe.text = "添加训练项"
+	add_recipe.pressed.connect(func() -> void:
+		if current == null: return
+		current.training_recipes.append(TrainingRecipe.new())
+		_update_training_fields()
+		autosave.request()
+	)
+	training_box.add_child(add_recipe)
+	var recipe_scroll := ScrollContainer.new()
+	recipe_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	training_box.add_child(recipe_scroll)
+	recipe_list = VBoxContainer.new()
+	recipe_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	recipe_scroll.add_child(recipe_list)
 	visibility_changed.connect(func() -> void:
 		if is_visible_in_tree(): call_deferred("_translate_labels")
 	)
@@ -169,7 +209,7 @@ func _refresh_building_list(select_first: bool = true) -> void:
 	)
 	for index: int in indices:
 		var data: BuildingData = current if current != null and buildings[index].resource_path == data_path else buildings[index]
-		building_list.add_item("%d  %s" % [data.sort_id, data.display_name])
+		building_list.add_item("[T%d] %s" % [data.tier, data.display_name])
 		building_list.set_item_metadata(building_list.item_count - 1, index)
 		if current != null and buildings[index].resource_path == data_path:
 			building_list.select(building_list.item_count - 1)
@@ -200,6 +240,8 @@ func select_building(index: int) -> void:
 	current.model_scene = buildings[index].model_scene
 	model_picker.edited_resource = current.model_scene
 	inspector.edit(current)
+	_update_evolution_fields()
+	_update_training_fields()
 	_load_scene()
 	call_deferred("_translate_labels")
 	autosave.suspended = false
@@ -236,7 +278,8 @@ func _add_node_fields(node: Node) -> void:
 	for property: Dictionary in node.get_property_list():
 		var key: String = property.name
 		if (current.id == &"arrow_tower" or current.is_wall_tower()) and key == "patrol_point_reach_radius": continue
-		if key in ["training_role", "training_slots", "training_time"] and current.id not in [&"swordsman_camp", &"archer_camp"]: continue
+		if key in ["training_role", "training_slots", "training_time"] and not current.training_recipes.is_empty(): continue
+		if key in ["training_role", "training_slots", "training_time"] and not scene_root.has_method("request_training"): continue
 		if key in ["resupply_trigger", "food_capacity"] and current.id not in [&"barracks", &"arrow_tower"] and not current.is_wall_tower() and node.name != &"ResourceStorage": continue
 		if key == "max_health" or (node.name == &"ResourceStorage" and key in ["wood_capacity", "stone_capacity", "food_capacity"]):
 			continue
@@ -403,8 +446,29 @@ func save_current() -> bool:
 			if not valid_model:
 				status.text = "保存失败：城墙形态必须是 3D 场景"
 				return false
+	var catalog := BuildingCatalog.new()
+	for data: BuildingData in buildings:
+		if data_path.begins_with(BUILDING_FOLDER) and data.id == current.id and data.resource_path != data_path:
+			catalog.free()
+			status.text = "保存失败：建筑ID重复"
+			return false
+	var original := load(data_path) as BuildingData
+	if original != null and original.id != current.id:
+		catalog.free()
+		status.text = "保存失败：已有建筑稳定ID不可改名，请复制新建"
+		return false
+	catalog.buildings[current.id] = current
+	var validation := catalog.validate(current)
+	catalog.free()
+	call_deferred("_translate_labels")
+	if not validation.is_empty():
+		status.text = "保存失败：" + validation
+		return false
 	var available_resources: Array[ResourceData] = ResourceEditorDataService.scan_resources()
-	for costs: Dictionary in [current.construction_cost, current.training_cost]:
+	var cost_sets: Array[Dictionary] = [current.construction_cost, current.training_cost, current.upgrade_cost]
+	for recipe: TrainingRecipe in current.training_recipes:
+		cost_sets.append(recipe.cost)
+	for costs: Dictionary in cost_sets:
 		for resource_id: StringName in costs:
 			if not ResourceEditorDataService.resource_id_exists(resource_id, available_resources):
 				status.text = "保存失败：未知资源ID「%s」。请填写资源ID，例如 wood（木材）、stone（石头），不要填写显示名称。" % resource_id
@@ -453,6 +517,7 @@ func _translate_labels() -> void:
 	await get_tree().create_timer(0.1).timeout
 	if not is_inside_tree(): return
 	_translate_node(inspector)
+	_translate_node(recipe_list)
 
 
 func _translate_node(node: Node) -> void:
@@ -462,3 +527,176 @@ func _translate_node(node: Node) -> void:
 		if node.get_edited_property() == &"id": node.set_read_only(true)
 	for child: Node in node.get_children(true):
 		_translate_node(child)
+
+
+func _update_evolution_fields() -> void:
+	for child: Node in evolution_fields.get_children(): child.free()
+	var hint := Label.new()
+	hint.text = "前置蓝图满足后进入随机池；持有蓝图即可使用。升级前后须同占地。\n新建筑使用当前建筑作为模板，外观可另选，公共训练在配方页配置。"
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	evolution_fields.add_child(hint)
+	var parent_picker := OptionButton.new()
+	parent_picker.add_item("无前置（直接建造）")
+	parent_picker.set_item_metadata(0, &"")
+	for data: BuildingData in buildings:
+		if data.id == current.id or data.tier + 1 != current.tier: continue
+		parent_picker.add_item("T%d %s" % [data.tier, data.display_name])
+		parent_picker.set_item_metadata(parent_picker.item_count - 1, data.id)
+		if data.id == current.upgrade_from_id: parent_picker.select(parent_picker.item_count - 1)
+	parent_picker.item_selected.connect(func(index: int) -> void:
+		current.upgrade_from_id = parent_picker.get_item_metadata(index)
+		if index > 0: current.allow_direct_build = false
+		autosave.request()
+		inspector.edit(current)
+	)
+	evolution_fields.add_child(parent_picker)
+	var tree := Tree.new()
+	tree.custom_minimum_size = Vector2(350, 220)
+	tree.hide_root = true
+	evolution_fields.add_child(tree)
+	var root_item := tree.create_item()
+	for data: BuildingData in buildings:
+		if data.upgrade_from_id.is_empty(): _add_evolution_item(tree, root_item, data, [])
+
+
+func _add_evolution_item(tree: Tree, parent: TreeItem, data: BuildingData, visited: Array[StringName]) -> void:
+	if visited.has(data.id): return
+	var item := tree.create_item(parent)
+	item.set_text(0, "T%d %s · %s" % [data.tier, data.display_name, str(data.blueprint_pool) if data.requires_blueprint else "默认解锁"])
+	var next: Array[StringName] = visited.duplicate()
+	next.append(data.id)
+	for child: BuildingData in buildings:
+		if child.upgrade_from_id == data.id: _add_evolution_item(tree, item, child, next)
+
+
+func _show_create_building() -> void:
+	if current == null or not autosave.flush(): return
+	var dialog := ConfirmationDialog.new()
+	dialog.title = "复制模板新建建筑"
+	var fields := VBoxContainer.new()
+	dialog.add_child(fields)
+	var id_field := LineEdit.new()
+	id_field.placeholder_text = "唯一英文ID，如 heavy_camp"
+	fields.add_child(id_field)
+	var name_field := LineEdit.new()
+	name_field.placeholder_text = "建筑显示名称"
+	fields.add_child(name_field)
+	add_child(dialog)
+	dialog.confirmed.connect(func() -> void:
+		var new_id := id_field.text.strip_edges()
+		if new_id.is_empty() or not new_id.is_valid_ascii_identifier() or name_field.text.strip_edges().is_empty():
+			status.text = "新建失败：请填写英文ID和名称"
+			return
+		for data: BuildingData in buildings:
+			if str(data.id) == new_id:
+				status.text = "新建失败：ID已存在"
+				return
+		var path := BUILDING_FOLDER + new_id + ".tres"
+		if FileAccess.file_exists(path):
+			status.text = "新建失败：目标文件已存在"
+			return
+		var data := current.duplicate(true) as BuildingData
+		data.building_scene = current.building_scene
+		data.model_scene = current.model_scene
+		data.id = StringName(new_id)
+		data.display_name = name_field.text.strip_edges()
+		if ResourceSaver.save(data, path) != OK:
+			status.text = "新建失败：无法保存资源"
+			return
+		EditorInterface.get_resource_filesystem().update_file(path)
+		refresh()
+		for index: int in range(buildings.size()):
+			if buildings[index].id == data.id:
+				category_tabs.current_tab = data.category
+				select_building(index)
+				_refresh_building_list(false)
+				break
+	)
+	dialog.popup_centered(Vector2i(420, 160))
+	dialog.visibility_changed.connect(func() -> void:
+		if not dialog.visible: dialog.queue_free()
+	)
+
+
+func _show_delete_building() -> void:
+	if current == null or not autosave.flush(): return
+	# 内置内容由场景／特殊规则引用，插件仅允许删除新建定义。
+	if not data_path.ends_with("/" + str(current.id) + ".tres"):
+		status.text = "内置建筑受保护，不能在此删除"
+		return
+	for data: BuildingData in buildings:
+		if data.id == current.id and data.resource_path != data_path:
+			status.text = "不能删除：存在重复ID，请先修正配置"
+			return
+		if data.upgrade_from_id == current.id:
+			status.text = "不能删除：被前置关联引用：" + data.display_name
+			return
+	var dialog := ConfirmationDialog.new()
+	dialog.dialog_text = "删除建筑定义「%s」？功能场景和模型保留。" % current.display_name
+	add_child(dialog)
+	var path := data_path
+	dialog.confirmed.connect(func() -> void:
+		if DirAccess.remove_absolute(path) == OK:
+			EditorInterface.get_resource_filesystem().scan()
+			refresh()
+	)
+	dialog.popup_centered()
+	dialog.visibility_changed.connect(func() -> void:
+		if not dialog.visible: dialog.queue_free()
+	)
+
+
+func _update_training_fields() -> void:
+	for child: Node in recipe_list.get_children(): child.free()
+	if current == null: return
+	var slot_row := HBoxContainer.new()
+	recipe_list.add_child(slot_row)
+	var label := Label.new()
+	label.text = "并发训练槽位"
+	slot_row.add_child(label)
+	var slots := SpinBox.new()
+	slots.min_value = 1
+	slots.max_value = 100
+	slots.value = current.training_slots
+	slots.value_changed.connect(func(value: float) -> void:
+		current.training_slots = int(value)
+		autosave.request()
+	)
+	slot_row.add_child(slots)
+	var catalog := BuildingCatalog.new()
+	var unit_ids: Array[StringName] = []
+	unit_ids.assign(catalog.units.keys())
+	unit_ids.sort()
+	for index: int in range(current.training_recipes.size()):
+		var recipe: TrainingRecipe = current.training_recipes[index]
+		if recipe == null:
+			recipe = TrainingRecipe.new()
+			current.training_recipes[index] = recipe
+		var row := HBoxContainer.new()
+		recipe_list.add_child(row)
+		var units_picker := OptionButton.new()
+		for unit_id: StringName in unit_ids:
+			if catalog.units[unit_id].combat_role == CombatRole.Type.NONE: continue
+			units_picker.add_item(catalog.units[unit_id].display_name + " (" + str(unit_id) + ")")
+			units_picker.set_item_metadata(units_picker.item_count - 1, unit_id)
+			if unit_id == recipe.unit_id: units_picker.select(units_picker.item_count - 1)
+		units_picker.item_selected.connect(func(choice: int) -> void:
+			recipe.unit_id = units_picker.get_item_metadata(choice)
+			autosave.request()
+		)
+		row.add_child(units_picker)
+		var remove := Button.new()
+		remove.text = "删除训练项"
+		remove.pressed.connect(func() -> void:
+			current.training_recipes.remove_at(index)
+			_update_training_fields()
+			autosave.request()
+		)
+		row.add_child(remove)
+		var recipe_editor := EditorInspector.new()
+		recipe_editor.custom_minimum_size.y = 150
+		recipe_list.add_child(recipe_editor)
+		recipe_editor.edit(recipe)
+		recipe_editor.property_edited.connect(func(_key: String) -> void: autosave.request())
+	catalog.free()
+	call_deferred("_translate_labels")

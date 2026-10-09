@@ -25,3 +25,5 @@ construction_cost = Dictionary[StringName, float]({
 construction_time = 20.0
 max_construction_workers = 3
 garrison_capacity = 6
+
+tier = 1

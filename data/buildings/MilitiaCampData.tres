@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://Script/building_data.gd" id="1_building_data"]
+[ext_resource type="PackedScene" path="res://Scene/building/game/militia_camp.tscn" id="2_militia_camp"]
+
+[ext_resource type="Script" path="res://Script/training_recipe.gd" id="recipe_script"]
+
+[sub_resource type="Resource" id="recipe"]
+script = ExtResource("recipe_script")
+unit_id = &"militia"
+cost = Dictionary[StringName, float]({&"wood": 5.0})
+time_seconds = 10.0
+
+[resource]
+script = ExtResource("1_building_data")
+category = 1
+sort_id = 30
+id = &"militia_camp"
+display_name = "民兵营"
+description = "为普通居民提供民兵训练场所。
+点击训练民兵后，自动安排空闲居民前往训练位。"
+building_scene = ExtResource("2_militia_camp")
+grid_size = Vector2i(3, 3)
+construction_cost = Dictionary[StringName, float]({
+&"stone": 0.0,
+&"wood": 15.0
+})
+training_cost = Dictionary[StringName, float]({
+&"stone": 5.0,
+&"wood": 5.0
+})
+construction_time = 15.0
+max_construction_workers = 3
+
+training_recipes = Array[ExtResource("recipe_script")]([SubResource("recipe")])

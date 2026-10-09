@@ -36,6 +36,7 @@ var move_tween: Tween = null
 # ============================================================
 
 func _ready():
+	process_mode = Node.PROCESS_MODE_ALWAYS
 
 	print("CloseButton = ", close_button)
 
@@ -89,7 +90,7 @@ func open_building(building: Node):
 		current_building.health_changed.connect(_on_building_health_changed)
 	_update_health_display()
 
-	building_name.text = building.name
+	building_name.text = building.building_data.display_name if building is BuildingBase and building.building_data != null else String(building.name)
 
 	refresh()
 

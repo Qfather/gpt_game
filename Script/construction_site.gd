@@ -37,6 +37,7 @@ var construction_started: bool = false
 var blocking_resources: Array[ResourceBase] = []
 var clearance_progress: float = 0.0
 var clearance_navigation_iteration: int = -1
+var construction_duration: float = -1.0
 var upgrade_from: BuildingBase
 var exterior_construction_started: bool = false
 var cancellation_progress: float = 0.0
@@ -231,7 +232,7 @@ func _process(delta: float) -> void:
 			efficiency += 1.0
 	if _process_resource_clearance(delta) or builders.is_empty():
 		return
-	var phase_limit: float = building_data.construction_time if exterior_construction_started else building_data.construction_time * 0.7
+	var phase_limit: float = get_construction_duration() if exterior_construction_started else get_construction_duration() * 0.7
 	construction_progress = minf(
 		construction_progress + delta * efficiency,
 		phase_limit
@@ -242,7 +243,7 @@ func _process(delta: float) -> void:
 		for worker: Node in builders:
 			if is_instance_valid(worker): worker.move_to_construction_position(self, get_worker_target_position(worker))
 		return
-	if construction_progress >= building_data.construction_time:
+	if construction_progress >= get_construction_duration():
 		for worker: Node in builders:
 			if is_instance_valid(worker) and not worker.is_dead() and worker.construction_repositioning:
 				return
@@ -256,7 +257,7 @@ func _process(delta: float) -> void:
 			"ConstructionSite 施工进度：",
 			construction_progress,
 			" / ",
-			building_data.construction_time,
+			get_construction_duration(),
 			"，人数：",
 			builders.size(),
 			"，效率：",
@@ -336,6 +337,7 @@ func _complete_construction() -> void:
 				if unit.indoor_building == upgrade_from:
 					unit.indoor_building = building
 					building.add_indoor_resident(unit)
+		building.current_health = building.get_max_health() * upgrade_from.get_health() / maxf(upgrade_from.get_max_health(), 1.0)
 		upgrade_from.build_grid_area_registered = false
 		upgrade_from.queue_free()
 
@@ -356,15 +358,15 @@ func get_construction_progress_text() -> String:
 
 	return "施工进度：%d / %d" % [
 		int(construction_progress),
-		int(building_data.construction_time)
+		int(get_construction_duration())
 	]
 
 
 func get_construction_progress_ratio() -> float:
-	if building_data == null or building_data.construction_time <= 0.0:
+	if building_data == null or get_construction_duration() <= 0.0:
 		return 0.0
 	return clampf(
-		construction_progress / float(building_data.construction_time),
+		construction_progress / float(get_construction_duration()),
 		0.0,
 		1.0
 	)
@@ -430,7 +432,7 @@ func cancel_construction() -> bool:
 		if amount > 0.0:
 			cancel_immediately = false
 
-	var construction_time: float = maxf(float(building_data.construction_time), 0.1)
+	var construction_time: float = maxf(float(get_construction_duration()), 0.1)
 	var construction_ratio: float = clampf(
 		construction_progress / construction_time,
 		0.0,
@@ -965,7 +967,7 @@ func _calculate_model_bounds() -> void:
 	if model == null:
 		return
 	if building_data.id != &"torch" and not building_data.is_wall():
-		add_child(BuildingBase.create_entrance_arrow(model.transform * BuildingBase.get_local_entrance(model)))
+		add_child(BuildingBase.create_entrance_arrow(model.transform * BuildingBase.get_local_entrance(model), model.transform * BuildingBase.get_entrance_footprint(model)))
 
 	var mesh_nodes: Array[Node] = model.find_children(
 		"*",
@@ -1439,7 +1441,7 @@ func remove_builder(worker: Node) -> void:
 			state != State.CANCELLING
 			and state != State.CANCELLED
 			and builders.is_empty()
-			and construction_progress < float(building_data.construction_time)
+			and construction_progress < float(get_construction_duration())
 		):
 			_release_resource_clearance()
 			state = State.READY_TO_BUILD
@@ -1637,3 +1639,7 @@ func release_build_grid_area() -> bool:
 		build_grid_area_registered = false
 		return true
 	return super.release_build_grid_area()
+
+
+func get_construction_duration() -> float:
+	return construction_duration if construction_duration >= 0.0 else (building_data.construction_time if building_data != null else 0.0)

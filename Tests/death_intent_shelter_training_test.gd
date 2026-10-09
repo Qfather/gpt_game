@@ -73,8 +73,9 @@ func _run() -> void:
 	var base: Node3D = get_first_node_in_group("bases")
 	var camp: SwordsmanCamp = load("res://Scene/building/game/swordsman_camp.tscn").instantiate()
 	camp.building_data = load("res://data/buildings/SwordsmanCampData.tres")
-	camp.training_time = 0.5
-	camp.training_slots = 1
+	camp.building_data = camp.building_data.duplicate(true)
+	camp.building_data.training_recipes[0].time_seconds = 0.5
+	camp.building_data.training_slots = 1
 	main.get_node("buildings").add_child(camp)
 	camp.global_position = base.global_position + Vector3(5,0,0)
 	var resident: Node = get_first_node_in_group("villagers")

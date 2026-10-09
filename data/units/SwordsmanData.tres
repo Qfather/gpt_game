@@ -6,6 +6,7 @@
 [resource]
 script = ExtResource("1_data")
 id = &"swordsman"
+combat_role = 1
 display_name = "剑士"
 hunger_rate = 0.35
 description = "居民训练后成为近战单位，可驻军、巡逻、防御和参加营地寻宝。"

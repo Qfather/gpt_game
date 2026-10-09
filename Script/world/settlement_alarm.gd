@@ -17,7 +17,7 @@ func _ready() -> void:
 	var hud: Node = get_node_or_null("../../UI/HUD")
 	if hud != null:
 		alarm_label = Label.new()
-		alarm_label.text = "瞭望塔警报：未受城墙保护的居民回家避险"
+		alarm_label.text = "箭塔警报：未受城墙保护的居民回家避险"
 		alarm_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 		alarm_label.position = Vector2(-240, 105)
 		alarm_label.size = Vector2(480, 30)
@@ -48,10 +48,10 @@ func refresh_alarm() -> void:
 		var region: int = _region_at(enemy.global_position)
 		if region > 0: breached_regions[region] = true
 	var danger: bool = false
-	for tower: Node in get_tree().get_nodes_in_group("watchtowers"):
+	for tower: Node in get_tree().get_nodes_in_group("alarm_towers"):
 		if not tower.is_staffed(): continue
 		for point: Vector3 in enemies:
-			if Vector2(point.x - tower.global_position.x, point.z - tower.global_position.z).length_squared() <= tower.work_radius * tower.work_radius:
+			if Vector2(point.x - tower.global_position.x, point.z - tower.global_position.z).length_squared() <= tower.alarm_radius * tower.alarm_radius:
 				danger = true
 				break
 		if danger: break

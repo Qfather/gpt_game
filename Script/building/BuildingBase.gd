@@ -49,33 +49,58 @@ var indoor_residents: Array[Node] = []
 var upgrade_site: ConstructionSite
 
 
-func get_upgrade_data() -> BuildingData:
+func get_upgrade_targets() -> Array[BuildingData]:
+	var catalog := BuildingCatalog.for_tree(get_tree())
+	if building_data == null or self is ConstructionSite or catalog == null: return []
+	return catalog.get_upgrade_children(building_data.id)
+
+
+func get_upgrade_data(target_id: StringName = &"") -> BuildingData:
+	var targets := get_upgrade_targets()
+	if not target_id.is_empty():
+		for target: BuildingData in targets:
+			if target.id == target_id: return target
+		return null
+	if not targets.is_empty(): return targets[0]
 	if building_data == null or self is ConstructionSite: return null
 	var paths: Dictionary = {&"wood_wall": "WallData", &"wood_gate": "GateData", &"wood_wall_tower": "WallTowerData"}
 	if not paths.has(building_data.id): return null
 	return load("res://data/buildings/" + paths[building_data.id] + ".tres") as BuildingData
 
 
-func get_upgrade_cost() -> Dictionary[StringName, float]:
+func get_upgrade_cost(target_id: StringName = &"") -> Dictionary[StringName, float]:
 	var cost: Dictionary[StringName, float] = {}
-	var next: BuildingData = get_upgrade_data()
+	var next: BuildingData = get_upgrade_data(target_id)
 	if next == null: return cost
+	if not next.upgrade_from_id.is_empty(): return next.upgrade_cost.duplicate()
 	for resource_id: StringName in next.construction_cost:
 		var amount: float = maxf(next.construction_cost[resource_id] - building_data.construction_cost.get(resource_id, 0.0), 0.0)
 		if amount > 0: cost[resource_id] = amount
 	return cost
 
 
-func can_upgrade() -> bool:
-	return get_upgrade_data() != null and not is_instance_valid(upgrade_site) and not is_destroyed() and not is_queued_for_deletion() and not is_demolition_in_progress() and (not self is Wall or not is_instance_valid((self as Wall).tower_site))
+func can_upgrade(target_id: StringName = &"") -> bool:
+	var target := get_upgrade_data(target_id)
+	if target != null and not target.upgrade_from_id.is_empty():
+		var catalog := BuildingCatalog.for_tree(get_tree())
+		if catalog == null or not catalog.is_unlocked(target) or target.grid_size != building_data.grid_size: return false
+		if target.tier != building_data.tier + 1 or target.upgrade_cost.is_empty() or target.upgrade_time <= 0.0: return false
+		if not get_indoor_residents().is_empty() or not door_queue.is_empty(): return false
+		if has_method("get_training_worker_count") and int(call("get_training_worker_count")) > 0: return false
+	return target != null and not is_instance_valid(upgrade_site) and not is_destroyed() and not is_queued_for_deletion() and not is_demolition_in_progress() and (not self is Wall or not is_instance_valid((self as Wall).tower_site))
 
 
-func request_upgrade() -> bool:
-	if not can_upgrade(): return false
+func request_upgrade(target_id: StringName = &"") -> bool:
+	if not can_upgrade(target_id): return false
+	var target := get_upgrade_data(target_id)
+	if not target.upgrade_from_id.is_empty():
+		var catalog := BuildingCatalog.for_tree(get_tree())
+		if not catalog.validate(target).is_empty(): return false
 	var site := ConstructionSite.new()
 	site.upgrade_from = self
-	site.setup(get_upgrade_data(), build_grid_position, build_grid_rotation_step, scale.x < 0)
-	site.required_resources = get_upgrade_cost()
+	site.setup(get_upgrade_data(target_id), build_grid_position, build_grid_rotation_step, scale.x < 0)
+	site.required_resources = get_upgrade_cost(target_id)
+	if not site.building_data.upgrade_from_id.is_empty(): site.construction_duration = site.building_data.upgrade_time
 	site.exterior_construction_started = true
 	site._refresh_state()
 	upgrade_site = site
@@ -264,6 +289,21 @@ func get_interior_position() -> Vector3:
 	return to_global(Vector3(local.x, 0, local.z - 1.8))
 
 
+func get_front_entry_position(world_position: Vector3) -> Vector3:
+	var door: Vector3 = to_local(get_entrance_position())
+	var point: Vector3 = to_local(world_position)
+	var bounds: AABB = _get_entrance_front_bounds()
+	var collision: CollisionShape3D = get_node_or_null("StaticBody3D/CollisionShape3D") if self is Farm else get_node_or_null("ClickArea/CollisionShape3D")
+	var footprint := AABB(Vector3(-0.5, 0, -0.5), Vector3(1, 1, 1))
+	if collision != null and collision.shape is BoxShape3D:
+		footprint = Transform3D(collision.transform.basis.orthonormalized(), collision.position) * AABB(-collision.shape.size * 0.5, collision.shape.size)
+	var center: Vector3 = footprint.get_center()
+	var along_x: bool = absf(door.x - center.x) / maxf(footprint.size.x, 0.1) > absf(door.z - center.z) / maxf(footprint.size.z, 0.1)
+	var across: int = 2 if along_x else 0
+	door[across] = clampf(point[across], bounds.position[across], bounds.end[across])
+	return to_global(door)
+
+
 func is_at_entrance_front(world_position: Vector3, tolerance: float = 0.0) -> bool:
 	var entrance: Vector3 = get_entrance_position()
 	if absf(world_position.y - entrance.y) > 0.8:
@@ -277,8 +317,8 @@ func get_entrance_approach_positions() -> Array[Vector3]:
 	var positions: Array[Vector3] = [get_entrance_position()]
 	var bounds: AABB = _get_entrance_front_bounds()
 	var door: Vector3 = to_local(positions[0])
-	for x: float in [bounds.position.x + 0.2, bounds.get_center().x, bounds.end.x - 0.2]:
-		for z: float in [bounds.position.z + 0.2, bounds.get_center().z, bounds.end.z - 0.2]:
+	for x: float in [bounds.position.x + 0.05, bounds.get_center().x, bounds.end.x - 0.05]:
+		for z: float in [bounds.position.z + 0.05, bounds.get_center().z, bounds.end.z - 0.05]:
 			positions.append(to_global(Vector3(x, door.y, z)))
 	return positions
 
@@ -326,20 +366,48 @@ func release_door(worker: Node) -> void:
 	door_queue.erase(worker)
 
 
-static func create_entrance_arrow(entrance: Vector3) -> MeshInstance3D:
+static func get_entrance_footprint(root: Node3D) -> AABB:
+	var collision: CollisionShape3D = root.get_node_or_null("ClickArea/CollisionShape3D")
+	if collision != null and collision.shape is BoxShape3D:
+		var box: BoxShape3D = collision.shape
+		return root.get_node("ClickArea").transform * collision.transform * AABB(-box.size * 0.5, box.size)
+	var bounds := AABB()
+	var found: bool = false
+	for mesh: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
+		if mesh.mesh == null: continue
+		var transform: Transform3D = mesh.transform
+		var parent: Node3D = mesh.get_parent() as Node3D
+		while parent != root:
+			transform = parent.transform * transform
+			parent = parent.get_parent() as Node3D
+		var part: AABB = transform * mesh.get_aabb()
+		bounds = bounds.merge(part) if found else part
+		found = true
+	return bounds if found else AABB(Vector3(-0.5, 0, -0.5), Vector3.ONE)
+
+static func create_entrance_arrow(entrance: Vector3, bounds: AABB) -> MeshInstance3D:
 	var arrow := MeshInstance3D.new()
 	arrow.name = "EntranceArrow"
 	var mesh := ArrayMesh.new()
-	var vertices := PackedVector3Array([
-		Vector3(-0.16, 0, 0), Vector3(0.16, 0, 0), Vector3(0.16, 0, 0.6),
-		Vector3(-0.16, 0, 0), Vector3(0.16, 0, 0.6), Vector3(-0.16, 0, 0.6),
-		Vector3(-0.5, 0, 0.6), Vector3(0.5, 0, 0.6), Vector3(0, 0, 1.2)])
+	var center: Vector3 = bounds.get_center()
+	var axis: int = 0 if absf(entrance.x - center.x) / maxf(bounds.size.x, 0.1) > absf(entrance.z - center.z) / maxf(bounds.size.z, 0.1) else 2
+	var across: int = 2 if axis == 0 else 0
+	var facing: float = 1.0 if entrance[axis] >= center[axis] else -1.0
+	var left: Vector3 = center
+	left.y = entrance.y
+	left[axis] = bounds.end[axis] if facing > 0 else bounds.position[axis]
+	var right: Vector3 = left
+	left[across] = bounds.position[across]
+	right[across] = bounds.end[across]
+	var tip: Vector3 = (left + right) * 0.5
+	tip[axis] += facing * 0.3
+	var vertices := PackedVector3Array([left, right, tip])
 	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = vertices
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	arrow.mesh = mesh
-	arrow.position = entrance + Vector3(0, 0.35, 0)
+	arrow.position = Vector3(0, 0.03, 0)
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
@@ -524,7 +592,7 @@ func get_building_data() -> BuildingData:
 
 
 func can_be_moved() -> bool:
-	return building_data != null and (self is ResourceBuildingBase or building_data.id in [&"swordsman_camp", &"archer_camp", &"barracks", &"house"]) and not self is ConstructionSite and not is_destroyed() and not is_queued_for_deletion() and demolition_state == DemolitionState.NONE
+	return building_data != null and (self is ResourceBuildingBase or self is SwordsmanCamp or building_data.id in [&"barracks", &"house"]) and not self is ConstructionSite and not is_instance_valid(upgrade_site) and not is_destroyed() and not is_queued_for_deletion() and demolition_state == DemolitionState.NONE
 
 
 func get_relocation_cost(new_position: Vector3) -> Dictionary[StringName, float]:
@@ -581,6 +649,7 @@ func can_be_demolished() -> bool:
 		building_data != null
 		and not is_in_group("bases")
 		and not is_in_group("construction_sites")
+		and not is_instance_valid(upgrade_site)
 		and demolition_state == DemolitionState.NONE
 	)
 

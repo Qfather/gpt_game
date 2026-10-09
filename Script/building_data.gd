@@ -44,6 +44,20 @@ const CATEGORY_NAMES: Array[String] = ["生产", "军事", "战略", "道路", "
 static func menu_less(a: BuildingData, b: BuildingData) -> bool:
 	return a.sort_id < b.sort_id if a.sort_id != b.sort_id else str(a.id).naturalnocasecmp_to(str(b.id)) < 0
 
+@export_category("等级与蓝图")
+@export_range(0, 3, 1) var tier: int = 0
+var requires_blueprint: bool:
+	get: return tier > 0
+@export var blueprint_pool: StringName = &"standard"
+@export var allow_direct_build: bool = true
+@export var upgrade_from_id: StringName
+@export var upgrade_cost: Dictionary[StringName, float] = {}
+@export_range(0.1, 3600, 0.1) var upgrade_time: float = 20.0
+
+@export_category("公共训练配置")
+@export_range(1, 100, 1) var training_slots: int = 2
+@export var training_recipes: Array[TrainingRecipe] = []
+
 @export_category("建筑场景")
 @export var building_scene: PackedScene
 @export_storage var model_scene: PackedScene
@@ -97,7 +111,7 @@ func _validate_property(property: Dictionary) -> void:
 	elif road_kind > 0:
 		hidden = key in ["building_scene", "max_health", "armor", "grid_size", "training_cost", "max_construction_workers", "allow_rotation", "allow_mirror", "garrison_capacity", "category"] or key.begins_with("surface_drying_")
 	else:
-		if key == "training_cost": hidden = id not in [&"swordsman_camp", &"archer_camp"]
+		if key == "training_cost": hidden = not training_recipes.is_empty() or id not in [&"swordsman_camp", &"archer_camp"]
 		if key == "garrison_capacity":
 			hidden = id not in [&"barracks", &"arrow_tower"] and not is_wall_tower()
 			property.hint = PROPERTY_HINT_RANGE

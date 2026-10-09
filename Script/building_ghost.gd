@@ -198,7 +198,7 @@ func _create_preview_mesh() -> void:
 	_copy_visual_tree(source_root, preview_model)
 	entrance_local = source_root.transform * BuildingBase.get_local_entrance(source_root)
 	if is_instance_valid(entrance_arrow): entrance_arrow.free()
-	entrance_arrow = BuildingBase.create_entrance_arrow(entrance_local)
+	entrance_arrow = BuildingBase.create_entrance_arrow(entrance_local, source_root.transform * BuildingBase.get_entrance_footprint(source_root))
 	entrance_arrow.visible = building_data.id != &"torch" and not building_data.is_wall()
 	add_child(entrance_arrow)
 	source_root.free()
@@ -597,6 +597,8 @@ func _gate_walls(data: BuildingData, cell: Vector2i, turns: int) -> Array[Wall]:
 	return result
 
 func can_place_at(data: BuildingData, cell: Vector2i, turns: int) -> bool:
+	var catalog := BuildingCatalog.for_tree(get_tree())
+	if not moving_existing_building and catalog != null and not catalog.can_build(data): return false
 	var ignored: Array[Vector2i] = _moving_building_cells()
 	if data.is_gate():
 		if not moving_existing_building and not _gate_walls(data, cell, turns).is_empty(): ignored = build_grid._get_area_cells(cell, data.grid_size, turns)

@@ -4,6 +4,7 @@
 [resource]
 script = ExtResource("1")
 id = &"archer"
+combat_role = 2
 display_name = "弓箭手"
 hunger_rate = 0.35
 visual_scene = ExtResource("2")

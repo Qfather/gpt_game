@@ -90,7 +90,10 @@ func _run() -> void:
 	archers[0]._physics_process(0.5)
 	_expect(not archers[0].is_stunned(), "两秒后晕眩解除")
 	var children_before_recovery: int = main.get_child_count()
-	archers[0]._physics_process(0.016)
+	# 坠塔前的一次射击停顿可能尚未结束，解除晕眩后允许走完停顿再发射。
+	for frame: int in range(6):
+		archers[0]._physics_process(0.1)
+		if main.get_child_count() > children_before_recovery: break
 	_expect(main.get_child_count() > children_before_recovery, "晕眩解除后恢复射箭")
 	var safe_tower: Barracks = data.building_scene.instantiate()
 	safe_tower.set_building_data(data)

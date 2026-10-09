@@ -9,3 +9,4 @@ id = &"resident"
 display_name = "居民"
 description = "普通居民，负责采集、施工、搬运和农业；不主动参战。"
 visual_scene = ExtResource("2_visual")
+damage = 0.0

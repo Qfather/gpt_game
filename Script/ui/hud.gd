@@ -11,6 +11,10 @@ const RESOURCE_DATABASE: ResourceDatabase = preload(
 	"res://data/resources/resource_database.tres"
 )
 var menu_buildings: Array[BuildingData] = []
+var blueprint_window: Window
+var blueprint_pool_picker: OptionButton
+var militia_label: Label
+var blueprint_was_paused: bool = false
 
 
 # ============================================================
@@ -74,6 +78,8 @@ func _ready() -> void:
 	_create_debug_panel()
 	_create_building_popup()
 	_configure_building_menu()
+	var catalog := BuildingCatalog.for_tree(get_tree())
+	if catalog != null: catalog.blueprints_changed.connect(_configure_building_menu)
 	_create_defeat_overlay()
 	_create_victory_overlay()
 	_create_threat_label()
@@ -374,6 +380,10 @@ func _unhandled_input(event: InputEvent) -> void:
 func _refresh_population_display(current_population: int, housing_capacity: int) -> void:
 	idle_resident_label.text = "空闲居民：%d" % _get_idle_resident_count()
 	population_label.text = "人口：%d / %d" % [current_population, housing_capacity]
+	if militia_label == null:
+		militia_label = Label.new()
+		resident_label.get_parent().add_child(militia_label)
+	militia_label.text = "民兵：%d" % _get_combat_role_count(CombatRole.Type.MILITIA)
 	resident_label.text = "居民：%d" % _get_combat_role_count(CombatRole.Type.NONE)
 	swordsman_label.text = "剑士：%d" % _get_swordsman_count()
 	archer_label.text = "弓箭手：%d" % _get_combat_role_count(CombatRole.Type.ARCHER)
@@ -481,6 +491,23 @@ func _create_debug_panel() -> void:
 	content.add_theme_constant_override("separation", 5)
 	debug_scroll.add_child(content)
 
+	blueprint_pool_picker = OptionButton.new()
+	var catalog := BuildingCatalog.for_tree(get_tree())
+	var pools: Array[StringName] = []
+	if catalog != null:
+		for data: BuildingData in catalog.buildings.values():
+			if data.requires_blueprint and not pools.has(data.blueprint_pool): pools.append(data.blueprint_pool)
+	pools.sort()
+	for pool: StringName in pools:
+		blueprint_pool_picker.add_item(str(pool))
+		blueprint_pool_picker.set_item_metadata(blueprint_pool_picker.item_count - 1, pool)
+		if pool == &"standard": blueprint_pool_picker.select(blueprint_pool_picker.item_count - 1)
+	content.add_child(blueprint_pool_picker)
+	var draw_button := Button.new()
+	draw_button.name = "DrawBlueprintButton"
+	draw_button.text = "测试：抽取建筑蓝图（三选一）"
+	draw_button.pressed.connect(show_blueprint_choices)
+	content.add_child(draw_button)
 	var navigation_toggle := CheckButton.new()
 	navigation_toggle.name = "NavigationDebugToggle"
 	navigation_toggle.text = "显示寻路地图"
@@ -742,7 +769,9 @@ func _configure_building_menu() -> void:
 	for file: String in DirAccess.get_files_at("res://data/buildings/"):
 		if not file.ends_with(".tres"): continue
 		var data: BuildingData = load("res://data/buildings/" + file) as BuildingData
-		if data != null and data.id not in [&"base", &"wall", &"gate", &"wall_tower"]: menu_buildings.append(data)
+		if data != null and data.id not in [&"base", &"wall", &"gate", &"wall_tower"]:
+			var catalog := BuildingCatalog.for_tree(get_tree())
+			if catalog == null or catalog.can_build(data): menu_buildings.append(data)
 	menu_buildings.sort_custom(BuildingData.menu_less)
 	building_tabs.tab_count = BuildingData.CATEGORY_NAMES.size()
 	for index: int in range(building_tabs.tab_count):
@@ -1011,3 +1040,54 @@ func _on_speed_2_button_pressed() -> void:
 func _on_speed_3_button_pressed() -> void:
 
 	speed_3()
+
+
+func show_blueprint_choices() -> void:
+	var catalog := BuildingCatalog.for_tree(get_tree())
+	if catalog == null: return
+	if is_instance_valid(blueprint_window) and blueprint_window.visible: return
+	var pool_id: StringName = &"standard"
+	if blueprint_pool_picker != null and blueprint_pool_picker.selected >= 0:
+		pool_id = blueprint_pool_picker.get_item_metadata(blueprint_pool_picker.selected)
+	var choices := catalog.draw_blueprints(pool_id)
+	if is_instance_valid(blueprint_window):
+		blueprint_window.queue_free()
+	blueprint_window = Window.new()
+	blueprint_window.title = "建筑蓝图 · 三选一"
+	blueprint_window.size = Vector2i(900, 320)
+	blueprint_window.unresizable = true
+	blueprint_window.exclusive = true
+	blueprint_window.transient = true
+	blueprint_window.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(blueprint_window)
+	blueprint_was_paused = get_tree().paused
+	get_tree().paused = true
+	blueprint_window.close_requested.connect(_close_blueprint_choices)
+	var box := VBoxContainer.new()
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	box.add_theme_constant_override("separation", 18)
+	blueprint_window.add_child(box)
+	var title := Label.new()
+	title.text = "选择一张蓝图，本局永久解锁，可重复建造／升级" if not choices.is_empty() else "此随机池暂无可抽蓝图：可能已全部获得，或前置蓝图尚未解锁。"
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(title)
+	var cards := HBoxContainer.new()
+	cards.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(cards)
+	for data: BuildingData in choices:
+		var button := Button.new()
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.custom_minimum_size = Vector2(260, 190)
+		var parent: BuildingData = catalog.buildings.get(data.upgrade_from_id)
+		button.text = "T%d %s\n\n%s\n\n%s" % [data.tier, data.display_name, "由%s升级" % parent.display_name if parent != null and not data.allow_direct_build else "解锁后直接建造", data.description]
+		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		button.pressed.connect(func() -> void:
+			if catalog.choose_blueprint(data.id): _close_blueprint_choices()
+		)
+		cards.add_child(button)
+	blueprint_window.popup_centered()
+
+
+func _close_blueprint_choices() -> void:
+	blueprint_window.hide()
+	get_tree().paused = blueprint_was_paused

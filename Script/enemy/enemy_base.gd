@@ -331,7 +331,7 @@ func update_targeting() -> void:
 		)
 		if distance > detection_range:
 			continue
-		if candidate.is_in_group("enemies") or (candidate.has_method("get_combat_role") and int(candidate.get_combat_role()) != CombatRole.Type.NONE):
+		if _is_defender(candidate):
 			if distance <= defender_distance:
 				nearest_defender = candidate_node
 				defender_distance = distance
@@ -713,6 +713,12 @@ func _try_target_repair_worker(building: Node3D) -> bool:
 	return true
 
 
+func _is_defender(candidate: Node) -> bool:
+	if not is_instance_valid(candidate): return false
+	if candidate.is_in_group("enemies"): return true
+	return candidate.has_method("get_combat_duty") and candidate.get_combat_duty() != CombatRole.Duty.AVOID_DANGER and candidate.has_attack_capability()
+
+
 func _is_legal_target(candidate: Node, allow_civilian: bool = false) -> bool:
 	if candidate == null or not is_instance_valid(candidate):
 		return false
@@ -724,12 +730,7 @@ func _is_legal_target(candidate: Node, allow_civilian: bool = false) -> bool:
 			and candidate.is_in_group("villagers")
 		)
 		if not raid_hunts_villagers and not allow_civilian:
-			if not candidate.has_method("get_combat_role"):
-				return false
-			if candidate.has_method("has_combat_role") and not candidate.has_combat_role():
-				return false
-			if int(candidate.get_combat_role()) == CombatRole.Type.NONE:
-				return false
+			if not _is_defender(candidate): return false
 	if candidate.has_method("is_dead") and candidate.is_dead():
 		return false
 	return candidate.has_method("get_faction") and EnemyData.are_factions_hostile(get_faction(), int(candidate.get_faction()))

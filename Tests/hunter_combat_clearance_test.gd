@@ -58,6 +58,10 @@ func _run() -> void:
 	enemy.set_process(false)
 	enemy.global_position = Vector3(2, 3.6, 0)
 	var before: float = enemy.current_health
+	var alarm := SettlementAlarm.new()
+	world.add_child(alarm)
+	alarm.set_process(false)
+	alarm.alarming = true
 	_expect(not hunter._process_civilian_retreat(0.016), "猎人遇敌不进入居民避难逻辑")
 	_expect(hunter._process_combat(0.016) and hunter.state == hunter.State.COMBAT_ATTACK and hunter.visible, "猎人进入远程战斗且保持室外可见")
 	for frame in range(30): await physics_frame
@@ -77,14 +81,14 @@ func _run() -> void:
 	var enemy_position: Vector3 = enemy.global_position
 	var enemy_origin: Vector3 = enemy.visual_root.position
 	enemy.take_damage(1, hunter)
-	await create_timer(0.07).timeout
+	enemy.visual_root.get_meta("hit_recoil").tween.custom_step(0.06)
 	_expect(enemy.visual_root.global_position.x > enemy_position.x and enemy.global_position == enemy_position, "敌人受击仅外观反向位移，实际位置不变")
 	await create_timer(0.2).timeout
 	_expect(enemy.visual_root.position.is_equal_approx(enemy_origin), "敌人外观回弹到原位")
 	var hunter_origin: Vector3 = hunter.get_node("VisualRoot").position
 	hunter.take_damage(1, enemy)
 	var hunter_position: Vector3 = hunter.global_position
-	await create_timer(0.07).timeout
+	hunter.get_node("VisualRoot").get_meta("hit_recoil").tween.custom_step(0.06)
 	_expect(hunter.get_node("VisualRoot").global_position.x < hunter_position.x and hunter.global_position == hunter_position and hunter.external_force == Vector3.ZERO, "猎人受击仅外观回弹，不推动角色")
 	await create_timer(0.2).timeout
 	_expect(hunter.get_node("VisualRoot").position.is_equal_approx(hunter_origin), "猎人外观回弹到原位")

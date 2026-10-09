@@ -587,9 +587,9 @@ func release_task(task: GameTask) -> bool:
 	elif (
 		task.type == GameTask.TaskType.TRAIN_SWORDSMAN
 		and task.target != null
-		and task.target.has_method("on_training_task_released")
+		and task.target.has_method("on_training_task_requeued")
 	):
-		task.target.on_training_task_released(task)
+		task.target.on_training_task_requeued(task)
 
 	var returning_resources: bool = _return_worker_resources(task)
 	task.data["resource_taken_amount"] = 0.0
