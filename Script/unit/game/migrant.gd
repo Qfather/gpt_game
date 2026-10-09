@@ -91,8 +91,7 @@ func _has_arrived() -> bool:
 		return false
 
 	if target_base.has_method("get_migrant_entrance_position"):
-		var target: Vector3 = navigation_agent.target_position
-		return Vector2(global_position.x - target.x, global_position.z - target.z).length() <= 0.35 and absf(global_position.y - target.y) <= 0.8
+		return target_base.is_at_entrance_front(global_position)
 
 	# 与实际移动目标一致，旁边房屋可能使原始交互点投影到另一处可达位置。
 	return (

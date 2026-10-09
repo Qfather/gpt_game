@@ -4,6 +4,7 @@ extends BuildingPanelBase
 signal move_requested(building: BuildingBase)
 
 var move_button: Button
+var upgrade_button: Button
 
 var priority_row: HBoxContainer
 var priority_value: Label
@@ -48,6 +49,11 @@ func _ready():
 	$Vbox.add_child(move_button)
 	$Vbox.move_child(move_button, close_button.get_index())
 	move_button.pressed.connect(_on_move_pressed)
+	upgrade_button = Button.new()
+	upgrade_button.focus_mode = Control.FOCUS_NONE
+	$Vbox.add_child(upgrade_button)
+	$Vbox.move_child(upgrade_button, close_button.get_index())
+	upgrade_button.pressed.connect(_on_upgrade_pressed)
 	patrol_button.pressed.connect(_on_patrol_pressed)
 	priority_row = HBoxContainer.new()
 	priority_row.name = "ConstructionPriority"
@@ -80,6 +86,23 @@ func _on_move_pressed() -> void:
 	if is_instance_valid(current_building) and current_building.can_be_moved():
 		move_requested.emit(current_building)
 
+
+func _on_upgrade_pressed() -> void:
+	if _queue_building_panel_action("_on_upgrade_pressed"): return
+	for building: BuildingBase in _get_upgrade_selection():
+		building.request_upgrade()
+	refresh()
+
+
+func _get_upgrade_selection() -> Array[BuildingBase]:
+	var result: Array[BuildingBase] = []
+	var main: Node = get_tree().current_scene
+	if main != null and main.get("selected_objects") != null:
+		for object: Variant in main.selected_objects:
+			if is_instance_valid(object) and object is BuildingBase and object.can_upgrade(): result.append(object)
+	elif is_instance_valid(current_building) and current_building.can_upgrade(): result.append(current_building)
+	return result
+
 # ============================================================
 # 刷新资源建筑信息
 # ============================================================
@@ -90,6 +113,14 @@ func refresh():
 		close_panel_immediately()
 		return
 	move_button.visible = current_building is BuildingBase and current_building.can_be_moved()
+	upgrade_button.visible = current_building is BuildingBase and current_building.get_upgrade_data() != null
+	if upgrade_button.visible:
+		var selection: Array[BuildingBase] = _get_upgrade_selection()
+		var costs: Dictionary[StringName, float] = {}
+		for building: BuildingBase in selection:
+			for resource_id: StringName in building.get_upgrade_cost(): costs[resource_id] = costs.get(resource_id, 0.0) + building.get_upgrade_cost()[resource_id]
+		upgrade_button.disabled = selection.is_empty()
+		upgrade_button.text = "升级为%s（%d个 · %s）" % [current_building.get_upgrade_data().display_name, selection.size(), _format_resource_dictionary(costs)]
 	priority_row.visible = current_building is ConstructionSite and current_building.can_cancel_construction()
 	if priority_row.visible:
 		priority_value.text = str(current_building.construction_priority)
@@ -355,6 +386,16 @@ func refresh():
 		)
 		return
 
+	if current_building is Watchtower:
+		storage_label.show()
+		material_label.hide()
+		storage_label.text = "警戒半径：%.1f米\n" % current_building.work_radius + ("居民已登塔，警戒中" if current_building.is_staffed() else "无人值班，警戒暂停")
+		worker_label.text = "值班岗位：%d / 1" % current_building.get_worker_count()
+		hire_button.text = "安排值班"
+		hire_button.disabled = not current_building.has_free_slot()
+		fire_button.text = "撤下值班居民"
+		fire_button.disabled = current_building.get_worker_count() == 0
+		return
 	storage_label.show()
 	material_label.hide()
 	hire_button.text = "招募"

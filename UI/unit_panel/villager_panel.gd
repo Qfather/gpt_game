@@ -4,7 +4,7 @@ extends UnitPanelBase
 const RESOURCE_DATABASE: ResourceDatabase = preload(
 	"res://data/resources/resource_database.tres"
 )
-const JOB_DISPLAY_NAMES: PackedStringArray = ["无业", "伐木工", "矿工", "农夫", "猎户"]
+const JOB_DISPLAY_NAMES: PackedStringArray = ["无业", "伐木工", "矿工", "农夫", "猎户", "瞭望员"]
 const STATE_DISPLAY_NAMES: PackedStringArray = [
 	"待命",
 	"需要进食",
@@ -56,7 +56,8 @@ const STATE_DISPLAY_NAMES: PackedStringArray = [
 	"前往迁移后的建筑",
 	"前往道路施工",
 	"道路施工中",
-	"建筑内避难"
+	"建筑内避难",
+	"登塔值班"
 ]
 const TASK_DISPLAY_NAMES: PackedStringArray = ["运输建造材料", "建筑施工", "训练剑士", "回收战利品", "维修建筑", "道路施工"]
 

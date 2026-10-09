@@ -46,6 +46,54 @@ var interaction_positions: Dictionary = {}
 var shelter_residents: Array[Node] = []
 var door_queue: Array[Node] = []
 var indoor_residents: Array[Node] = []
+var upgrade_site: ConstructionSite
+
+
+func get_upgrade_data() -> BuildingData:
+	if building_data == null or self is ConstructionSite: return null
+	var paths: Dictionary = {&"wood_wall": "WallData", &"wood_gate": "GateData", &"wood_wall_tower": "WallTowerData"}
+	if not paths.has(building_data.id): return null
+	return load("res://data/buildings/" + paths[building_data.id] + ".tres") as BuildingData
+
+
+func get_upgrade_cost() -> Dictionary[StringName, float]:
+	var cost: Dictionary[StringName, float] = {}
+	var next: BuildingData = get_upgrade_data()
+	if next == null: return cost
+	for resource_id: StringName in next.construction_cost:
+		var amount: float = maxf(next.construction_cost[resource_id] - building_data.construction_cost.get(resource_id, 0.0), 0.0)
+		if amount > 0: cost[resource_id] = amount
+	return cost
+
+
+func can_upgrade() -> bool:
+	return get_upgrade_data() != null and not is_instance_valid(upgrade_site) and not is_destroyed() and not is_queued_for_deletion() and not is_demolition_in_progress() and (not self is Wall or not is_instance_valid((self as Wall).tower_site))
+
+
+func request_upgrade() -> bool:
+	if not can_upgrade(): return false
+	var site := ConstructionSite.new()
+	site.upgrade_from = self
+	site.setup(get_upgrade_data(), build_grid_position, build_grid_rotation_step, scale.x < 0)
+	site.required_resources = get_upgrade_cost()
+	site.exterior_construction_started = true
+	site._refresh_state()
+	upgrade_site = site
+	get_parent().add_child(site)
+	site.global_transform = global_transform
+	if not tree_exiting.is_connected(_cancel_upgrade): tree_exiting.connect(_cancel_upgrade)
+	site.tree_exiting.connect(_clear_upgrade_site)
+	var main: Node = get_tree().current_scene
+	if main != null and main.has_method("register_building"): main.register_building(site)
+	return true
+
+
+func _cancel_upgrade() -> void:
+	if is_instance_valid(upgrade_site) and upgrade_site.can_cancel_construction(): upgrade_site.cancel_construction()
+
+
+func _clear_upgrade_site() -> void:
+	upgrade_site = null
 
 
 func add_indoor_resident(resident: Node) -> void:
@@ -214,6 +262,52 @@ func get_interior_position() -> Vector3:
 	if marker != null: return marker.global_position
 	var local: Vector3 = to_local(get_entrance_position())
 	return to_global(Vector3(local.x, 0, local.z - 1.8))
+
+
+func is_at_entrance_front(world_position: Vector3, tolerance: float = 0.0) -> bool:
+	var entrance: Vector3 = get_entrance_position()
+	if absf(world_position.y - entrance.y) > 0.8:
+		return false
+	var point: Vector3 = to_local(world_position)
+	var bounds: AABB = _get_entrance_front_bounds().grow(tolerance)
+	return point.x >= bounds.position.x and point.x <= bounds.end.x and point.z >= bounds.position.z and point.z <= bounds.end.z
+
+
+func get_entrance_approach_positions() -> Array[Vector3]:
+	var positions: Array[Vector3] = [get_entrance_position()]
+	var bounds: AABB = _get_entrance_front_bounds()
+	var door: Vector3 = to_local(positions[0])
+	for x: float in [bounds.position.x + 0.2, bounds.get_center().x, bounds.end.x - 0.2]:
+		for z: float in [bounds.position.z + 0.2, bounds.get_center().z, bounds.end.z - 0.2]:
+			positions.append(to_global(Vector3(x, door.y, z)))
+	return positions
+
+
+func _get_entrance_front_bounds() -> AABB:
+	# 点击形状表示建筑主体；农场仅使用工具屋的实体形状。
+	var collision: CollisionShape3D = get_node_or_null("StaticBody3D/CollisionShape3D") if self is Farm else get_node_or_null("ClickArea/CollisionShape3D")
+	var bounds := AABB(Vector3(-0.5, 0, -0.5), Vector3(1, 1, 1))
+	if collision != null and collision.shape != null:
+		var shape_bounds: AABB = AABB(-collision.shape.size * 0.5, collision.shape.size) if collision.shape is BoxShape3D else collision.shape.get_debug_mesh().get_aabb()
+		# 实体碰撞在运行时缩窄过，入口仍覆盖原始建筑正面宽度。
+		var transform := Transform3D(collision.transform.basis.orthonormalized(), collision.position)
+		bounds = transform * shape_bounds
+	var door: Vector3 = to_local(get_entrance_position())
+	var center: Vector3 = bounds.get_center()
+	var along_x: bool = absf(door.x - center.x) / maxf(bounds.size.x, 0.1) > absf(door.z - center.z) / maxf(bounds.size.z, 0.1)
+	var axis: int = 0 if along_x else 2
+	var across: int = 2 if along_x else 0
+	var facing: float = 1.0 if door[axis] >= center[axis] else -1.0
+	var face: float = bounds.end[axis] if facing > 0 else -bounds.position[axis]
+	var near_face: float = face - 0.1
+	var far_face: float = maxf(face + 1.5, door[axis] * facing + 0.3)
+	var start: Vector3 = bounds.position
+	var end: Vector3 = bounds.end
+	start[across] -= 0.2
+	end[across] += 0.2
+	start[axis] = near_face if facing > 0 else -far_face
+	end[axis] = far_face if facing > 0 else -near_face
+	return AABB(start, end - start)
 
 
 func join_door_queue(worker: Node) -> void:
@@ -394,6 +488,13 @@ func set_build_grid_occupancy(
 	build_grid_size = grid_size
 	build_grid_rotation_step = rotation_step
 	build_grid_area_registered = true
+	_notify_defense_changed()
+
+func _notify_defense_changed() -> void:
+	if not is_inside_tree() or building_data == null: return
+	if not building_data.is_wall() and not building_data.is_gate() and not building_data.is_wall_tower(): return
+	var alarm: Node = get_tree().get_first_node_in_group("settlement_alarm")
+	if alarm != null: alarm.mark_defenses_dirty()
 
 
 func release_build_grid_area() -> bool:
@@ -414,6 +515,7 @@ func release_build_grid_area() -> bool:
 	)
 	if released:
 		build_grid_area_registered = false
+		_notify_defense_changed()
 	return released
 
 
@@ -452,7 +554,7 @@ func relocate(grid: BuildGrid, new_grid_position: Vector2i, new_rotation_step: i
 	var old_cells: Array[Vector2i] = []
 	if build_grid_area_registered:
 		old_cells = grid._get_area_cells(build_grid_position, build_grid_size, build_grid_rotation_step)
-	if not grid.is_area_free(new_grid_position, building_data.grid_size, new_rotation_step, building_data.id == &"wall", true, old_cells):
+	if not grid.is_area_free(new_grid_position, building_data.grid_size, new_rotation_step, building_data.is_wall(), true, old_cells):
 		return false
 	if not can_pay_relocation_cost(new_transform.origin):
 		return false
@@ -462,7 +564,7 @@ func relocate(grid: BuildGrid, new_grid_position: Vector2i, new_rotation_step: i
 		base.take_resource(resource_id, cost[resource_id])
 	if build_grid_area_registered:
 		grid.release_area(build_grid_position, build_grid_size, build_grid_rotation_step)
-	grid.occupy_area(new_grid_position, building_data.grid_size, new_rotation_step, building_data.id == &"wall", true)
+	grid.occupy_area(new_grid_position, building_data.grid_size, new_rotation_step, building_data.is_wall(), true)
 	set_build_grid_occupancy(new_grid_position, building_data.grid_size, new_rotation_step)
 	var old_transform: Transform3D = global_transform
 	global_transform = new_transform
@@ -809,5 +911,6 @@ func _on_click_area_input_event(
 			mouse_event.button_index == MOUSE_BUTTON_LEFT
 			and mouse_event.pressed
 		):
+			set_meta("selection_double_click", mouse_event.double_click)
 			building_clicked.emit(self)
 			get_viewport().set_input_as_handled()

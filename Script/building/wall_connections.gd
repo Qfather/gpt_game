@@ -41,6 +41,8 @@ static func shape_for_mask(mask: int) -> Vector2i:
 	return Vector2i.ZERO
 
 static func refresh(tree: SceneTree) -> void:
+	var alarm: Node = tree.get_first_node_in_group("settlement_alarm")
+	if alarm != null: alarm.mark_defenses_dirty()
 	var grid: BuildGrid = tree.get_first_node_in_group("build_grid") as BuildGrid
 	if grid == null: return
 	var layout: Dictionary = cells(tree)

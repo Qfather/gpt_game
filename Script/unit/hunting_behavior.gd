@@ -37,11 +37,9 @@ func process(hunter: Node3D, delta: float) -> void:
 	hunter.combat_attack_cooldown = maxf(hunter.combat_attack_cooldown - delta, 0.0)
 	if returning:
 		if return_destination == Vector3.INF:
-			return_destination = NavigationServer3D.map_get_closest_point(
-				hunter.navigation_agent.get_navigation_map(), house.get_interaction_position(hunter)
-			)
+			return_destination = hunter._get_reachable_workplace_position()
 		var destination: Vector3 = return_destination
-		if not inside_processing and Vector2(hunter.global_position.x, hunter.global_position.z).distance_to(Vector2(destination.x, destination.z)) > 1.8:
+		if not inside_processing and not house.is_at_entrance_front(hunter.global_position):
 			move(hunter, destination)
 			return
 		hunter.velocity = Vector3.ZERO
@@ -69,12 +67,15 @@ func process(hunter: Node3D, delta: float) -> void:
 			hunter.finish_quit_job()
 			return
 		return
+	if is_instance_valid(target) and target.is_queued_for_deletion():
+		target = null
 	if is_instance_valid(target):
 		if target.is_dead():
 			var destination: Vector3 = NavigationServer3D.map_get_closest_point(hunter.navigation_agent.get_navigation_map(), target.global_position)
 			if Vector2(hunter.global_position.x, hunter.global_position.z).distance_to(Vector2(destination.x, destination.z)) > 1.8 or absf(hunter.global_position.y - destination.y) > 1.0:
 				move(hunter, destination)
 				return
+			hunter.velocity = Vector3.ZERO
 			prey_count += 1
 			raw_meat += target.data.meat_yield
 			target.queue_free()

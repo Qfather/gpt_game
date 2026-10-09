@@ -45,6 +45,7 @@ var _mature_collision_layer: int = 1
 
 var resource_amount: int = 0
 var reserved_by: Node = null
+var construction_clearer: Node = null
 var _build_obstacle_shape: Shape3D
 var _build_obstacle_bounds: AABB
 
@@ -210,7 +211,7 @@ func is_mature() -> bool:
 
 
 func can_gather() -> bool:
-	return is_mature() and resource_amount > 0 and not is_queued_for_deletion()
+	return is_mature() and resource_amount > 0 and not is_queued_for_deletion() and (not is_instance_valid(construction_clearer) or construction_clearer.is_queued_for_deletion())
 
 
 func _randomize_visual() -> void:

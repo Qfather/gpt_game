@@ -99,9 +99,17 @@ func _run() -> void:
 	var sheltered: Node = load("res://Scene/unit/villager.tscn").instantiate()
 	main.get_node("Villagers").add_child(sheltered)
 	for frame: int in range(3): await physics_frame
+	var outside_hunter: Node = load("res://Scene/unit/villager.tscn").instantiate()
+	main.get_node("Villagers").add_child(outside_hunter)
+	for frame: int in range(3): await physics_frame
+	outside_hunter.set_physics_process(false)
+	outside_hunter.job = outside_hunter.Job.HUNTER
+	outside_hunter.state = outside_hunter.State.HUNTING
+	outside_hunter.global_position = base.global_position + Vector3(3, 0, 3)
+	while sheltered.passing_door: await physics_frame
 	_hide_in(sheltered, house)
 	var population: int = get_nodes_in_group("villagers").size()
-	_expect(camp.request_training(), "外面无人时仍可下达训练命令")
+	_expect(camp.request_training(), "外面只有猎人时仍可下达训练命令")
 	manager._run_dispatch()
 	while sheltered.passing_door: await physics_frame
 	_expect(sheltered.state == sheltered.State.MOVE_TO_TRAINING and sheltered.visible and sheltered.shelter_target == null, "居民从其他避难建筑出来前往训练营")

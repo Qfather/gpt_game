@@ -34,6 +34,10 @@ var delivered_resources: Dictionary[StringName, float] = {}
 var reserved_resources: Dictionary[StringName, float] = {}
 var construction_progress: float = 0.0
 var construction_started: bool = false
+var blocking_resources: Array[ResourceBase] = []
+var clearance_progress: float = 0.0
+var clearance_navigation_iteration: int = -1
+var upgrade_from: BuildingBase
 var exterior_construction_started: bool = false
 var cancellation_progress: float = 0.0
 var cancellation_duration: float = 0.0
@@ -74,6 +78,8 @@ func setup(
 ) -> void:
 
 	building_data = data
+	# 城墙和墙上塔楼没有可进入的室内，搬运和施工始终使用外侧位置。
+	exterior_construction_started = building_data.is_wall() or building_data.is_wall_tower()
 	grid_position = placed_grid_position
 	rotation_step = placed_rotation_step
 	mirrored = placed_mirrored
@@ -121,6 +127,7 @@ func _ready() -> void:
 			if is_inside_tree() and can_cancel_construction(): cancel_construction()
 		)
 	_calculate_model_bounds()
+	tree_exiting.connect(_release_resource_clearance)
 	_create_site_visual()
 	_print_status()
 	if not activation_deferred_until_unpause:
@@ -133,6 +140,7 @@ func is_blueprint() -> bool:
 
 
 func can_be_moved() -> bool:
+	if is_instance_valid(upgrade_from): return false
 	return building_data != null and not building_data.is_wall_tower() and is_blueprint() and state in [State.WAITING_RESOURCES, State.READY_TO_BUILD] and not is_destroyed() and not is_queued_for_deletion()
 
 
@@ -145,6 +153,7 @@ func relocate(grid: BuildGrid, new_grid_position: Vector2i, new_rotation_step: i
 	grid_position = new_grid_position
 	rotation_step = new_rotation_step
 	mirrored = new_mirrored
+	refresh_blocking_resources()
 	return true
 
 
@@ -220,6 +229,8 @@ func _process(delta: float) -> void:
 	for worker: Node in builders:
 		if is_instance_valid(worker) and not worker.is_dead() and not worker.construction_repositioning and not worker.passing_door and worker.state == worker.State.BUILDING:
 			efficiency += 1.0
+	if _process_resource_clearance(delta) or builders.is_empty():
+		return
 	var phase_limit: float = building_data.construction_time if exterior_construction_started else building_data.construction_time * 0.7
 	construction_progress = minf(
 		construction_progress + delta * efficiency,
@@ -257,7 +268,7 @@ func _complete_construction() -> void:
 	if state == State.COMPLETED or building_data == null:
 		return
 
-	if building_data.is_wall_tower() and (not is_instance_valid(foundation_wall) or foundation_wall.get_health() <= 0):
+	if building_data.is_wall_tower() and not is_instance_valid(upgrade_from) and (not is_instance_valid(foundation_wall) or foundation_wall.get_health() <= 0):
 		cancel_construction()
 		return
 	state = State.COMPLETED
@@ -309,6 +320,24 @@ func _complete_construction() -> void:
 		for worker: Node in completed_workers:
 			if is_instance_valid(worker):
 				worker.call_deferred("_return_to_idle_if_task_finished", null)
+	if is_instance_valid(upgrade_from):
+		if upgrade_from is Barracks and building is Barracks:
+			building.garrisoned_units = upgrade_from.garrisoned_units.duplicate()
+			building.garrison_reservations = upgrade_from.garrison_reservations.duplicate()
+			building.resupply_workers = upgrade_from.resupply_workers.duplicate()
+			building.food_resupply_requested = upgrade_from.food_resupply_requested
+			building.food_inventory = upgrade_from.food_inventory.duplicate()
+			for unit: Node in get_tree().get_nodes_in_group("villagers"):
+				if unit.garrisoned_in == upgrade_from:
+					unit.garrisoned_in = building
+					unit.global_position = building.get_garrison_position(unit)
+				if unit.garrison_target == upgrade_from: unit.garrison_target = building
+				if unit.resupply_barracks == upgrade_from: unit.resupply_barracks = building
+				if unit.indoor_building == upgrade_from:
+					unit.indoor_building = building
+					building.add_indoor_resident(unit)
+		upgrade_from.build_grid_area_registered = false
+		upgrade_from.queue_free()
 
 	var main_node: Node = get_tree().current_scene
 	if main_node != null and main_node.has_method("register_building"):
@@ -322,6 +351,8 @@ func _complete_construction() -> void:
 func get_construction_progress_text() -> String:
 	if building_data == null:
 		return "施工进度：0 / 0"
+	if get_blocking_resource() != null:
+		return "清理障碍资源：%.1f / 5 秒（剩余 %d 个）" % [clearance_progress, blocking_resources.size()]
 
 	return "施工进度：%d / %d" % [
 		int(construction_progress),
@@ -393,6 +424,7 @@ func get_cancellation_remaining_resources() -> Dictionary[StringName, float]:
 func cancel_construction() -> bool:
 	if not can_cancel_construction() or building_data == null:
 		return false
+	_release_resource_clearance()
 	var cancel_immediately: bool = construction_progress <= 0.0
 	for amount: float in delivered_resources.values():
 		if amount > 0.0:
@@ -807,6 +839,18 @@ func get_build_preferred_workers() -> Array[Node]:
 
 func get_worker_target_position(worker: Node) -> Vector3:
 	var worker_id: int = worker.get_instance_id() if worker != null else 0
+	var resource: ResourceBase = get_blocking_resource()
+	if resource != null and worker != null:
+		var map: RID = worker.get_world_3d().navigation_map
+		var iteration: int = NavigationServer3D.map_get_iteration_id(map)
+		if iteration != clearance_navigation_iteration:
+			clearance_navigation_iteration = iteration
+			worker_target_offsets.clear()
+		if not worker_target_offsets.has(worker_id):
+			var point: Vector3 = resource.get_gather_position(worker.global_position, map) if iteration > 0 else Vector3.INF
+			if point == Vector3.INF: return resource.global_position
+			worker_target_offsets[worker_id] = to_local(point)
+		return to_global(worker_target_offsets[worker_id])
 	if not worker_target_offsets.has(worker_id):
 		var worker_index: int = construction_workers.find(worker)
 		if worker_index < 0:
@@ -821,6 +865,74 @@ func get_worker_target_position(worker: Node) -> Vector3:
 	var local_offset: Vector3 = worker_target_offsets[worker_id]
 	var site_basis: Basis = global_transform.basis.orthonormalized()
 	return global_position + site_basis * local_offset
+
+
+func refresh_blocking_resources() -> void:
+	_release_resource_clearance()
+	blocking_resources.clear()
+	clearance_progress = 0.0
+	worker_target_offsets.clear()
+	if building_data == null or not building_data.is_wall(): return
+	var grid: BuildGrid = get_tree().get_first_node_in_group("build_grid")
+	var cell_size: float = grid.cell_size if grid != null else 1.0
+	var size := Vector3(building_data.grid_size.x * cell_size, 1, building_data.grid_size.y * cell_size)
+	for node: Node in get_tree().get_nodes_in_group("resources"):
+		var resource: ResourceBase = node as ResourceBase
+		if resource == null or resource.is_queued_for_deletion(): continue
+		var resource_bounds: AABB = resource.get_build_obstacle_bounds()
+		var bounds := AABB(Vector3(-size.x * 0.5, resource_bounds.position.y - global_position.y, -size.z * 0.5), Vector3(size.x, resource_bounds.size.y, size.z))
+		if resource.overlaps_clearance_box(bounds, Transform3D(global_basis.orthonormalized(), global_position)):
+			blocking_resources.append(resource)
+
+
+func get_blocking_resource() -> ResourceBase:
+	var changed: bool = false
+	while not blocking_resources.is_empty():
+		var resource: Variant = blocking_resources[0]
+		if is_instance_valid(resource) and not resource.is_queued_for_deletion() and resource.resource_amount > 0:
+			if changed: _retarget_clearance_workers()
+			return resource
+		blocking_resources.remove_at(0)
+		changed = true
+		clearance_progress = 0.0
+		worker_target_offsets.clear()
+	if changed: _retarget_clearance_workers()
+	return null
+
+
+func _release_resource_clearance() -> void:
+	for resource: Variant in blocking_resources:
+		if is_instance_valid(resource) and resource.construction_clearer == self:
+			resource.construction_clearer = null
+
+
+func _process_resource_clearance(delta: float) -> bool:
+	var resource: ResourceBase = get_blocking_resource()
+	if resource == null: return false
+	if is_instance_valid(resource.construction_clearer) and not resource.construction_clearer.is_queued_for_deletion() and resource.construction_clearer != self:
+		return true
+	var active: bool = false
+	for worker: Node in builders:
+		if is_instance_valid(worker) and not worker.is_dead() and not worker.passing_door and not worker.construction_repositioning and worker.state == worker.State.BUILDING and resource.is_in_gather_range(worker.global_position):
+			active = true
+			break
+	if not active: return true
+	resource.construction_clearer = self
+	clearance_progress = minf(clearance_progress + delta, 5.0)
+	if clearance_progress >= 5.0:
+		resource.clear_for_construction()
+		get_blocking_resource()
+	return true
+
+
+func _retarget_clearance_workers() -> void:
+	# 包括被相邻工地或采集者清掉的资源，途中不计施工进度。
+	var workers: Array[Node] = builders.duplicate()
+	builders.clear()
+	for worker: Node in workers:
+		if not is_instance_valid(worker) or worker.is_dead(): continue
+		worker._set_task_site_navigation_target()
+		worker.state = worker.State.MOVE_TO_BUILD_SITE
 
 
 func _create_random_edge_offset(worker_index: int, worker_count: int) -> Vector3:
@@ -852,7 +964,7 @@ func _calculate_model_bounds() -> void:
 	var model: Node3D = visual_scene.instantiate() as Node3D
 	if model == null:
 		return
-	if building_data.id != &"torch":
+	if building_data.id != &"torch" and not building_data.is_wall():
 		add_child(BuildingBase.create_entrance_arrow(model.transform * BuildingBase.get_local_entrance(model)))
 
 	var mesh_nodes: Array[Node] = model.find_children(
@@ -1329,6 +1441,7 @@ func remove_builder(worker: Node) -> void:
 			and builders.is_empty()
 			and construction_progress < float(building_data.construction_time)
 		):
+			_release_resource_clearance()
 			state = State.READY_TO_BUILD
 			state_changed.emit(state)
 
@@ -1516,6 +1629,9 @@ func _create_health_bar() -> void:
 	if not _has_no_construction_health(): super._create_health_bar()
 
 func release_build_grid_area() -> bool:
+	if is_instance_valid(upgrade_from) and not upgrade_from.is_queued_for_deletion():
+		build_grid_area_registered = false
+		return true
 	if is_instance_valid(foundation_wall) and not foundation_wall.is_queued_for_deletion() and foundation_wall.get_health() > 0:
 		foundation_wall.tower_site = null
 		build_grid_area_registered = false

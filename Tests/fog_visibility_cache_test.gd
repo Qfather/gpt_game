@@ -2,11 +2,19 @@ extends SceneTree
 
 class CountedFog extends "res://Script/world/fog_of_war.gd":
 	var reveal_calls: int = 0
+	var sight_calls: int = 0
+	var smoothing_calls: int = 0
 	func _reveal_at(point: Vector3, radius: float = SIGHT_RADIUS, trees: Array[Vector3] = []) -> void:
 		reveal_calls += 1
 		super._reveal_at(point, radius, trees)
+	func _tree_sight_limits(origin: Vector2, radius: float = SIGHT_RADIUS, trees: Array[Vector3] = []) -> PackedFloat32Array:
+		sight_calls += 1
+		return super._tree_sight_limits(origin, radius, trees)
+	func _smooth_sight_limits(limits: PackedFloat32Array) -> PackedFloat32Array:
+		smoothing_calls += 1
+		return super._smooth_sight_limits(limits)
 
-class ReferenceFog extends "res://Script/world/fog_of_war.gd":
+class ReferenceFog extends "res://Tests/support/fog_cpu_reference.gd":
 	func refresh_visibility() -> void:
 		refresh_queued = false
 		visibility_map.copy_from(explored)
@@ -118,9 +126,13 @@ func _run() -> void:
 	actual.refresh_visibility()
 	_expect(not mesh.visible and prey.get_meta("fog_hidden"), "贴图复用时离开视野的猎物没有隐藏")
 	_expect(actual.reveal_calls == calls, "只有猎物移动也重算视野")
+	var sight_calls: int = actual.sight_calls
+	var smoothing_calls: int = actual.smoothing_calls
 	actors[0].position = Vector3(30, 0, 0)
 	_compare("居民移动")
 	_expect(actual.reveal_calls - calls == 22, "居民移动没有复用15个固定视野")
+	_expect(actual.sight_calls - sight_calls == 1, "一个居民移动时重复计算了静止居民的遮挡角度")
+	_expect(actual.smoothing_calls - smoothing_calls == 1, "一个居民移动时重复平滑了静止居民的遮挡角度")
 	actors[0].dead = true
 	_compare("居民死亡")
 	actors[1].hide()
@@ -164,6 +176,14 @@ func _run() -> void:
 			fog.refresh_visibility()
 		elapsed.append((Time.get_ticks_usec() - started) / 10000.0)
 	print("居民移动刷新平均毫秒：原版=", elapsed[0], " 缓存版=", elapsed[1])
+	actors[1].position = Vector3(100, 0, -100)
+	_compare("视野源位于地图外")
+	for fog: Node in [actual, reference]: fog.extent = Vector2(30, 24)
+	_compare("地图尺寸变化")
+	buildings[0].radius = 200.0
+	_compare("全图照亮")
+	actors[2].position.x += 0.5
+	_compare("全图照亮后居民移动，整行没有待合并像素")
 	print("迷雾缓存测试", "失败" if failed else "通过", "：暂停、固定视野复用、移动对象显隐、居民死亡隐藏、建筑变化、昼夜、树木变化；三张图逐字节对照原版")
 	for child: Node in root.get_children(): child.queue_free()
 	await process_frame

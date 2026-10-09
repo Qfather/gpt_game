@@ -42,6 +42,6 @@ const PARAMETERS: Dictionary = {
 @export_range(0, 100, 0.1) var detection_range: float = 10.0
 
 @export_category("居民需求")
-@export_range(0, 10, 0.01) var hunger_rate: float = 0.12
+@export_range(0, 10, 0.01) var hunger_rate: float = 0.3
 @export_range(0, 10, 0.01) var fatigue_rate: float = 0.6
 @export_range(0, 20, 0.1) var rest_recovery_rate: float = 4.0

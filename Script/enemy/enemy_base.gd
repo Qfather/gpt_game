@@ -16,7 +16,6 @@ var move_speed: float = 0.0
 var attack_range: float = 0.0
 var attack_interval: float = 0.0
 var detection_range: float = 0.0
-var hit_velocity: Vector3 = Vector3.ZERO
 var raid_steal_timer: float = 0.0
 var target: Node3D = null
 var blocking_wall: Wall
@@ -70,11 +69,6 @@ func _physics_process(delta: float) -> void:
 	preload("res://Script/unit/unit_facing.gd").update(visual_root, delta)
 	if is_dead():
 		velocity = Vector3.ZERO
-		return
-	if hit_velocity.length_squared() > 0.01:
-		velocity = hit_velocity
-		move_and_slide()
-		hit_velocity = hit_velocity.move_toward(Vector3.ZERO, 20.0 * delta)
 		return
 	if raid_retreating and not is_instance_valid(target):
 		var retreat_position: Vector3 = raid_spawn_position
@@ -293,9 +287,7 @@ func take_damage(amount: float, source: Node = null) -> float:
 		return 0.0
 	var actual: float = float(health_component.call("take_damage", amount, source))
 	if actual > 0.0 and not is_dead() and is_instance_valid(source) and source is Node3D:
-		var direction: Vector3 = global_position - source.global_position
-		direction.y = 0.0
-		hit_velocity = direction.normalized() * 3.0
+		preload("res://Script/combat/hit_recoil.gd").play(visual_root, source)
 	return actual
 
 

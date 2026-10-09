@@ -87,7 +87,7 @@ func refresh_stroke_obstacles() -> void:
 		stroke_resource_cells.merge(covered)
 	stroke_resource_footprints = footprints
 
-func _refresh_stroke_graph(ignored_cells: Array[Vector2i] = []) -> void:
+func _refresh_stroke_graph(ignored_cells: Array[Vector2i] = [], ignore_resources: bool = false) -> void:
 	var inputs: Array = [grid.grid_min, grid.grid_max, grid.cell_size, grid.global_position, grid.buildability_rule, grid.ground_height_rule]
 	if inputs != stroke_graph_inputs:
 		stroke_graph_inputs = inputs
@@ -110,11 +110,11 @@ func _refresh_stroke_graph(ignored_cells: Array[Vector2i] = []) -> void:
 				var neighbor: Vector2i = cell + offset
 				if stroke_ids.has(neighbor) and absf(grid.get_ground_height(cell) - grid.get_ground_height(neighbor)) <= 0.1:
 					stroke_graph.connect_points(stroke_ids[cell], stroke_ids[neighbor])
-	refresh_stroke_obstacles()
-	var blocked: Dictionary = stroke_resource_cells.duplicate()
+	if not ignore_resources: refresh_stroke_obstacles()
+	var blocked: Dictionary = {} if ignore_resources else stroke_resource_cells.duplicate()
 	blocked.merge(grid.occupied_cells, true)
 	for cell: Vector2i in ignored_cells:
-		if not stroke_resource_cells.has(cell): blocked.erase(cell)
+		if ignore_resources or not stroke_resource_cells.has(cell): blocked.erase(cell)
 	for cell: Vector2i in stroke_blocked:
 		if not blocked.has(cell) and stroke_ids.has(cell): stroke_graph.set_point_disabled(stroke_ids[cell], false)
 	for cell: Vector2i in blocked:
@@ -122,9 +122,9 @@ func _refresh_stroke_graph(ignored_cells: Array[Vector2i] = []) -> void:
 	stroke_blocked = blocked
 
 # 不返回部分路径：两端无法连通时交给预览显示整条红色。
-func plan_stroke(from: Vector2i, to: Vector2i, ignored_cells: Array[Vector2i] = []) -> Array[Vector2i]:
+func plan_stroke(from: Vector2i, to: Vector2i, ignored_cells: Array[Vector2i] = [], ignore_resources: bool = false) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
-	_refresh_stroke_graph(ignored_cells)
+	_refresh_stroke_graph(ignored_cells, ignore_resources)
 	if not stroke_ids.has(from) or not stroke_ids.has(to) or stroke_blocked.has(from) or stroke_blocked.has(to): return result
 	for point: Vector2 in stroke_graph.get_point_path(stroke_ids[from], stroke_ids[to]): result.append(Vector2i(point))
 	return result

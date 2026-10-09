@@ -103,7 +103,7 @@ func _run() -> void:
 	CONNECTIONS.remove_wall(collision_wall)
 	CONNECTIONS.remove_wall(collision_neighbor)
 	await process_frame
-	# 绕过建筑占地与实际资源；预览／提交均不删除资源。
+	# 绕过建筑占地；资源允许先拍蓝图，预览／提交均不立即删除资源。
 	ghost.building_data = stone
 	grid.occupied_cells[Vector2i.ZERO] = true
 	var resource: ResourceBase = load("res://Scene/resource/stone.tscn").instantiate()
@@ -111,7 +111,7 @@ func _run() -> void:
 	resource.position = grid.grid_to_world(Vector2i(2, 0))
 	await process_frame
 	var path: Array[Vector2i] = ghost.plan_wall_stroke(Vector2i(-3, 0), Vector2i(5, 0))
-	_expect(path.size() > 9 and not path.has(Vector2i.ZERO) and not path.has(Vector2i(2, 0)), "墙拖拽自动绕过建筑和实际资源")
+	_expect(path.size() > 9 and not path.has(Vector2i.ZERO) and ghost.can_place_at(stone, Vector2i(2, 0), 0), "墙拖拽绕过建筑，资源所在格允许拍下蓝图")
 	_expect(ghost.place_wall_stroke(path), "预览路线提交为逐格工地")
 	_expect(not resource.is_queued_for_deletion() and resource.resource_amount > 0, "铺墙不清除资源")
 	for cell: Vector2i in path:
@@ -126,6 +126,10 @@ func _run() -> void:
 	ghost.select_building(wood)
 	var from := Vector2i(-8, -8)
 	var to := Vector2i(-3, -8)
+	var click_resource: ResourceBase = load("res://Scene/resource/tree.tscn").instantiate()
+	world.add_child(click_resource)
+	click_resource.position = grid.grid_to_world(from)
+	await physics_frame
 	var down := InputEventMouseButton.new()
 	down.button_index = MOUSE_BUTTON_LEFT
 	down.pressed = true
@@ -137,8 +141,10 @@ func _run() -> void:
 	up.position = input_camera.unproject_position(grid.grid_to_world(to))
 	ghost._unhandled_input(up)
 	_expect(not ghost.wall_dragging and _site(from) != null and _site(to) != null, "鼠标松开生成完整木墙工地路线")
+	_expect(_site(from).get_blocking_resource() == click_resource and not click_resource.is_queued_for_deletion(), "资源所在格实际点击可放下蓝图，资源留待工人清理")
 	ghost.cancel_preview()
 	for x: int in range(from.x, to.x + 1): _site(Vector2i(x, from.y)).cancel_construction()
+	click_resource.queue_free()
 	await process_frame
 	# 正常城门、四墙改建、半价与取消后空地。
 	_expect(_place(gate, Vector2i(-10, 0)), "空地可建4×1门")

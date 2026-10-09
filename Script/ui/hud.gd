@@ -742,7 +742,7 @@ func _configure_building_menu() -> void:
 	for file: String in DirAccess.get_files_at("res://data/buildings/"):
 		if not file.ends_with(".tres"): continue
 		var data: BuildingData = load("res://data/buildings/" + file) as BuildingData
-		if data != null and data.id != &"base": menu_buildings.append(data)
+		if data != null and data.id not in [&"base", &"wall", &"gate", &"wall_tower"]: menu_buildings.append(data)
 	menu_buildings.sort_custom(BuildingData.menu_less)
 	building_tabs.tab_count = BuildingData.CATEGORY_NAMES.size()
 	for index: int in range(building_tabs.tab_count):

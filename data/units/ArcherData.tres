@@ -5,6 +5,7 @@
 script = ExtResource("1")
 id = &"archer"
 display_name = "弓箭手"
+hunger_rate = 0.35
 visual_scene = ExtResource("2")
 uses_arrows = true
 arrow_speed = 18.0

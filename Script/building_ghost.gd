@@ -533,7 +533,7 @@ func _create_construction_site(
 		site_data.construction_cost = placed_data.construction_cost.duplicate()
 		for resource_id: StringName in site_data.construction_cost: site_data.construction_cost[resource_id] *= 0.5
 		for wall: Wall in replaced_walls: WALL_CONNECTIONS.remove_wall(wall)
-	if not area_already_occupied and foundation == null and not build_grid.occupy_area(placed_grid_position, placed_data.grid_size, placed_rotation_step, false, true): return false
+	if not area_already_occupied and foundation == null and not build_grid.occupy_area(placed_grid_position, placed_data.grid_size, placed_rotation_step, placed_data.is_wall(), true): return false
 	var site: ConstructionSite = CONSTRUCTION_SITE_SCENE.instantiate() as ConstructionSite
 	site.foundation_wall = foundation
 
@@ -543,7 +543,6 @@ func _create_construction_site(
 		placed_rotation_step,
 		placed_mirrored
 	)
-	site.exterior_construction_started = placed_data.is_wall_tower()
 	site.set_activation_deferred_until_unpause(
 		defer_activation_until_unpause
 	)
@@ -551,6 +550,7 @@ func _create_construction_site(
 	site.global_transform = placed_transform
 	site.rotation.y = float(placed_rotation_step) * PI * 0.5
 	site.scale.x = -1.0 if placed_mirrored else 1.0
+	site.refresh_blocking_resources()
 
 	print(
 		"BuildingGhost 确认：",
@@ -603,7 +603,7 @@ func can_place_at(data: BuildingData, cell: Vector2i, turns: int) -> bool:
 	elif data.is_wall_tower():
 		if _tower_wall(data, cell) == null: return false
 		ignored = [cell]
-	return build_grid.is_area_free(cell, data.grid_size, turns, false, true, ignored)
+	return build_grid.is_area_free(cell, data.grid_size, turns, data.is_wall(), true, ignored)
 
 func plan_wall_stroke(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 	var roads: Node = get_tree().get_first_node_in_group("road_manager")
@@ -612,7 +612,7 @@ func plan_wall_stroke(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 	var layout: Dictionary = WALL_CONNECTIONS.cells(get_tree(), true)
 	for cell: Vector2i in layout:
 		if layout[cell].building_data.is_wall(): ignored.append(cell)
-	return roads.plan_stroke(from, to, ignored)
+	return roads.plan_stroke(from, to, ignored, true)
 
 func place_wall_stroke(requested: Array[Vector2i]) -> bool:
 	if requested.is_empty() or building_data == null or not building_data.is_wall(): return false
@@ -688,15 +688,30 @@ func _update_wall_preview() -> void:
 		_copy_visual_tree(source, branch)
 		source.free()
 	marker.free()
-	ghost_material.albedo_color = Color(0.2, 1, 0.2, 0.45) if is_valid_position else Color(1, 0.15, 0.15, 0.45)
+	var has_materials: bool = _has_wall_materials(count)
+	ghost_material.albedo_color = Color(1, 0.15, 0.15, 0.45) if not is_valid_position else (Color(0.2, 1, 0.2, 0.45) if has_materials else Color(1, 0.85, 0.1, 0.45))
 	var costs: PackedStringArray = []
 	var database: ResourceDatabase = preload("res://data/resources/resource_database.tres")
 	for resource_id: StringName in building_data.construction_cost:
 		var resource: ResourceData = database.get_resource_data(resource_id)
 		costs.append("%s %s" % [resource.display_name if resource != null else String(resource_id), str(building_data.construction_cost[resource_id] * count)])
 	relocation_cost_label.text = "%d 格 · %s" % [count, "、".join(costs)] if is_valid_position else "无法连通，不能建造"
+	if is_valid_position and not has_materials: relocation_cost_label.text += "（材料不足）"
 	relocation_cost_label.position = build_grid.grid_to_world(grid_position) + Vector3.UP * 2.8
 	relocation_cost_label.show()
 	path_warning.hide()
 	entrance_arrow.hide()
 	visible = true
+
+func _has_wall_materials(count: int) -> bool:
+	var manager: Node = get_tree().get_first_node_in_group("task_manager")
+	for resource_id: StringName in building_data.construction_cost:
+		var available: float = 0.0
+		if manager != null:
+			available = manager._get_available_resource_amount(resource_id)
+		else:
+			for storage: Node in get_tree().get_nodes_in_group("resource_storages"):
+				available += storage.get_amount(resource_id)
+		if available < float(building_data.construction_cost[resource_id]) * count:
+			return false
+	return true

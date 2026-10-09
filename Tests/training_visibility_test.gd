@@ -41,7 +41,11 @@ func _run() -> void:
 			if worker.has_combat_role():
 				break
 		_expect(worker.get_combat_role() == CombatRole.Type.SWORDSMAN and worker.visible, "完成训练后剑士恢复显示")
-		_expect(worker.collision_layer == 2 and worker.collision_mask == 3 and worker.global_position.distance_to(camp.global_position + Vector3(-0.6, 0, 2)) < 0.6, "训练成功后在营地入口恢复实体碰撞")
+		# 身份转换后还需走完出门动画；位置以建筑当前入口为准。
+		for index: int in range(120):
+			if not worker.passing_door: break
+			await physics_frame
+		_expect(worker.collision_layer == 2 and worker.collision_mask == 3 and worker.global_position.distance_to(camp.get_entrance_position()) < 0.6, "训练成功后在营地入口恢复实体碰撞")
 		if DisplayServer.get_name() != "headless":
 			await RenderingServer.frame_post_draw
 			root.get_texture().get_image().save_png("res://.godot/training_completed_preview.png")

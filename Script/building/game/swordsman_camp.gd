@@ -84,16 +84,11 @@ func get_training_position(worker: Node) -> Vector3:
 
 
 func get_sheltered_training_worker() -> Node:
-	var outside_units: bool = false
-	for unit: Node3D in get_tree().get_nodes_in_group("villagers"):
-		if unit.is_visible_in_tree() and not unit.is_dead(): outside_units = true
-	for unit: Node3D in get_tree().get_nodes_in_group("enemies"):
-		if unit.is_visible_in_tree() and not unit.is_dead() and unit.get_faction() == EnemyData.Faction.SETTLEMENT: outside_units = true
 	var fallback: Node = null
 	for resident: Node in get_tree().get_nodes_in_group("villagers"):
 		if resident.state != resident.State.SHELTERED or resident.is_dead() or resident.current_task != null or resident.has_combat_role(): continue
 		if resident.shelter_target == self: return resident
-		if not outside_units and fallback == null: fallback = resident
+		if fallback == null: fallback = resident
 	return fallback
 
 

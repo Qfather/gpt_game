@@ -21,6 +21,14 @@ var static_visibility_inputs: Array = []
 var static_visible_pixels: PackedInt32Array = []
 var static_fully_visible_pixels: PackedByteArray = []
 var static_visual_map: Image
+var visibility_children: Dictionary = {}
+var pixel_world_positions: PackedVector2Array = []
+var pixel_world_extent := Vector2.ZERO
+var sight_directions: PackedVector2Array = []
+var sight_profiles: Dictionary = {}
+var previous_sight_profiles: Dictionary = {}
+var sight_profile_trees: Array[Vector3] = []
+var reusing_sight_profiles: bool = false
 
 
 func _ready() -> void:
@@ -56,12 +64,34 @@ func _ready() -> void:
 	initialized = true
 	refresh_visibility()
 	get_tree().node_added.connect(_on_node_added)
+	get_tree().node_removed.connect(_on_node_removed)
 
 
-func _on_node_added(_node: Node) -> void:
+func _on_node_added(node: Node) -> void:
+	_invalidate_visibility_children(node)
 	if not refresh_queued:
 		refresh_queued = true
 		call_deferred("refresh_visibility")
+
+
+func _on_node_removed(node: Node) -> void:
+	_invalidate_visibility_children(node)
+
+
+func _invalidate_visibility_children(node: Node) -> void:
+	# node_removed 发出时父节点仍可访问，只失效受影响的对象及其祖先。
+	while node != null:
+		visibility_children.erase(node)
+		node = node.get_parent()
+
+
+func _get_visibility_children(object: Node) -> Dictionary:
+	if not visibility_children.has(object):
+		visibility_children[object] = {
+			"meshes": object.find_children("*", "GeometryInstance3D", true, false),
+			"colliders": object.find_children("*", "CollisionObject3D", true, false)
+		}
+	return visibility_children[object]
 
 
 func _process(delta: float) -> void:
@@ -150,6 +180,10 @@ func refresh_visibility() -> void:
 	var fixed_inputs: Array = [extent, visibility_multiplier, fixed_sources, tree_occluders]
 	var inputs: Array = [fixed_inputs, moving_sources, tree_visuals]
 	if inputs != last_visibility_inputs:
+		previous_sight_profiles = sight_profiles if tree_occluders == sight_profile_trees else {}
+		sight_profiles = {}
+		sight_profile_trees = tree_occluders
+		reusing_sight_profiles = true
 		if fixed_inputs != static_visibility_inputs:
 			visibility_map.fill(Color.BLACK)
 			visual_map.fill(Color(0.0, 1.0, 0.0, 0.0))
@@ -177,6 +211,8 @@ func refresh_visibility() -> void:
 			_reveal_at(Vector3(source.x, source.y, source.z), source.w, tree_occluders)
 		merging_visibility = false
 		_reveal_visible_tree_canopies()
+		reusing_sight_profiles = false
+		previous_sight_profiles = {}
 		mask_texture.update(visual_map)
 		last_visibility_inputs = inputs
 	_refresh_object_visibility()
@@ -195,9 +231,13 @@ func _refresh_object_visibility() -> void:
 				and object.building_data.id == &"torch"
 			)
 			object.set_meta("fog_hidden", not visible_now)
+			var children: Dictionary = _get_visibility_children(object)
+			if group in ["resources", "vegetation"] and children.get("last_visible") == visible_now:
+				continue
+			children.last_visible = visible_now
 			# 树木和地形保留在黑色遮罩下；其余对象隐藏网格但保持根节点与 AI 运作。
 			if not (group == "resources" and object.get_script() == TREE_SCRIPT):
-				for mesh: Node in object.find_children("*", "GeometryInstance3D", true, false):
+				for mesh: Node in children.meshes:
 					if group == "treasure_camps" and _belongs_to_camp_guard(mesh, object):
 						continue
 					if mesh is AggroRange3D:
@@ -206,7 +246,7 @@ func _refresh_object_visibility() -> void:
 					if not mesh.has_meta("fog_visible"):
 						mesh.set_meta("fog_visible", mesh.visible)
 					mesh.visible = visible_now and bool(mesh.get_meta("fog_visible"))
-			for collider: Node in object.find_children("*", "CollisionObject3D", true, false):
+			for collider: Node in children.colliders:
 				if group == "treasure_camps" and _belongs_to_camp_guard(collider, object):
 					continue
 				if not collider.has_meta("fog_pickable"):
@@ -224,19 +264,36 @@ func _refresh_object_visibility() -> void:
 
 
 func _reveal_at(point: Vector3, sight_radius: float = SIGHT_RADIUS, tree_occluders: Array[Vector3] = []) -> void:
+	_cache_pixel_world_positions()
 	sight_radius *= visibility_multiplier
 	var center: Vector2i = _pixel(point)
 	var radius := Vector2i(Vector2.ONE * sight_radius / extent * RESOLUTION) + Vector2i.ONE
 	var origin := Vector2(point.x, point.z)
-	var sight_limits: PackedFloat32Array = _tree_sight_limits(origin, sight_radius, tree_occluders)
-	var visual_limits: PackedFloat32Array = _smooth_sight_limits(sight_limits)
+	var profile_key := Vector3(origin.x, origin.y, sight_radius)
+	var profile: Dictionary = sight_profiles.get(profile_key, previous_sight_profiles.get(profile_key, {})) if reusing_sight_profiles else {}
+	if profile.is_empty():
+		var limits: PackedFloat32Array = _tree_sight_limits(origin, sight_radius, tree_occluders)
+		profile = {"sight": limits, "visual": _smooth_sight_limits(limits)}
+	if reusing_sight_profiles: sight_profiles[profile_key] = profile
+	var sight_limits: PackedFloat32Array = profile.sight
+	var visual_limits: PackedFloat32Array = profile.visual
+	var start_x: int = maxi(0, center.x - radius.x)
+	var end_x: int = mini(RESOLUTION, center.x + radius.x + 1)
 	for y: int in range(maxi(0, center.y - radius.y), mini(RESOLUTION, center.y + radius.y + 1)):
-		for x: int in range(maxi(0, center.x - radius.x), mini(RESOLUTION, center.x + radius.x + 1)):
-			# 当前刷新中已被其他视野源完全照亮的像素，后续合并不会再改变结果。
-			var pixel_index: int = y * RESOLUTION + x
-			if merging_visibility and fully_visible_pixels[pixel_index] == 1:
-				continue
-			var world: Vector2 = ((Vector2(x, y) + Vector2.ONE * 0.5) / RESOLUTION - Vector2.ONE * 0.5) * extent
+		var row_start: int = y * RESOLUTION
+		var row_visibility: PackedByteArray = fully_visible_pixels.slice(row_start + start_x, row_start + end_x) if merging_visibility else []
+		var column: int = start_x
+		while column < end_x:
+			var pixel_index: int = row_start + column
+			# 原生扫描直接跳到未完全照亮的像素，连续照亮区无需逐像素执行脚本。
+			if merging_visibility:
+				var next_column: int = row_visibility.find(0, column - start_x)
+				if next_column < 0:
+					break
+				pixel_index = row_start + start_x + next_column
+			var x: int = pixel_index - row_start
+			column = x + 1
+			var world: Vector2 = pixel_world_positions[pixel_index]
 			var offset: Vector2 = world - origin
 			var distance: float = offset.length()
 			if distance > sight_radius:
@@ -284,6 +341,10 @@ func _collect_tree_occluders() -> Array[Vector3]:
 
 
 func _tree_sight_limits(origin: Vector2, sight_radius: float = SIGHT_RADIUS, tree_occluders: Array[Vector3] = []) -> PackedFloat32Array:
+	if sight_directions.is_empty():
+		# 保留原来的未环绕角度计算，避免边界三角函数舍入改变遮挡结果。
+		for index: int in range(-ANGLE_SAMPLES, ANGLE_SAMPLES * 2):
+			sight_directions.append(Vector2.from_angle(-PI + (float(index) + 0.5) * TAU / ANGLE_SAMPLES))
 	var limits := PackedFloat32Array()
 	limits.resize(ANGLE_SAMPLES)
 	limits.fill(sight_radius)
@@ -292,14 +353,15 @@ func _tree_sight_limits(origin: Vector2, sight_radius: float = SIGHT_RADIUS, tre
 		var offset: Vector2 = Vector2(tree.x, tree.y) - origin
 		var distance: float = offset.length()
 		var tree_radius: float = tree.z
+		var offset_squared: float = offset.length_squared()
 		if distance <= tree_radius + 0.15 or distance > sight_radius + tree_radius:
 			continue
 		var center_index: int = floori((offset.angle() + PI) / TAU * ANGLE_SAMPLES)
 		var half_count: int = ceili(asin(tree_radius / distance) / TAU * ANGLE_SAMPLES) + 1
 		for index: int in range(center_index - half_count, center_index + half_count + 1):
-			var direction := Vector2.from_angle(-PI + (float(index) + 0.5) * TAU / ANGLE_SAMPLES)
+			var direction: Vector2 = sight_directions[index + ANGLE_SAMPLES]
 			var projection: float = offset.dot(direction)
-			var perpendicular_squared: float = offset.length_squared() - projection * projection
+			var perpendicular_squared: float = offset_squared - projection * projection
 			if projection <= 0.0 or perpendicular_squared >= tree_radius * tree_radius:
 				continue
 			# 树干本身仍可见；视线从树干后方开始被截断。
@@ -319,9 +381,15 @@ func _smooth_sight_limits(limits: PackedFloat32Array) -> PackedFloat32Array:
 		next.resize(ANGLE_SAMPLES)
 		var total: float = 0.0
 		for offset: int in range(-6, 7): total += sums[posmod(offset, ANGLE_SAMPLES)]
+		var entering: int = 7
+		var leaving: int = ANGLE_SAMPLES - 6
 		for index: int in range(ANGLE_SAMPLES):
 			next[index] = total
-			total += sums[posmod(index + 7, ANGLE_SAMPLES)] - sums[posmod(index - 6, ANGLE_SAMPLES)]
+			total += sums[entering] - sums[leaving]
+			entering += 1
+			leaving += 1
+			if entering == ANGLE_SAMPLES: entering = 0
+			if leaving == ANGLE_SAMPLES: leaving = 0
 		sums = next
 	var smoothed := PackedFloat32Array()
 	smoothed.resize(ANGLE_SAMPLES)
@@ -330,6 +398,7 @@ func _smooth_sight_limits(limits: PackedFloat32Array) -> PackedFloat32Array:
 
 
 func _reveal_visible_tree_canopies() -> void:
+	_cache_pixel_world_positions()
 	for node: Node in get_tree().get_nodes_in_group("resources"):
 		if node.get_script() != TREE_SCRIPT or node.is_queued_for_deletion() or not is_visible_at(node.global_position):
 			continue
@@ -344,9 +413,18 @@ func _reveal_visible_tree_canopies() -> void:
 		var crown_height: float = clampf((node.global_position.y + 0.65 * visual.global_basis.get_scale().y) / 32.0, 0.0, 1.0)
 		for y: int in range(maxi(0, center.y - radius.y), mini(RESOLUTION, center.y + radius.y + 1)):
 			for x: int in range(maxi(0, center.x - radius.x), mini(RESOLUTION, center.x + radius.x + 1)):
-				var world: Vector2 = ((Vector2(x, y) + Vector2.ONE * 0.5) / RESOLUTION - Vector2.ONE * 0.5) * extent
+				var world: Vector2 = pixel_world_positions[y * RESOLUTION + x]
 				var strength: float = 1.0 - smoothstep(canopy_radius, fade_radius, world.distance_to(origin))
 				if strength <= 0.0:
 					continue
 				var old_pixel: Color = visual_map.get_pixel(x, y)
 				visual_map.set_pixel(x, y, Color(old_pixel.r, minf(old_pixel.g, crown_height), maxf(old_pixel.b, strength), 1.0))
+
+
+func _cache_pixel_world_positions() -> void:
+	if pixel_world_extent == extent and not pixel_world_positions.is_empty(): return
+	pixel_world_extent = extent
+	pixel_world_positions.resize(RESOLUTION * RESOLUTION)
+	for y: int in range(RESOLUTION):
+		for x: int in range(RESOLUTION):
+			pixel_world_positions[y * RESOLUTION + x] = ((Vector2(x, y) + Vector2.ONE * 0.5) / RESOLUTION - Vector2.ONE * 0.5) * extent

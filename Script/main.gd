@@ -44,6 +44,7 @@ func _enter_tree() -> void:
 
 var world_object_clicked: bool = false
 var selected_object: Node3D = null
+var selected_objects: Array[Node3D] = []
 var road_manager: Node
 var road_tool: Node
 var selected_mesh_overlays: Dictionary = {}
@@ -79,6 +80,9 @@ func flush_paused_game_commands() -> void:
 # ============================================================
 
 func _ready():
+	var alarm := SettlementAlarm.new()
+	alarm.name = "SettlementAlarm"
+	$Systems.add_child(alarm)
 	_create_selection_outline_material()
 	camp_panel = preload("res://UI/camp_panel.gd").new()
 	$UI.add_child(camp_panel)
@@ -606,6 +610,21 @@ func _select_world_object(target: Node3D) -> void:
 
 	selected_object = target
 	_show_selected_building_range(target)
+	selected_objects = [target]
+	if bool(target.get_meta("selection_double_click", false)):
+		target.remove_meta("selection_double_click")
+		var group: String = "buildings" if target is BuildingBase else "villagers"
+		for candidate: Node3D in get_tree().get_nodes_in_group(group):
+			if candidate == target or candidate.is_queued_for_deletion() or not candidate.is_visible_in_tree() or candidate.get_meta("fog_hidden", false): continue
+			if target is BuildingBase:
+				if target.building_data == null or candidate.building_data == null or target.building_data.id != candidate.building_data.id or (target is ConstructionSite) != (candidate is ConstructionSite): continue
+			elif candidate.unit_data != target.unit_data or candidate.job != target.job: continue
+			selected_objects.append(candidate)
+	for object: Node3D in selected_objects:
+		_highlight_selected_object(object)
+
+
+func _highlight_selected_object(target: Node3D) -> void:
 	var mesh_nodes: Array[Node] = target.find_children(
 		"*",
 		"MeshInstance3D",
@@ -676,4 +695,5 @@ func _clear_selection_highlight() -> void:
 			selected_mesh_overlays[mesh_variant] as Material
 		)
 	selected_mesh_overlays.clear()
+	selected_objects.clear()
 	selected_object = null
