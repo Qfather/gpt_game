@@ -412,16 +412,38 @@ func preferred_path(from: Vector3, to: Vector3, map: RID) -> Variant:
 			for index: int in range(1, road.size() - 1):
 				if (road[index] - road[index - 1]).normalized().dot((road[index + 1] - road[index]).normalized()) < 0.99: corners.append(road[index])
 			corners.append(road[-1])
+			# 每个方向走右半幅中心；转角使用两条偏移直线的交点。
+			var lane := PackedVector3Array()
+			for index: int in range(corners.size()):
+				var incoming: Vector3 = corners[maxi(index - 1, 0)].direction_to(corners[index])
+				var outgoing: Vector3 = corners[index].direction_to(corners[mini(index + 1, corners.size() - 1)])
+				if index == 0: incoming = outgoing
+				if index == corners.size() - 1: outgoing = incoming
+				incoming.y = 0.0
+				outgoing.y = 0.0
+				incoming = incoming.normalized()
+				outgoing = outgoing.normalized()
+				var offset: Vector3 = (incoming.cross(Vector3.UP) + outgoing.cross(Vector3.UP)) * (grid.cell_size * 0.25 / (1.0 + incoming.dot(outgoing)))
+				lane.append(corners[index] + offset)
 			var connected: bool = true
-			for index: int in range(1, corners.size()):
-				var segment: PackedVector3Array = _path(map, corners[index - 1], corners[index])
-				if segment.is_empty() or _length(segment) > corners[index - 1].distance_to(corners[index]) + 0.25:
+			for point: Vector3 in lane:
+				var projected: Vector3 = NavigationServer3D.map_get_closest_point(map, point)
+				if Vector2(projected.x - point.x, projected.z - point.z).length() > 0.05 or absf(projected.y - point.y) > 0.75:
 					connected = false
 					break
 			if not connected: continue
-			best = approaches[entry].duplicate()
-			best.append_array(corners)
-			best.append_array(exits[exit])
+			for index: int in range(1, lane.size()):
+				var segment: PackedVector3Array = _path(map, lane[index - 1], lane[index])
+				if segment.is_empty() or _length(segment) > lane[index - 1].distance_to(lane[index]) + 0.05:
+					connected = false
+					break
+			if not connected: continue
+			var approach: PackedVector3Array = _path(map, from, lane[0])
+			var departure: PackedVector3Array = _path(map, lane[-1], to)
+			if approach.is_empty() or departure.is_empty(): continue
+			best = approach
+			best.append_array(lane)
+			best.append_array(departure)
 			best_cost = cost
 	return best
 

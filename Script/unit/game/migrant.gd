@@ -13,7 +13,7 @@ var character_name: String = ""
 var _arrival_notified: bool = false
 var _entering_base: bool = false
 var _navigation_target_ready: bool = false
-var unit_avoidance = preload("res://Script/unit/unit_avoidance.gd").new()
+# var unit_avoidance = preload("res://Script/unit/unit_avoidance.gd").new()
 
 
 func _ready() -> void:
@@ -82,7 +82,8 @@ func _physics_process(delta: float) -> void:
 	var offset: Vector3 = next_position - global_position
 	# 倍速或拐角处不越过路径点，避免下一帧反向追赶同一点。
 	velocity = offset.limit_length(move_speed * delta) / delta
-	velocity = unit_avoidance.steer(self, navigation_agent, velocity, delta)
+	# 暂停自定义单位扫描、减速、绕行及让路；保留调用供后续恢复。
+	# velocity = unit_avoidance.steer(self, navigation_agent, velocity, delta)
 	move_and_slide()
 
 

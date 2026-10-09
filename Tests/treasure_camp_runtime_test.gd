@@ -44,6 +44,7 @@ func _run() -> void:
 	_expect(camp.resources == frozen and camp.display_name == "史莱姆宝箱营地", "时间与模板修改不会改变已经生成的营地")
 	var ordinary: Node3D = main.get_node("Villagers").get_child(0)
 	var fighter: Node3D = main.get_node("Villagers").get_child(1)
+	await _wait_idle_ready(fighter)
 	_expect(not camp.add_participant(ordinary), "普通居民不能接受清剿任务")
 	fighter.set_combat_role(99)
 	_expect(camp.add_participant(fighter), "清剿接口接受非剑士战斗角色")
@@ -54,6 +55,7 @@ func _run() -> void:
 	_expect(fighter.global_position.distance_to(initial_position) > 0.5, "分配后单位沿导航向营地移动")
 	camp.remove_participant(fighter)
 	_expect(fighter.treasure_camp == null and camp.participants.is_empty(), "撤回释放寻宝归属")
+	await _wait_idle_ready(fighter)
 	fighter.set_combat_role(CombatRole.Type.SWORDSMAN)
 	var barracks := Barracks.new()
 	main.add_child(barracks)
@@ -75,9 +77,8 @@ func _run() -> void:
 	barracks.free()
 	fighter.state = fighter.State.IDLE
 	fighter.global_position = camp.global_position + Vector3(0, 0, 1.5)
-	fighter.combat_damage = 100.0
-	fighter.combat_attack_interval = 0.1
-	fighter.combat_detection_range = 20.0
+	# 面板撤回／重加先独立验证，避免等待返程时自动战斗提前清空营地。
+	fighter.base_attack_damage = 0.0
 	_expect(camp.add_participant(fighter), "可再次分配清剿")
 	for guard: EnemyBase in camp.guards:
 		guard.damage = 0.0
@@ -89,8 +90,18 @@ func _run() -> void:
 	var withdraw: Button = main.camp_panel.participants_box.get_child(0).get_child(1)
 	withdraw.pressed.emit()
 	_expect(not camp.participants.has(fighter), "面板撤回按钮实际解除任务")
+	await _wait_idle_ready(fighter)
+	main.camp_panel.refresh()
 	main.camp_panel.add_button.pressed.emit()
 	_expect(camp.participants.has(fighter), "面板添加按钮实际分配战斗单位")
+	# 清剿仍从原营地附近开始，伤害通过真实单位配置设置。
+	fighter.global_position = camp.global_position + Vector3(0, 0, 1.5)
+	var fighter_data: UnitData = fighter.unit_data.duplicate(true)
+	fighter_data.damage = 100.0
+	fighter.set_unit_data(fighter_data)
+	_expect(is_equal_approx(fighter.get_attack_damage(), 100.0), "测试伤害通过单位配置实际生效")
+	fighter.combat_attack_interval = 0.1
+	fighter.combat_detection_range = 20.0
 	if "--preview" in OS.get_cmdline_user_args():
 		fighter.set_physics_process(false)
 		for guard: EnemyBase in camp.guards:
@@ -132,6 +143,14 @@ func _run() -> void:
 	await process_frame
 	print("营地运行链路测试", "失败" if failed else "通过")
 	quit(1 if failed else 0)
+
+func _wait_idle_ready(unit: Node) -> void:
+	# 等实际出门及站位完成，不让旧出门回调覆盖后续驻军／寻宝状态。
+	for frame: int in range(900):
+		if unit.is_idle() and not unit.passing_door: return
+		await physics_frame
+		await process_frame
+	_expect(false, "士兵在限定时间内实际完成出门和待命站位")
 
 func _expect(condition: bool, message: String) -> void:
 	print("[", "通过" if condition else "失败", "] ", message)

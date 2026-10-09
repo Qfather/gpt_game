@@ -69,7 +69,8 @@ func _return_home(delta: float) -> void:
 			navigation_agent.target_position = home_position
 		var next_position: Vector3 = navigation_agent.get_next_path_position()
 		velocity = Vector3.ZERO if navigation_agent.is_navigation_finished() else global_position.direction_to(next_position) * move_speed
-		velocity = unit_avoidance.steer(self, navigation_agent, velocity, delta)
+		# 暂停自定义单位扫描、减速、绕行及让路；保留调用供后续恢复。
+		# velocity = unit_avoidance.steer(self, navigation_agent, velocity, delta)
 		move_and_slide()
 		return
 	velocity = Vector3.ZERO

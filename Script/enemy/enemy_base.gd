@@ -36,7 +36,7 @@ var death_log_pending: bool = false
 var runtime_features: Array[FeatureData] = []
 var ability_runtimes: Array[AbilityRuntime] = []
 var faction_override: int = -1
-var unit_avoidance = preload("res://Script/unit/unit_avoidance.gd").new()
+# var unit_avoidance = preload("res://Script/unit/unit_avoidance.gd").new()
 
 signal target_changed(target: Node3D)
 
@@ -161,7 +161,8 @@ func _move_toward_navigation_target(target_position: Vector3, close_approach: bo
 
 	var direction: Vector3 = next_position - global_position
 	velocity = direction.normalized() * move_speed
-	velocity = unit_avoidance.steer(self, navigation_agent, velocity, get_physics_process_delta_time())
+	# 暂停自定义单位扫描、减速、绕行及让路；保留调用供后续恢复。
+	# velocity = unit_avoidance.steer(self, navigation_agent, velocity, get_physics_process_delta_time())
 	preload("res://Script/unit/unit_facing.gd").face_direction(visual_root, velocity)
 	move_and_slide()
 	for index: int in range(get_slide_collision_count()):

@@ -163,7 +163,7 @@ var returning_resupply_surplus: bool = false
 var idle_reposition_timer: float = 0.0
 var idle_warning_elapsed: float = 0.0
 var initial_idle_position_pending: bool = false
-var unit_avoidance = preload("res://Script/unit/unit_avoidance.gd").new()
+# var unit_avoidance = preload("res://Script/unit/unit_avoidance.gd").new()
 var yield_cooldown: float = 0.0
 var tower_look_timer: float = 0.0
 var shelter_target: BuildingBase
@@ -1683,6 +1683,7 @@ func can_accept_treasure_hunt() -> bool:
 		has_combat_role() and not is_dead() and not is_stunned() and not is_instance_valid(treasure_camp)
 		and current_task == null and carried_amount <= 0.0
 		and not is_quitting_job and not abandoning_work
+		and not leaving_immigration_base and not initial_idle_position_pending and not passing_door
 		and state in [State.IDLE, State.RETURN_TO_IDLE, State.GARRISONED,
 			State.MOVE_TO_PATROL_POINT, State.PATROLLING, State.RETURN_TO_BARRACKS]
 	)
@@ -1739,8 +1740,9 @@ func finish_treasure_hunt(camp: Node3D) -> void:
 	combat_target = null
 	combat_resume_state = -1
 	navigation_agent.target_desired_distance = float(treasure_resume["target_distance"])
-	# 驻军原碰撞掩码为0，离营往返途中仍需要与障碍碰撞。
-	collision_mask = 3 if treasure_resume["garrison"] != null else int(treasure_resume["collision_mask"])
+	# 驻军及旧出门状态的掩码0不能恢复到室外行走。
+	var resume_collision_mask: int = int(treasure_resume["collision_mask"])
+	collision_mask = 3 if treasure_resume["garrison"] != null or resume_collision_mask == 0 else resume_collision_mask
 	if is_dead() or not is_inside_tree() or (get_tree().current_scene != null and get_tree().current_scene.is_queued_for_deletion()):
 		treasure_resume.clear()
 		return
@@ -3352,23 +3354,24 @@ func move_along_navigation():
 		velocity = Vector3.ZERO
 		return
 
-	if (
-		state == State.MOVE_TO_PATROL_POINT
-		and patrol_collision_avoid_time > 0.0
-		and patrol_collision_avoid_direction.length_squared() > 0.01
-	):
-		velocity.x = patrol_collision_avoid_direction.x * get_move_speed()
-		velocity.z = patrol_collision_avoid_direction.z * get_move_speed()
-		_face_direction(velocity)
-		move_and_slide()
-		patrol_collision_avoid_time = maxf(
-			patrol_collision_avoid_time - get_physics_process_delta_time(),
-			0.0
-		)
-		_update_patrol_collision_avoidance()
-		if patrol_collision_avoid_time <= 0.0:
-			patrol_collision_avoid_direction = Vector3.ZERO
-		return
+	# 暂停巡逻碰撞后的主动侧向绕行，继续使用正常导航和实体滑动。
+	# if (
+		# state == State.MOVE_TO_PATROL_POINT
+		# and patrol_collision_avoid_time > 0.0
+		# and patrol_collision_avoid_direction.length_squared() > 0.01
+	# ):
+		# velocity.x = patrol_collision_avoid_direction.x * get_move_speed()
+		# velocity.z = patrol_collision_avoid_direction.z * get_move_speed()
+		# _face_direction(velocity)
+		# move_and_slide()
+		# patrol_collision_avoid_time = maxf(
+			# patrol_collision_avoid_time - get_physics_process_delta_time(),
+			# 0.0
+		# )
+		# _update_patrol_collision_avoidance()
+		# if patrol_collision_avoid_time <= 0.0:
+			# patrol_collision_avoid_direction = Vector3.ZERO
+		# return
 
 
 	var next_position: Vector3 = road_navigation.next_position(self, navigation_agent)
@@ -3397,11 +3400,12 @@ func move_along_navigation():
 		velocity.z = 0.0
 
 
-	velocity = unit_avoidance.steer(self, navigation_agent, velocity, get_physics_process_delta_time())
+	# 暂停自定义单位扫描、减速、绕行及让路；保留调用供后续恢复。
+	# velocity = unit_avoidance.steer(self, navigation_agent, velocity, get_physics_process_delta_time())
 	_face_direction(velocity)
 	move_and_slide()
-	if state == State.MOVE_TO_PATROL_POINT:
-		_update_patrol_collision_avoidance()
+	# if state == State.MOVE_TO_PATROL_POINT:
+		# _update_patrol_collision_avoidance()
 
 
 func _update_patrol_collision_avoidance() -> void:

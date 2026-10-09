@@ -34,7 +34,7 @@ func next_position(unit: Node3D, agent: NavigationAgent3D) -> Vector3:
 			retry_msec = now + 500
 	# 目标／障碍变化后不继续沿旧路线移动，等待分帧重规划。
 	if target.distance_squared_to(agent.target_position) > 0.25 or revision != manager.revision or map_iteration != iteration: return ordinary
-	while index < route.size() and unit.global_position.distance_to(route[index]) < 0.3: index += 1
+	while index < route.size() and unit.global_position.distance_to(route[index]) < 0.1: index += 1
 	return route[index] if index < route.size() else ordinary
 
 func invalidate() -> void:
