@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3 uid="uid://cgfa34k36r8m"]
+
+[ext_resource type="Script" uid="uid://do1x0y7b1ssf7" path="res://Script/training_recipe.gd" id="3_mts5m"]
+[ext_resource type="Script" uid="uid://b2vt2lwsdilgf" path="res://Script/building_data.gd" id="data"]
+[ext_resource type="PackedScene" path="res://Scene/building/game/fisher_hut.tscn" id="scene"]
+
+[resource]
+script = ExtResource("data")
+id = &"fisher_hut"
+display_name = "渔夫小屋"
+description = "贴岸水面上的2×2小屋，1名渔民乘船换点打捞，满船后返屋处理为鱼。"
+sort_id = 11
+tier = 1
+building_scene = ExtResource("scene")
+storage_capacities = Dictionary[StringName, float]({
+&"fish": 30.0
+})
+grid_size = Vector2i(2, 2)
+surface_drying_enabled = false
+construction_cost = Dictionary[StringName, float]({
+&"stone": 10.0,
+&"wood": 25.0
+})
+construction_time = 20.0
+max_construction_workers = 2
+placement_surface = 1

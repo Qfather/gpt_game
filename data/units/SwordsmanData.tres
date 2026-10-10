@@ -3,6 +3,8 @@
 [ext_resource type="Script" uid="uid://d2c8wn4dawh6x" path="res://Script/unit/unit_data.gd" id="1_data"]
 [ext_resource type="PackedScene" path="res://Scene/unit/swordsman_visual.tscn" id="2_visual"]
 
+[ext_resource type="Texture2D" path="res://assets/icons/units/swordsman.png" id="hud_icon"]
+
 [resource]
 script = ExtResource("1_data")
 id = &"swordsman"
@@ -11,3 +13,5 @@ display_name = "剑士"
 hunger_rate = 0.35
 description = "居民训练后成为近战单位，可驻军、巡逻、防御和参加营地寻宝。"
 visual_scene = ExtResource("2_visual")
+
+icon = ExtResource("hud_icon")

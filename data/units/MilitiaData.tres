@@ -3,6 +3,8 @@
 [ext_resource type="Script" path="res://Script/unit/unit_data.gd" id="1_data"]
 [ext_resource type="PackedScene" path="res://Scene/unit/swordsman_visual.tscn" id="2_visual"]
 
+[ext_resource type="Texture2D" path="res://assets/icons/units/militia.png" id="hud_icon"]
+
 [resource]
 script = ExtResource("1_data")
 id = &"militia"
@@ -15,3 +17,5 @@ visual_scene = ExtResource("2_visual")
 max_health = 80.0
 damage = 5.0
 visual_tint = Color(0.65, 0.7, 0.6, 1)
+
+icon = ExtResource("hud_icon")

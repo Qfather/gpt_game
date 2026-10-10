@@ -33,6 +33,17 @@ func _run() -> void:
 	assert(not grid.is_area_free(candidate, data.grid_size, 0, false, true))
 	var site: ConstructionSite = get_first_node_in_group("construction_sites")
 	assert(get_first_node_in_group("task_manager").create_repair_task(site) == null)
+	fog.refresh_visibility()
+	assert(fog.is_visible_at(site.global_position))
+	assert(not site.get_meta("fog_hidden", false))
+	var source: Vector4 = fog.static_visibility_inputs[2][-1]
+	assert(source.w == 4.0)
+	var site_point := site.global_position
+	site.queue_free()
+	await process_frame
+	fog.refresh_visibility()
+	assert(not fog.is_visible_at(site_point))
+	print("[通过] 未揭示区域放蓝图获得4米少量视野，移除工地后视野撤销")
 	main.queue_free()
 	await process_frame
 	print("迷雾建造测试通过：真实地图未照亮区域可放住宅、占地约束保留、工地不创建维修任务")

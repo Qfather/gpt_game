@@ -31,7 +31,7 @@ var building: BuildingBase
 var panel: Control
 var count_label: Label
 var sleep_label: Label
-const ROLE_NAMES: Dictionary = {&"resident": "居民", &"militia": "民兵", &"swordsman": "剑士", &"archer": "弓箭手", &"hunter": "猎人"}
+const ROLE_NAMES: Dictionary = {&"resident": "居民", &"militia": "民兵", &"swordsman": "剑士", &"archer": "弓箭手", &"hunter": "猎人", &"fisher": "渔民"}
 var role_cards: Dictionary = {}
 var role_counts: Dictionary = {}
 
@@ -109,11 +109,13 @@ func _process(_delta: float) -> void:
 			CombatRole.Type.ARCHER: role = &"archer"
 			_:
 				if resident.is_hunter(): role = &"hunter"
+				elif resident.job == resident.Job.FISHER: role = &"fisher"
 		role_counts[role] = int(role_counts.get(role, 0)) + 1
 		if resident.state == resident.State.RESTING:
 			sleep_label.visible = true
 		var processing: bool = resident.is_hunter() and resident.hunting.inside_processing and resident.workplace == building
-		if (resident.state == resident.State.TRAINING and resident.task_site == building) or processing:
+		var fishing_processing: bool = resident.job == resident.Job.FISHER and resident.fishing.phase == 6 and resident.workplace == building
+		if (resident.state == resident.State.TRAINING and resident.task_site == building) or processing or fishing_processing:
 			var training_index: int = int(training_counts.get(role, 0))
 			var bars: Array = role_cards[role].training_bars
 			if training_index >= bars.size():
@@ -137,6 +139,7 @@ func _process(_delta: float) -> void:
 				bars.append(bar)
 			var bar: ProgressBar = bars[training_index]
 			bar.value = resident.hunting.get_processing_progress() if processing else resident.get_training_progress()
+			if fishing_processing: bar.value = clampf(1.0 - resident.fishing.timer / maxf(building.processing_time, 0.001), 0.0, 1.0)
 			bar.show()
 			training_counts[role] = training_index + 1
 	var index: int = 0

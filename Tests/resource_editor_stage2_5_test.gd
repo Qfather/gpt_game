@@ -1,14 +1,14 @@
 extends SceneTree
 
 const TEST_PATH: String = "user://resource_editor_stage2_5_test.tres"
-const EXPECTED_RESOURCE_COUNT: int = 7
+const EXPECTED_RESOURCE_COUNT: int = 8
 
 var _failed: bool = false
 
 
 func _initialize() -> void:
 	var resources: Array[ResourceData] = ResourceEditorDataService.scan_resources()
-	_expect(resources.size() == EXPECTED_RESOURCE_COUNT, "Resource Editor 可以扫描 7 种正式资源")
+	_expect(resources.size() == EXPECTED_RESOURCE_COUNT, "Resource Editor 可以扫描含鱼的 8 种正式资源")
 	_expect(
 		ResourceEditorDataService.resource_id_exists(&"wood", resources),
 		"可以检测已经存在的资源 ID"

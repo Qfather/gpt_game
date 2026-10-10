@@ -92,6 +92,7 @@ var requires_blueprint: bool:
 @export var max_construction_workers: int = 1
 
 @export_category("放置选项")
+@export_enum("陆地", "贴岸水面") var placement_surface: int = 0
 @export var allow_rotation: bool = true
 @export var allow_mirror: bool = true
 

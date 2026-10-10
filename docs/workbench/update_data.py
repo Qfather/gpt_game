@@ -131,7 +131,7 @@ def snapshot():
     return "\n\n".join(output) + "\n"
 
 
-def update():
+def update(lock=None):
     path = DOCS / "数据.md"
     generated = snapshot()
     initial = "# 游戏数据\n\n数据来自工程配置。快照区由收工更新维护，手工说明写在末尾；在网页中编辑MD不会修改Godot配置。\n\n" + BEGIN + "\n" + END + "\n\n## 手工说明\n\n暂无补充。\n"
@@ -149,8 +149,10 @@ def update():
             backup = DOCS / "workbench/.history/数据.md" / (hashlib.sha256(original).hexdigest() + ".bak")
             backup.parent.mkdir(parents=True, exist_ok=True)
             backup.write_bytes(original)
-        from server import LOCK
-        with LOCK:
+        if lock is None:
+            from server import LOCK
+            lock = LOCK
+        with lock:
             import os
             import tempfile
             temporary = None

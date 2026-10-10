@@ -17,6 +17,7 @@ var building_panel: Control
 var unit_panel: Control
 var resource_list: ItemList
 var resource_items: Array[ResourceData] = []
+var resource_count_label: Label
 var current_resource: ResourceData
 
 var category_filter: OptionButton
@@ -110,6 +111,17 @@ func _create_main_panel() -> void:
 	refresh_button.text = "刷新"
 	refresh_button.pressed.connect(_refresh_resource_list)
 	toolbar.add_child(refresh_button)
+	var clear_filters_button := Button.new()
+	clear_filters_button.text = "清除筛选"
+	clear_filters_button.pressed.connect(func() -> void:
+		category_filter.select(0)
+		tier_filter.value = 0
+		tag_filter.text = ""
+		_refresh_resource_list()
+	)
+	toolbar.add_child(clear_filters_button)
+	resource_count_label = Label.new()
+	toolbar.add_child(resource_count_label)
 
 
 	var new_button: Button = Button.new()
@@ -158,7 +170,7 @@ func _create_filters(parent: VBoxContainer) -> void:
 	parent.add_child(first_row)
 
 	category_filter = OptionButton.new()
-	category_filter.add_item("全部分类", -1)
+	category_filter.add_item("全部分类")
 	for index: int in range(CATEGORY_LABELS.size()):
 		category_filter.add_item(CATEGORY_LABELS[index], index)
 	category_filter.item_selected.connect(_on_filter_changed)
@@ -364,7 +376,8 @@ func _refresh_resource_list() -> void:
 
 func _apply_filters() -> void:
 	resource_list.clear()
-	var selected_category: int = category_filter.get_selected_id()
+	# add_item 的 -1 表示自动编号；首项按位置判定，不能当作类别0。
+	var selected_category: int = -1 if category_filter.selected == 0 else category_filter.get_selected_id()
 	var selected_tier: int = int(tier_filter.value)
 	var required_tags: Array[StringName] = _parse_tags(tag_filter.text)
 
@@ -376,7 +389,7 @@ func _apply_filters() -> void:
 
 		var matches_tags: bool = true
 		for tag: StringName in required_tags:
-			if not resource_data.has_tag(tag):
+			if tag not in resource_data.tags:
 				matches_tags = false
 				break
 		if not matches_tags:
@@ -388,6 +401,7 @@ func _apply_filters() -> void:
 		resource_list.set_item_metadata(item_index, resource_data)
 		if resource_data.icon != null:
 			resource_list.set_item_icon(item_index, resource_data.icon)
+	resource_count_label.text = "显示 %d / 全部 %d" % [resource_list.item_count, resource_items.size()]
 
 
 func _on_filter_changed(_index: int) -> void:

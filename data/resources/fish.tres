@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="ResourceData" format=3 uid="uid://cbtrs8gpjxkyl"]
+
+[ext_resource type="Script" uid="uid://j73mtdmdhsqu" path="res://Script/resource/resource_data.gd" id="data"]
+[ext_resource type="Script" uid="uid://cvhho6n28x8cs" path="res://Script/resource/food_properties.gd" id="food"]
+[ext_resource type="Texture2D" uid="uid://deu7rannkwg6j" path="res://assets/icons/resources/fish.svg" id="icon"]
+
+[sub_resource type="Resource" id="nutrition"]
+script = ExtResource("food")
+nutrition = 8.0
+food_quality = 1.0
+variety_group = &"fish"
+
+[resource]
+script = ExtResource("data")
+id = &"fish"
+display_name = "鱼"
+category = 2
+tags = Array[StringName]([&"food", &"fish", &"raw"])
+icon = ExtResource("icon")
+food_properties = SubResource("nutrition")

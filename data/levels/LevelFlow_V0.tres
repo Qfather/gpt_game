@@ -19,7 +19,7 @@
 [ext_resource type="Script" uid="uid://2fkm0m0oilvi" path="res://Script/trait/trait_level_data.gd" id="15_7t1b1"]
 [ext_resource type="Script" uid="uid://b2ilqqawkrpyb" path="res://Script/trait/trait_data.gd" id="16_77cdf"]
 [ext_resource type="Resource" uid="uid://bccdhdh8h8b78" path="res://data/buildings/HouseData.tres" id="17_uux5k"]
-[ext_resource type="Resource" path="res://data/buildings/FarmData.tres" id="18_lhcrx"]
+[ext_resource type="Resource" uid="uid://bqu51harns8oo" path="res://data/buildings/FarmData.tres" id="18_lhcrx"]
 [ext_resource type="Script" uid="uid://bouo0ry5acg1w" path="res://Script/world/prey_data.gd" id="21_uux5k"]
 [ext_resource type="PackedScene" path="res://Scene/unit/prey/rabbit.tscn" id="22_lhcrx"]
 [ext_resource type="PackedScene" path="res://Scene/unit/prey/pheasant.tscn" id="23_okksm"]
@@ -66,7 +66,6 @@ center_clear_circle = true
 [sub_resource type="Resource" id="Trees"]
 script = ExtResource("5_resource")
 display_name = "树木"
-moisture_min = 0.5
 scene = ExtResource("6_tree")
 distribution = 0
 count = 520
@@ -82,6 +81,7 @@ base_weight = 1.2
 altitude_weight = -0.1
 cliff_foot_bonus = 0.6
 cliff_top_bonus = 0.0
+moisture_min = 0.5
 
 [sub_resource type="Resource" id="Stones"]
 script = ExtResource("5_resource")

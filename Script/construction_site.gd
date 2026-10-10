@@ -80,7 +80,7 @@ func setup(
 
 	building_data = data
 	# 城墙和墙上塔楼没有可进入的室内，搬运和施工始终使用外侧位置。
-	exterior_construction_started = building_data.is_wall() or building_data.is_wall_tower()
+	exterior_construction_started = building_data.is_wall() or building_data.is_wall_tower() or building_data.placement_surface == 1
 	grid_position = placed_grid_position
 	rotation_step = placed_rotation_step
 	mirrored = placed_mirrored
@@ -840,6 +840,8 @@ func get_build_preferred_workers() -> Array[Node]:
 
 
 func get_worker_target_position(worker: Node) -> Vector3:
+	if building_data.placement_surface == 1:
+		return global_transform * Vector3(0, 0, 1.5)
 	var worker_id: int = worker.get_instance_id() if worker != null else 0
 	var resource: ResourceBase = get_blocking_resource()
 	if resource != null and worker != null:

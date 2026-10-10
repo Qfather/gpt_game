@@ -2,9 +2,22 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const main = $('#main');
 const state = { docs: [], archives: [], archiveMode: false, token: '', dirty: false, search: '', group: '全部', date: localDate(), selected: new Set(), graphFocus: '数据.md#unit-swordsman' };
+let workspaceRevision = '';
+let pendingGameRefresh = false;
 const statusNames = ['待安排', '进行中', '待验收', '已完成', '阻塞', '取消'];
 const icons = { unit: '⚔', building: '⌂', tag: '#', task: '☑', issue: '!', journal: '◷' };
-const labels = { today: '今日工作台', library: '知识库', tasks: '任务与问题', graph: '关联地图', units: '单位对比', journal: '开发日历' };
+const labels = { today: '制作总览', library: '全部资料', tasks: '待办与问题', graph: '关联地图', units: '单位对比', journal: '每日日志', 'wiki-units':'单位', 'wiki-skills':'技能', 'wiki-buildings':'建筑', 'wiki-tags':'标签', 'wiki-resources':'资源', 'wiki-levels':'关卡', 'wiki-adventures':'冒险事件', 'wiki-names':'命名' };
+const wikiSections = {
+  'wiki-units': { kind: 'unit', title: '单位', description: '查看玩家单位与敌方单位的配置、职责和关联。', icon: '⚔' },
+  'wiki-skills': { kind: 'ability', title: '技能', description: '集中浏览技能与效果配置。', icon: '✦' },
+  'wiki-buildings': { kind: 'building', title: '建筑', description: '查看建筑功能、等级、成本与训练关系。', icon: '⌂' },
+  'wiki-tags': { kind: 'tag', title: '标签', description: '查看特性、饮食偏好及其他标签资料。', icon: '#' },
+  'wiki-resources': { kind: 'resource', title: '资源', description: '查看采集、库存与生产链使用的资源。', icon: '◇' },
+  'wiki-levels': { category: 'levels', title: '关卡', description: '查看关卡与袭扰时间线配置。', icon: '▦' },
+  'wiki-adventures': { category: 'camps', title: '冒险事件', description: '奇遇：地图上额外出现的单位或事件。探险：从冒险小屋乘热气球或轮船出发的文本冒险。', icon: '✧' },
+  'wiki-names': { category: 'names', title: '命名', description: '查看角色、敌人与 Boss 的名称池。', icon: 'Aa' }
+};
+labels.ideas = '新想法';
 function localDate() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function doc(path) { return [...state.docs,...state.archives].find(d => d.path === path); }
@@ -107,10 +120,41 @@ async function save(path, content, rev) {
 }
 async function refresh() {
   const result = await api('/api/workspace'); state.docs = [...result.documents,...result.entries]; state.token = result.token;
+  const version = await api('/api/version'); workspaceRevision = version.revision; pendingGameRefresh = false;
   $('#project-name').textContent = result.name; document.title = result.name+' · 开发手记';
 }
+async function checkGameDataChanges() {
+  try {
+    const version = await api('/api/version');
+    if (!workspaceRevision) { workspaceRevision = version.revision; return; }
+    if (version.revision === workspaceRevision) return;
+    if (state.dirty) {
+      if (!pendingGameRefresh) toast('检测到 Godot 配置已保存；当前有未保存草稿，保存或离开后会刷新 Wiki。');
+      pendingGameRefresh = true;
+      return;
+    }
+    workspaceRevision = version.revision;
+    await refresh();
+    render();
+    toast('Godot 配置已更新，Wiki 已刷新');
+  } catch (_) {}
+}
+setInterval(checkGameDataChanges, 3000);
 function mayLeave() { return !state.dirty || window.confirm('当前有未保存的修改。放弃草稿并切换？'); }
-function openCreate() { if(!mayLeave())return;state.dirty=false;render();$('#create-dialog').showModal(); }
+function openCreate(kind='task') { if(!mayLeave())return;state.dirty=false;render();$('#create-form [name="kind"]').value=typeof kind==='string'?kind:'task';updateIdeaGroupField();$('#create-dialog').showModal(); }
+function updateIdeaGroupField() {
+  const isIdea=$('#create-form [name="kind"]').value==='idea';
+  $('#idea-group-field').hidden=!isIdea;
+  const groups=[...new Set(['游戏功能',...state.docs.filter(d=>d.meta.kind==='idea').map(d=>d.meta.idea_group||'未分类')])];
+  const selected=$('#create-form [name="idea_group"]').value;
+  $('#idea-groups').innerHTML=groups.map(g=>`<button type="button" data-idea-group="${esc(g)}" aria-pressed="${g===selected}" class="${g===selected?'active':''}">${esc(g)}</button>`).join('');
+  $('#idea-groups').querySelectorAll('button').forEach(button=>button.onclick=()=>{
+    $('#create-form [name="idea_group"]').value=selected===button.dataset.ideaGroup?'':button.dataset.ideaGroup;
+    updateIdeaGroupField();
+  });
+  const newGroup=$('#create-form [name="new_idea_group"]');
+  newGroup.disabled=!!selected;newGroup.required=isIdea&&!selected;
+}
 function setDirty() { state.dirty = true; const button = $('#save-doc'); if (button) button.textContent = '保存修改 ●'; }
 function dailyPath() { return `日志.md#day-${state.date}`; }
 const dailySections = ['助手总结','我的复盘','验证与遗留','明日计划'];
@@ -166,11 +210,146 @@ function library() {
   $('#archive-toggle').onclick=async()=>{try{if(!state.archiveMode){const r=await api('/api/archive');state.archives=r.documents;}state.archiveMode=!state.archiveMode;state.group='全部';state.search='';library();}catch(error){toast(error.message,true);}};
 }
 
+function wikiPlaceholder() {
+  return '<div class="wiki-portrait" aria-label="图片占位"><svg viewBox="0 0 80 64" aria-hidden="true"><rect x="8" y="8" width="64" height="48" rx="5"/><circle cx="27" cy="24" r="6"/><path d="m12 50 19-18 12 11 12-17 13 24"/></svg><span>图片占位</span></div>';
+}
+function wikiCard(d) {
+  return `<a class="wiki-card" href="${docLink(d.path)}">${wikiPlaceholder()}<h3>${esc(d.title)}</h3></a>`;
+}
+function wikiProperties(content) {
+  const values = {};
+  for (const match of content.matchAll(/^\| `([a-z_]+)` \| `(.*)` \| [^|]+\|\s*$/gm)) values[match[1]] = match[2].replace(/\\\|/g, '|');
+  return values;
+}
+function wikiValue(raw) {
+  if (raw === undefined) return null;
+  try { return JSON.parse(raw.replace(/^&/, '')); } catch { return null; }
+}
+function wikiEntity(id, kind) {
+  return state.docs.find(d => d.meta.kind === kind && (d.meta.unit_id === id || wikiValue(wikiProperties(bare(d.content).split(/^## /m)[0]).id) === id));
+}
+function wikiEntityLink(id, kind) {
+  const entity = wikiEntity(id, kind);
+  return entity ? `<a href="${docLink(entity.path)}">${esc(entity.title)}</a>` : esc(id);
+}
+function wikiCost(raw) {
+  if (!raw) return '未记录';
+  const pairs = [...raw.matchAll(/&?"([^"]+)"\s*:\s*(\d+(?:\.\d+)?)/g)];
+  if (!pairs.length) return /\{\s*\}/.test(raw) ? '无需材料' : '待核对';
+  return pairs.map(m => `${wikiEntityLink(m[1], 'resource')} <strong>${Number(m[2])}</strong>`).join(' · ');
+}
+function wikiDetail(d) {
+  const route = wikiRouteFor(d), config = wikiSections[route];
+  if (d.meta.category === 'camps') state.adventureType = 'encounter';
+  const chunks = bare(d.content).split(/^## /m), values = wikiProperties(chunks[0]);
+  const text = key => wikiValue(values[key]);
+  const stats = [];
+  const add = (key, label, suffix = '') => {
+    const value = text(key);
+    if (value !== null && value !== '') stats.push([label, esc(value) + suffix]);
+  };
+  if (d.meta.kind === 'building') {
+    const size = /^Vector2i\((\d+),\s*(\d+)\)$/.exec(values.grid_size || '');
+    if (size) stats.push(['占地面积', `${size[1]} × ${size[2]} 格（${Number(size[1])*Number(size[2])} 格）`]);
+    stats.push(['建筑分类', esc(['生产', '军事', '战略', '道路', '加工'][text('category')] || '待核对')]);
+    if (typeof text('tier') === 'number') stats.push(['建筑等级', 'T' + text('tier')], ['蓝图需求', text('tier') > 0 ? '需要本局蓝图' : '开局可建']);
+    add('max_health', '生命'); add('armor', '护甲');
+    if (text('garrison_capacity') > 0) add('garrison_capacity', '驻军人数', ' 人');
+  } else {
+    if (d.meta.role) stats.push(['职责', esc(d.meta.role)]);
+    const fields = [['max_health','生命'],['damage','基础伤害'],['armor','护甲'],['move_speed','移动速度',' 米／秒'],['attack_range','攻击范围',' 米'],['attack_interval','攻击间隔',' 秒'],['carry_capacity','携带量'],['hunger_rate','饥饿增长','／游戏秒'],['cooldown','冷却时间',' 秒'],['radius','作用半径',' 米'],['tier','等级'],['stack_size','堆叠上限'],['footprint_radius','占地半径',' 米'],['minimum_guards','最少守卫',' 人'],['maximum_guards','最多守卫',' 人'],['reward_draws','奖励抽取次数']];
+    fields.forEach(([key, label, suffix]) => add(key, label, suffix));
+  }
+  const factList = rows => `<dl class="wiki-facts">${rows.map(([label,value])=>`<div><dt>${esc(label)}</dt><dd>${value}</dd></div>`).join('')}</dl>`;
+  const block = (title, content) => `<section class="panel wiki-section"><h2>${esc(title)}</h2>${content}</section>`;
+  let details = stats.length ? block('基本信息', factList(stats)) : '';
+  if (d.meta.kind === 'building') {
+    const construction = [['建造材料', wikiCost(values.construction_cost)]];
+    if (typeof text('construction_time') === 'number') construction.push(['施工时间', text('construction_time') + ' 游戏秒']);
+    if (typeof text('max_construction_workers') === 'number') construction.push(['施工人数上限', text('max_construction_workers') + ' 人']);
+    construction.push(['建造方式', text('allow_direct_build') === false ? '由前置建筑升级' : '直接建造']);
+    details += block('建造', factList(construction));
+    if (text('upgrade_from_id')) details += block('升级', factList([['升级来源', wikiEntityLink(text('upgrade_from_id'), 'building')], ['升级材料', wikiCost(values.upgrade_cost)], ['升级时间', typeof text('upgrade_time') === 'number' ? text('upgrade_time') + ' 游戏秒' : '未记录']]));
+    const recipes = chunks.filter(chunk => chunk.startsWith('子资源 ')).map(wikiProperties).filter(v => wikiValue(v.unit_id) && wikiValue(v.enabled) !== false);
+    if (recipes.length) {
+      details += block('训练', `<p class="muted">同时训练人数：${esc(text('training_slots') ?? '未记录')}</p><div class="table-scroll"><table><thead><tr><th>训练单位</th><th>材料</th><th>时间</th></tr></thead><tbody>${recipes.map(v => `<tr><td>${wikiEntityLink(wikiValue(v.unit_id), 'unit')}</td><td>${wikiCost(v.cost)}</td><td>${esc(wikiValue(v.time_seconds) ?? '未记录')} 游戏秒</td></tr>`).join('')}</tbody></table></div>`);
+    }
+  }
+  if (d.meta.category === 'names') {
+    const pools = [['surnames','姓氏'],['given_names','名字'],['characters','可用汉字'],['full_names','完整名称']];
+    for (const [key,label] of pools) {
+      const raw = values[key];
+      if (!raw || !/^PackedStringArray\(/.test(raw)) continue;
+      try { const names = JSON.parse('[' + raw.slice(18,-1) + ']'); if (names.length) details += block(label, `<p>${names.map(esc).join(' · ')}</p>`); } catch { /* 不把未解析的配置表达式放进百科。 */ }
+    }
+  }
+  const related = [...new Set([...connections(d), ...backlinks(d.path).map(x=>x.path)])].map(doc).filter(x=>x && x.path !== d.path);
+  if (related.length) details += block('相关条目', `<div class="wiki-relations">${related.map(x=>`<a href="${docLink(x.path)}">${esc(x.title)} ↗</a>`).join('')}</div>`);
+  const description = text('description') || text('function_text') || '暂无介绍。';
+  main.innerHTML = `<div class="wiki-breadcrumb"><a href="#${route}">← ${esc(config.title)}</a><span>${esc(d.title)}</span></div><article class="wiki-detail"><section class="panel wiki-profile">${wikiPlaceholder()}<div>${pill(config.title)}<h1>${esc(d.title)}</h1><p class="wiki-description">${esc(description)}</p></div></section><div class="wiki-sections">${details}</div><div class="wiki-source-note"><span>配置核对：${esc(d.meta.checked || '未记录')} · 基础配置，未计算运行时增益</span><button class="text-link" data-source="${esc(d.meta.source)}">查看配置来源 ↗</button></div></article>`;
+  $('#crumb').textContent = config.title + ' / ' + d.title;
+}
+
+function wikiCategory(route) {
+  const config = wikiSections[route];
+  if (!config) return;
+  const adventures = route === 'wiki-adventures', expedition = adventures && state.adventureType === 'expedition';
+  const all = expedition ? [] : state.docs.filter(d => config.kind ? d.meta.kind === config.kind || (route === 'wiki-units' && d.meta.category === 'wildlife') : d.meta.category === config.category);
+  const query = (state.wikiSearch?.[route] || '').trim().toLowerCase();
+  const filtered = all.filter(d => !query || (d.title + ' ' + d.content).toLowerCase().includes(query));
+  const search = '<div class="library-tools"><input id="wiki-search" placeholder="⌕ 搜索' + esc(config.title) + '" value="' + esc(query) + '" aria-label="搜索' + esc(config.title) + '"><span>' + filtered.length + ' 项</span></div>';
+  const compare = route === 'wiki-units' ? '<a class="button" href="#units">打开单位数值对照</a>' : '';
+  const empty = adventures
+    ? expedition ? '<section class="panel"><h2>探险 · 规划中</h2><p>后期居民从冒险小屋乘坐热气球或轮船外出，进行文本探险。</p><p class="muted">冒险小屋、出行工具与文本事件流程尚未实现，当前没有探险条目。</p></section>' : '<section class="panel empty">当前还没有奇遇配置。</section>'
+    : '<section class="panel empty">当前还没有' + esc(config.title) + '配置。</section>';
+  const tabs = adventures ? `<div class="filter-chips"><button data-adventure="encounter" class="${expedition?'':'active'}">奇遇</button><button data-adventure="expedition" class="${expedition?'active':''}">探险</button></div><p class="muted">${expedition?'从聚落出发，在地图之外进行文本冒险。':'在当前地图上额外出现，可发现和交互，例如宝箱营地。'}</p>` : '';
+  main.innerHTML = pageTitle('GAME WIKI', config.title, config.description, compare) +
+    tabs + search + (filtered.length ? '<div class="wiki-grid">' + filtered.map(wikiCard).join('') + '</div>' : empty);
+  document.querySelectorAll('[data-adventure]').forEach(button=>button.onclick=()=>{state.adventureType=button.dataset.adventure;wikiCategory(route);});
+  $('#wiki-search').oninput = e => {
+    state.wikiSearch ||= {};
+    state.wikiSearch[route] = e.target.value;
+    const cursor = e.target.selectionStart;
+    wikiCategory(route);
+    $('#wiki-search').focus();
+    $('#wiki-search').setSelectionRange(cursor, cursor);
+  };
+}
+
+function wikiRouteFor(entry) {
+  if (!entry) return 'library';
+  if (entry.meta.kind === 'unit' || entry.meta.category === 'wildlife') return 'wiki-units';
+  if (entry.meta.kind === 'ability') return 'wiki-skills';
+  if (entry.meta.kind === 'building') return 'wiki-buildings';
+  if (entry.meta.kind === 'tag') return 'wiki-tags';
+  if (entry.meta.kind === 'resource') return 'wiki-resources';
+  if (entry.meta.category === 'levels') return 'wiki-levels';
+  if (entry.meta.category === 'camps') return 'wiki-adventures';
+  if (entry.meta.category === 'names') return 'wiki-names';
+  if (entry.meta.kind === 'idea') return 'ideas';
+  return 'library';
+}
+
 function documentView(path) {
   if(path.startsWith('归档/')&&!doc(path)){api('/api/archive').then(r=>{state.archives=r.documents;if(location.hash===docLink(path))documentView(path);}).catch(e=>toast(e.message,true));main.innerHTML='<div class="empty">读取归档原文…</div>';return;}
   const d = doc(path); if (!d) { main.innerHTML=pageTitle('DOCUMENT','没有找到这份文档',path)+`<a href="#library">返回知识库</a>`; return; }
-  const outgoing=connections(d).map(doc), incoming=backlinks(path);
+  if (d.meta.generated && wikiSections[wikiRouteFor(d)]) { wikiDetail(d); return; }
+  const outgoing=connections(d).map(p=>doc(p)||{path:p,title:p.split('/').at(-1).replace(/\.md$/,'')}), incoming=backlinks(path);
   main.innerHTML=`<div class="document-toolbar"><a href="#library">← 知识库</a><span>${esc(d.path)}</span><div><button id="read-mode" class="active">阅读</button><button id="edit-mode">编辑 MD</button><button id="save-doc" class="primary" hidden>保存修改</button></div></div><div class="reading-grid"><section class="panel document-panel"><div id="document-reading" class="prose">${markdown(d.content,d.path)}</div><div id="document-editing" hidden><p class="notice">直接编辑原 Markdown；保存前会检查外部修改。</p><textarea id="md-editor" spellcheck="false" aria-label="Markdown 正文">${esc(d.content)}</textarea><div id="edit-preview" class="prose"></div></div></section><aside><section class="panel related-panel"><div class="eyebrow">CONNECTIONS</div><h2>与这份资料相连</h2><h4>引用了 ${outgoing.length} 份资料</h4>${outgoing.map(x=>`<a href="${docLink(x.path)}">${esc(x.title)} ↗</a>`).join('')||'<p>暂无文档链接</p>'}<h4>被 ${incoming.length} 份资料引用</h4>${incoming.map(x=>`<a href="${docLink(x.path)}">${esc(x.title)} ↗</a>`).join('')||'<p>暂无反向引用</p>'}<button id="doc-graph" class="button">在关联地图中查看</button></section><div class="file-note">${pill(d.meta.kind||group(d))}<p>最近文件修改<br>${new Date(d.modified*1000).toLocaleString('zh-CN')}</p><p>页面内容来自当前文件，不另存一套正文。</p></div></aside></div>`;
+  if(d.meta.kind==='idea') {
+    const back=$('.document-toolbar>a');back.href='#ideas';back.textContent='← 新想法';
+    const status=document.createElement('select');
+    status.setAttribute('aria-label','想法状态');
+    status.innerHTML=['待考虑','暂缓','已实现','取消'].map(s=>`<option ${s===d.meta.status?'selected':''}>${s}</option>`).join('');
+    $('.document-toolbar>div').prepend(status);
+    status.onchange=async()=>{
+      if(!mayLeave()){status.value=d.meta.status;return;}
+      status.disabled=true;
+      try { await save(d.path,d.content.replace(/^status: .*$/m,'status: '+status.value),d.revision);documentView(path); }
+      catch(error) { status.value=d.meta.status;showSaveError(error); }
+      finally { if(status.isConnected)status.disabled=false; }
+    };
+  }
   const readonly=d.readonly||d.meta.generated; if(readonly){$('#edit-mode').disabled=true;$('#edit-mode').textContent=d.readonly?'归档只读':'配置快照只读';}
   let editing=false;
   function mode(value) { editing=value; $('#document-reading').hidden=value; $('#document-editing').hidden=!value; $('#save-doc').hidden=!value; $('#read-mode').classList.toggle('active',!value); $('#edit-mode').classList.toggle('active',value); if(!value) $('#document-reading').innerHTML=markdown($('#md-editor').value,path); }
@@ -178,6 +357,13 @@ function documentView(path) {
   $('#md-editor').oninput=()=>{setDirty();$('#edit-preview').innerHTML=markdown($('#md-editor').value,path);};
   $('#save-doc').onclick=async e=>{e.target.disabled=true;try{await save(path,$('#md-editor').value,d.revision);documentView(path);if(editing)$('#edit-mode').click();}catch(error){showSaveError(error);}finally{if(e.target.isConnected)e.target.disabled=false;}};
   $('#doc-graph').onclick=()=>{if(!mayLeave())return;state.dirty=false;state.graphFocus=path;location.hash='graph';};
+}
+function ideas() {
+  const items=state.docs.filter(d=>d.meta.kind==='idea'&&!['已实现','取消'].includes(d.meta.status));
+  const groups=[...new Set(items.map(d=>d.meta.idea_group||'未分类'))];
+  const itemRow=d=>`<a class="idea-row" href="${docLink(d.path)}" title="${esc(d.title)}">${esc(d.title)}</a>`;
+  main.innerHTML=pageTitle('IDEAS','新想法','按大类浏览，点击想法查看详细内容。','<button class="primary" id="new-idea">＋ 新增想法</button>')+`<div class="ideas-grid">${groups.map(g=>{const children=items.filter(d=>(d.meta.idea_group||'未分类')===g);return `<section class="ideas-group"><h2>${esc(g)} <small>${children.length}</small></h2>${children.map(itemRow).join('')}</section>`;}).join('')||'<section class="panel empty">暂无未实现的想法，点击“新增想法”记录。</section>'}</div>`;
+  $('#new-idea').onclick=()=>openCreate('idea');
 }
 function tasks() {
   const entries=state.docs.filter(d=>['task','issue'].includes(d.meta.kind));
@@ -216,9 +402,17 @@ function render() {
   const hash=location.hash.slice(1)||'today', route=hash.startsWith('doc=')?'doc':hash;
   state.lastHash=location.hash;
   $('#crumb').textContent=route==='doc'?'文档阅读':labels[route]||'今日工作台';
-  document.querySelectorAll('[data-nav]').forEach(a=>a.classList.toggle('active',a.dataset.nav===(route==='doc'?'library':route)));
+  let navRoute=route;
+  if(route==='doc') {
+    try {
+      const path=decodeURIComponent(hash.slice(4));
+      navRoute=path==='参考.md'?'ideas':wikiRouteFor(doc(path));
+    } catch { navRoute='library'; }
+  }
+  document.querySelectorAll('[data-nav]').forEach(a=>a.classList.toggle('active',a.dataset.nav===navRoute));
   if(route==='doc'){let path;try{path=decodeURIComponent(hash.slice(4));}catch{path='';}documentView(path);}
-  else ({today,library,tasks,graph,units,journal}[route]||today)();
+  else if(wikiSections[route]) wikiCategory(route);
+  else ({today,library,tasks,graph,units,journal,ideas}[route]||today)();
 }
 async function showSource(path) {
   try { const source=await api('/api/source?path='+encodeURIComponent(path)); $('#source-title').textContent=path+' · 只读'; $('#source-content').innerHTML=path.endsWith('.md')?`<article class="prose">${markdown(source.content,'../'+path)}</article>`:`<pre>${esc(source.content)}</pre>`; $('#source-dialog').showModal(); }catch(error){toast(error.message,true);}
@@ -240,14 +434,21 @@ $('#search-open').onclick=()=>{$('#search-dialog').showModal();$('#search-input'
 function searchResults(){const query=$('#search-input').value.trim().toLowerCase();const results=state.docs.filter(d=>!query||(d.title+' '+d.content).toLowerCase().includes(query)).slice(0,30);$('#search-results').innerHTML=results.map(d=>`<a href="${docLink(d.path)}"><strong>${esc(d.title)}</strong><span>${esc(d.path)}</span></a>`).join('')||'<p class="empty">没有匹配结果</p>';$('#search-results').querySelectorAll('a').forEach(a=>a.onclick=()=>{if(!state.dirty)$('#search-dialog').close();});}
 $('#search-input').oninput=searchResults;
 document.addEventListener('keydown',e=>{if(e.key==='/'&&!/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)&&!document.querySelector('dialog[open]')){e.preventDefault();$('#search-open').click();}});
+$('#create-form [name="kind"]').onchange=updateIdeaGroupField;
 $('#create-form').onsubmit=async e=>{
   e.preventDefault();const form=new FormData(e.target),kind=form.get('kind'),title=form.get('title').trim();if(!title)return;
-  const prefix=kind==='issue'?'BUG':'TASK';
+  const ideaGroup=String(form.get('idea_group')||form.get('new_idea_group')||'').trim();
+  if(kind==='idea'&&!ideaGroup){toast('请选择一个大类，或填写新大类名称。',true);$('#create-form [name="new_idea_group"]').focus();return;}
+  const button=$('button[type="submit"]',e.target);button.disabled=true;
+  // 新增条目只追加：先读取最新文件，再分配编号并用最新哈希保存。
+  try { await refresh(); } catch(error) { showSaveError(error);button.disabled=false;return; }
+  const prefix=kind==='idea'?'IDEA':kind==='issue'?'BUG':'TASK';
   const used=state.docs.flatMap(d=>[...d.content.matchAll(new RegExp('\\b'+prefix+'-(\\d+)\\b','g'))].map(m=>Number(m[1])));
   const number=Math.max(0,...used)+1;
-  const id=prefix+'-'+String(number).padStart(3,'0'), path='任务.md#'+id.toLowerCase();
-  const content=`---\nkind: ${kind}\nid: ${id}\ntitle: ${JSON.stringify(title)}\nstatus: 待安排\nverification: 未验证\ncreated: ${localDate()}\n---\n\n# ${title}\n\n## ${kind==='issue'?'现象与复现条件':'目标与范围'}\n\n${form.get('details').trim()}\n\n## 验收条件\n\n- [ ] 补充具体完成条件\n\n## 验证记录\n\n尚未验证。\n`;
-  const button=$('button[type="submit"]',e.target);button.disabled=true;
-  try{await save(path,content,doc('任务.md')?.revision??null);e.target.reset();$('#create-dialog').close();if(location.hash===docLink(path))render();else location.hash=docLink(path);}catch(error){showSaveError(error);}finally{button.disabled=false;}
+  const id=prefix+'-'+String(number).padStart(3,'0'), file=kind==='idea'?'参考.md':'任务.md',path=file+'#'+id.toLowerCase();
+  const content=kind==='idea'
+    ? `---\nkind: idea\nid: ${id}\ntitle: ${JSON.stringify(title)}\nidea_group: ${JSON.stringify(ideaGroup)}\nstatus: 待考虑\ncreated: ${localDate()}\n---\n\n# ${title}\n\n## 想法\n\n${form.get('details').trim()}\n`
+    : `---\nkind: ${kind}\nid: ${id}\ntitle: ${JSON.stringify(title)}\nstatus: 待安排\nverification: 未验证\ncreated: ${localDate()}\n---\n\n# ${title}\n\n## ${kind==='issue'?'现象与复现条件':'目标与范围'}\n\n${form.get('details').trim()}\n\n## 验收条件\n\n- [ ] 补充具体完成条件\n\n## 验证记录\n\n尚未验证。\n`;
+  try{await save(path,content,doc(file)?.revision??null);e.target.reset();$('#create-dialog').close();if(kind==='idea'){if(location.hash==='#ideas')render();else location.hash='ideas';}else if(location.hash===docLink(path))render();else location.hash=docLink(path);}catch(error){showSaveError(error);}finally{button.disabled=false;}
 };
 refresh().then(render).catch(error=>{main.innerHTML=`<div class="empty"><h2>暂时无法连接资料</h2><p>${esc(error.message)}</p><p>请通过启动脚本打开，并保持服务窗口运行。</p></div>`;});

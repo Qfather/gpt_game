@@ -4,7 +4,7 @@ extends UnitPanelBase
 const RESOURCE_DATABASE: ResourceDatabase = preload(
 	"res://data/resources/resource_database.tres"
 )
-const JOB_DISPLAY_NAMES: PackedStringArray = ["无业", "伐木工", "矿工", "农夫", "猎户"]
+const JOB_DISPLAY_NAMES: PackedStringArray = ["无业", "伐木工", "矿工", "农夫", "猎户", "渔民"]
 const STATE_DISPLAY_NAMES: PackedStringArray = [
 	"待命",
 	"需要进食",
@@ -157,6 +157,8 @@ func refresh():
 		state_label.text = state_label.text.replace("军营", "箭塔")
 	if state_index == villager.State.HUNTING:
 		state_label.text = "状态：回屋处理" if villager.hunting.returning else "状态：狩猎"
+	if state_index == villager.State.FISHING:
+		state_label.text = "状态：" + ["前往小屋", "登船", "航行", "打捞", "返航", "靠岸", "处理渔获", "出屋"][villager.fishing.phase]
 	if state_index == villager.State.RETREAT_TO_BASE:
 		state_label.text = "状态：前往%s避难" % _get_node_name(villager.shelter_target) if is_instance_valid(villager.shelter_target) else ("状态：边射击边撤退" if villager.is_hunter() else "状态：逃回据点")
 	if state_index == villager.State.SHELTERED:
@@ -176,7 +178,9 @@ func refresh():
 	_update_needs_bar(fatigue_bar, float(villager.call("get_fatigue")))
 
 	var carried_amount: float = float(villager.call("get_carried_amount"))
-	if villager.is_hunter() and villager.hunting.prey_count > 0:
+	if villager.fishing.cargo > 0:
+		carry_label.text = "待处理渔获：%d" % villager.fishing.cargo
+	elif villager.is_hunter() and villager.hunting.prey_count > 0:
 		carry_label.text = "携带猎物：%d / 3只\n处理后产肉：%.0f" % [villager.hunting.prey_count, villager.hunting.raw_meat]
 		if carried_amount > 0.0:
 			carry_label.text += "\n运肉：%.1f" % carried_amount

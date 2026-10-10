@@ -9,6 +9,7 @@ import re
 import secrets
 import tempfile
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlsplit
 import webbrowser
@@ -18,7 +19,49 @@ DOCS = APP.parent
 PROJECT = DOCS.parent
 TOKEN = secrets.token_hex(24)
 LOCK = threading.Lock()
+DATA_REVISION = ""
 PRIMARY = ("项目.md", "系统.md", "数据.md", "任务.md", "日志.md", "决策.md", "参考.md")
+
+
+def game_data_signature():
+    digest = hashlib.sha256()
+    for folder, suffix in ((PROJECT / "data", ".tres"), (PROJECT / "Script", ".gd")):
+        if not folder.is_dir():
+            continue
+        for path in sorted(folder.rglob("*" + suffix)):
+            try:
+                stat = path.stat()
+            except OSError:
+                continue
+            digest.update(path.relative_to(PROJECT).as_posix().encode("utf-8"))
+            digest.update(f"{stat.st_mtime_ns}:{stat.st_size}".encode("ascii"))
+    return digest.hexdigest()
+
+
+def watch_game_data():
+    global DATA_REVISION
+    previous = game_data_signature()
+    DATA_REVISION = previous
+    while True:
+        time.sleep(1)
+        current = game_data_signature()
+        if current == previous:
+            continue
+        # 等待编辑器完成保存，避免读取写入中的资源文件。
+        for _ in range(6):
+            time.sleep(0.5)
+            stable = game_data_signature()
+            if stable == current:
+                break
+            current = stable
+        try:
+            from update_data import update
+            update(LOCK)
+            previous = current
+            DATA_REVISION = current
+            print("检测到 Godot 数据变化，已刷新 Wiki 数据。", flush=True)
+        except Exception as exc:
+            print(f"自动刷新游戏数据失败：{exc}", flush=True)
 
 
 def confined(root, name):
@@ -130,6 +173,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply({"error": "请使用终端显示的本地地址"}, 403)
         url = urlsplit(self.path)
         try:
+            if url.path == "/api/version":
+                return self.reply({"revision": DATA_REVISION})
             if url.path == "/api/workspace":
                 docs = [document(DOCS / name) for name in PRIMARY if (DOCS / name).is_file()]
                 project_name = PROJECT.name
@@ -218,6 +263,7 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=0)
     parser.add_argument("--no-open", action="store_true")
     args = parser.parse_args()
+    threading.Thread(target=watch_game_data, daemon=True).start()
     with ThreadingHTTPServer(("127.0.0.1", args.port), Handler) as server:
         url = f"http://127.0.0.1:{server.server_port}"
         print(f"\n项目知识工作台：{url}\n资料目录：{DOCS}\n关闭本窗口或按 Ctrl+C 停止。\n", flush=True)

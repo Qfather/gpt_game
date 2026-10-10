@@ -9,6 +9,54 @@ extends Node3D
 var occupied_cells: Dictionary = {}
 var buildability_rule: Callable
 var ground_height_rule: Callable
+var water_rule: Callable
+var water_height: float = 1.8
+var occupancy_revision: int = 0
+
+
+func is_water_cell(cell: Vector2i) -> bool:
+	return _is_in_bounds(cell) and water_rule.is_valid() and bool(water_rule.call(cell))
+
+
+func get_shore_cells(cell: Vector2i, size: Vector2i, turns: int) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	var dimensions := get_rotated_size(size, turns)
+	match posmod(turns, 4):
+		0:
+			for x: int in range(dimensions.x): result.append(cell + Vector2i(x, dimensions.y))
+		1:
+			for z: int in range(dimensions.y): result.append(cell + Vector2i(dimensions.x, z))
+		2:
+			for x: int in range(dimensions.x): result.append(cell + Vector2i(x, -1))
+		3:
+			for z: int in range(dimensions.y): result.append(cell + Vector2i(-1, z))
+	return result
+
+
+func is_building_area_free(data: BuildingData, cell: Vector2i, turns: int, ignored: Array[Vector2i] = []) -> bool:
+	if data.placement_surface == 0:
+		return is_area_free(cell, data.grid_size, turns, data.is_wall(), true, ignored)
+	for water_cell: Vector2i in _get_area_cells(cell, data.grid_size, turns):
+		if not is_water_cell(water_cell) or (occupied_cells.has(water_cell) and not ignored.has(water_cell)): return false
+	var shore := get_shore_cells(cell, data.grid_size, turns)
+	var height := get_ground_height(shore[0])
+	if height < water_height or height - water_height > 1.5: return false
+	for land_cell: Vector2i in shore:
+		if not is_cell_buildable(land_cell, true) or occupied_cells.has(land_cell): return false
+		if not is_equal_approx(get_ground_height(land_cell), height): return false
+		if _overlaps_resource(land_cell, Vector2i.ONE, 0): return false
+	return true
+
+
+func occupy_building_area(data: BuildingData, cell: Vector2i, turns: int) -> bool:
+	if not is_building_area_free(data, cell, turns): return false
+	for part: Vector2i in _get_area_cells(cell, data.grid_size, turns): occupied_cells[part] = true
+	occupancy_revision += 1
+	return true
+
+
+func get_building_height(data: BuildingData, cell: Vector2i, turns: int) -> float:
+	return get_ground_height(get_shore_cells(cell, data.grid_size, turns)[0]) if data.placement_surface == 1 else get_ground_height(cell)
 
 
 func _ready() -> void:
@@ -158,6 +206,7 @@ func occupy_area(
 
 		occupied_cells[cell] = true
 
+	occupancy_revision += 1
 	return true
 
 
@@ -181,6 +230,7 @@ func release_area(
 	for cell in cells:
 		occupied_cells.erase(cell)
 
+	occupancy_revision += 1
 	return true
 
 

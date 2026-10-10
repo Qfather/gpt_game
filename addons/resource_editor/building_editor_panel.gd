@@ -3,6 +3,9 @@ extends HSplitContainer
 
 const BUILDING_FOLDER: String = "res://data/buildings/"
 const LABELS: Dictionary = {
+	"placement_surface": "放置地表",
+	"boat_capacity": "船舱容量", "catch_min": "每次打捞最少数量", "catch_max": "每次打捞最多数量",
+	"fishing_time": "每次打捞时间（游戏秒）", "processing_time": "回屋处理时间（游戏秒）", "boat_speed": "船速（米/秒）",
 	"unit_id": "训练单位ID", "cost": "训练材料（资源ID）", "time_seconds": "训练时间（秒）", "enabled": "启用训练项",
 	"tier": "建筑等级T0～T3", "requires_blueprint": "需要蓝图", "blueprint_pool": "蓝图随机池ID", "allow_direct_build": "允许直接建造", "upgrade_from_id": "前置建筑ID", "upgrade_cost": "升级材料", "upgrade_time": "升级时间（秒）", "training_recipes": "训练配方列表",
 	"surface_drying_enabled": "启用地表干燥", "surface_drying_strength": "干燥强度（湿润度减量）",

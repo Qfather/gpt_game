@@ -622,7 +622,7 @@ func relocate(grid: BuildGrid, new_grid_position: Vector2i, new_rotation_step: i
 	var old_cells: Array[Vector2i] = []
 	if build_grid_area_registered:
 		old_cells = grid._get_area_cells(build_grid_position, build_grid_size, build_grid_rotation_step)
-	if not grid.is_area_free(new_grid_position, building_data.grid_size, new_rotation_step, building_data.is_wall(), true, old_cells):
+	if not grid.is_building_area_free(building_data, new_grid_position, new_rotation_step, old_cells):
 		return false
 	if not can_pay_relocation_cost(new_transform.origin):
 		return false
@@ -632,7 +632,7 @@ func relocate(grid: BuildGrid, new_grid_position: Vector2i, new_rotation_step: i
 		base.take_resource(resource_id, cost[resource_id])
 	if build_grid_area_registered:
 		grid.release_area(build_grid_position, build_grid_size, build_grid_rotation_step)
-	grid.occupy_area(new_grid_position, building_data.grid_size, new_rotation_step, building_data.is_wall(), true)
+	grid.occupy_building_area(building_data, new_grid_position, new_rotation_step)
 	set_build_grid_occupancy(new_grid_position, building_data.grid_size, new_rotation_step)
 	var old_transform: Transform3D = global_transform
 	global_transform = new_transform

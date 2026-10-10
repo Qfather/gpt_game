@@ -10,6 +10,7 @@ signal unreachable_villager_clicked(villager: UnitBase)
 const RESOURCE_DATABASE: ResourceDatabase = preload(
 	"res://data/resources/resource_database.tres"
 )
+var resource_labels: Dictionary[StringName, Label] = {}
 var menu_buildings: Array[BuildingData] = []
 var blueprint_window: Window
 var blueprint_pool_picker: OptionButton
@@ -378,15 +379,12 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _refresh_population_display(current_population: int, housing_capacity: int) -> void:
-	idle_resident_label.text = "空闲居民：%d" % _get_idle_resident_count()
-	population_label.text = "人口：%d / %d" % [current_population, housing_capacity]
-	if militia_label == null:
-		militia_label = Label.new()
-		resident_label.get_parent().add_child(militia_label)
-	militia_label.text = "民兵：%d" % _get_combat_role_count(CombatRole.Type.MILITIA)
-	resident_label.text = "居民：%d" % _get_combat_role_count(CombatRole.Type.NONE)
-	swordsman_label.text = "剑士：%d" % _get_swordsman_count()
-	archer_label.text = "弓箭手：%d" % _get_combat_role_count(CombatRole.Type.ARCHER)
+	idle_resident_label.text = str(_get_idle_resident_count())
+	population_label.text = "%d / %d" % [current_population, housing_capacity]
+	militia_label.text = str(_get_combat_role_count(CombatRole.Type.MILITIA))
+	resident_label.text = str(_get_combat_role_count(CombatRole.Type.NONE))
+	swordsman_label.text = str(_get_swordsman_count())
+	archer_label.text = str(_get_combat_role_count(CombatRole.Type.ARCHER))
 
 
 func _get_swordsman_count() -> int:
@@ -462,7 +460,7 @@ func _refresh_immigration_display() -> void:
 func _create_debug_panel() -> void:
 	debug_panel = PanelContainer.new()
 	debug_panel.name = "DebugPanel"
-	debug_panel.position = Vector2(8.0, 52.0)
+	debug_panel.position = Vector2(8.0, 120.0)
 	debug_panel.custom_minimum_size = Vector2(245.0, 0.0)
 	debug_panel.z_index = 10
 	add_child(debug_panel)
@@ -612,41 +610,40 @@ func _toggle_debug_panel() -> void:
 
 
 func _configure_status_layout() -> void:
-	# 保留原暂停/倍速按钮路径及其信号，资源与人口单独移动到右上角。
+	# 两侧各自贴近中央计时器，帧率独立保留在右上角。
 	$PanelContainer.position = Vector2(8, 8)
-	var status_panel := PanelContainer.new()
-	status_panel.name = "TopRightStatus"
-	add_child(status_panel)
-	status_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	status_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	status_panel.offset_right = -12
-	status_panel.offset_top = 12
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 20)
-	status_panel.add_child(row)
-	idle_resident_label = Label.new()
-	idle_resident_label.name = "IdleResidentLabel"
-	idle_resident_label.text = "空闲居民：0"
-	idle_resident_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	idle_resident_label.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	idle_resident_label.tooltip_text = "没有岗位和任务、正在待命的普通居民；不包含休息、进食、撤退和军事单位"
-	row.add_child(idle_resident_label)
-	var population := VBoxContainer.new()
-	row.add_child(population)
-	population_label.reparent(population)
-	resident_label.reparent(population)
-	swordsman_label.reparent(population)
-	archer_label.reparent(population)
+	var materials := _create_status_row("ResourceStatus", true)
+	var original_labels := {&"wood": wood_label, &"stone": stone_label, &"grain": grain_label, &"meat": meat_label}
+	for data: ResourceData in RESOURCE_DATABASE.resources:
+		var label: Label = original_labels[data.id] if original_labels.has(data.id) else Label.new()
+		resource_labels[data.id] = label
+		_add_status_item(materials, label, data.icon, data.display_name)
+	var population := _create_status_row("PopulationStatus", false)
+	militia_label = Label.new()
+	for item: Array in [
+		[resident_label, "ResidentData"], [militia_label, "MilitiaData"],
+		[swordsman_label, "SwordsmanData"], [archer_label, "ArcherData"]
+	]:
+		var data: UnitData = load("res://data/units/%s.tres" % item[1])
+		var entry := _add_status_item(population, item[0], data.icon, data.display_name)
+		if item[0] == resident_label:
+			idle_resident_label = Label.new()
+			idle_resident_label.text = "0"
+			idle_resident_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			idle_resident_label.add_theme_font_size_override("font_size", 12)
+			idle_resident_label.tooltip_text = "空闲居民：没有岗位和任务、正在待命；不包含休息、进食、撤退和军事单位"
+			idle_resident_label.mouse_filter = Control.MOUSE_FILTER_STOP
+			entry.add_child(idle_resident_label)
+	_add_status_item(population, population_label, preload("res://assets/icons/population.svg"), "总人口 / 住房容量")
 	fps_label = Label.new()
 	fps_label.name = "FPSLabel"
-	fps_label.text = "帧率：-- FPS"
-	population.add_child(fps_label)
-	var materials := VBoxContainer.new()
-	row.add_child(materials)
-	wood_label.reparent(materials)
-	stone_label.reparent(materials)
-	grain_label.reparent(materials)
-	meat_label.reparent(materials)
+	add_child(fps_label)
+	fps_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	fps_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	fps_label.offset_left = -130
+	fps_label.offset_right = -12
+	fps_label.offset_top = 12
+	fps_label.offset_bottom = 36
 	$PanelContainer.reset_size()
 	var immigration: Control = $ImmigrationPanel
 	immigration.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
@@ -673,6 +670,44 @@ func _configure_status_layout() -> void:
 	game_clock.offset_right = 48
 	game_clock.offset_top = 12
 	game_clock.offset_bottom = 108
+
+
+func _create_status_row(row_name: String, left: bool) -> HBoxContainer:
+	var panel := PanelContainer.new()
+	panel.name = row_name
+	add_child(panel)
+	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN if left else Control.GROW_DIRECTION_END
+	panel.offset_left = -60 if left else 60
+	panel.offset_right = -60 if left else 60
+	panel.offset_top = 16
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	panel.add_child(row)
+	return row
+
+
+func _add_status_item(parent: HBoxContainer, label: Label, texture: Texture2D, title: String) -> VBoxContainer:
+	var entry := VBoxContainer.new()
+	entry.custom_minimum_size.x = 44
+	entry.tooltip_text = title
+	entry.mouse_filter = Control.MOUSE_FILTER_STOP
+	parent.add_child(entry)
+	var icon := TextureRect.new()
+	icon.texture = texture if texture != null else preload("res://assets/icons/placeholder.svg")
+	icon.custom_minimum_size = Vector2(32, 32)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	entry.add_child(icon)
+	if label.get_parent() != null:
+		label.reparent(entry)
+	else:
+		entry.add_child(label)
+	label.text = "0"
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return entry
 
 
 func set_debug_villager(villager: Node) -> void:
@@ -939,43 +974,9 @@ func connect_building_ghost(ghost: BuildingGhost) -> void:
 # ============================================================
 
 func update_resource_display() -> void:
-
-	if resource_manager == null:
-
-		wood_label.text = "木材：0"
-		stone_label.text = "石头：0"
-		grain_label.text = "谷物：0"
-		meat_label.text = "肉类：0"
-
-		return
-
-
-	var wood_amount: float = resource_manager.get_total(
-		&"wood"
-	)
-
-	var stone_amount: float = resource_manager.get_total(
-		&"stone"
-	)
-	var grain_amount: float = resource_manager.get_total(
-		&"grain"
-	)
-
-
-	wood_label.text = (
-		"木材："
-		+ str(int(wood_amount))
-	)
-
-	stone_label.text = (
-		"石头："
-		+ str(int(stone_amount))
-	)
-	grain_label.text = (
-		"谷物："
-		+ str(int(grain_amount))
-	)
-	meat_label.text = "肉类：" + str(int(resource_manager.get_total(&"meat")))
+	for resource_id: StringName in resource_labels:
+		var amount: float = resource_manager.get_total(resource_id) if resource_manager != null else 0.0
+		resource_labels[resource_id].text = str(int(amount))
 
 
 # ============================================================

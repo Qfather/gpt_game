@@ -309,6 +309,8 @@ func _update_preview(delta: float = 0.0) -> void:
 		return
 
 	grid_position = build_grid.world_to_grid(world_position)
+	if building_data.placement_surface == 1:
+		rotation_step = get_waterfront_rotation(building_data, grid_position, rotation_step)
 	if building_data.is_wall():
 		_update_wall_preview()
 		return
@@ -326,6 +328,8 @@ func _update_preview(delta: float = 0.0) -> void:
 		0.0,
 		float(rotated_size.y - 1) * build_grid.cell_size * 0.5
 	)
+	if building_data.placement_surface == 1:
+		global_position.y = build_grid.global_position.y + build_grid.get_building_height(building_data, grid_position, rotation_step)
 	if building_data.is_gate():
 		var discounted: bool = _gate_walls(building_data, grid_position, rotation_step).size() == building_data.grid_size.x
 		var costs: PackedStringArray = []
@@ -420,6 +424,13 @@ func _horizontal_distance(a: Vector3, b: Vector3) -> float:
 
 
 func _get_mouse_world_position(camera: Camera3D, screen_position: Vector2 = Vector2.INF) -> Vector3:
+	if building_data != null and building_data.placement_surface == 1:
+		var mouse: Vector2 = get_viewport().get_mouse_position() if screen_position == Vector2.INF else screen_position
+		var origin := camera.project_ray_origin(mouse)
+		var direction := camera.project_ray_normal(mouse)
+		if absf(direction.y) < 0.0001: return Vector3.INF
+		var distance: float = (build_grid.water_height - origin.y) / direction.y
+		return origin + direction * distance if distance >= 0.0 else Vector3.INF
 
 	var mouse_position: Vector2 = get_viewport().get_mouse_position() if screen_position == Vector2.INF else screen_position
 	var ray_origin := camera.project_ray_origin(mouse_position)
@@ -533,7 +544,7 @@ func _create_construction_site(
 		site_data.construction_cost = placed_data.construction_cost.duplicate()
 		for resource_id: StringName in site_data.construction_cost: site_data.construction_cost[resource_id] *= 0.5
 		for wall: Wall in replaced_walls: WALL_CONNECTIONS.remove_wall(wall)
-	if not area_already_occupied and foundation == null and not build_grid.occupy_area(placed_grid_position, placed_data.grid_size, placed_rotation_step, placed_data.is_wall(), true): return false
+	if not area_already_occupied and foundation == null and not build_grid.occupy_building_area(placed_data, placed_grid_position, placed_rotation_step): return false
 	var site: ConstructionSite = CONSTRUCTION_SITE_SCENE.instantiate() as ConstructionSite
 	site.foundation_wall = foundation
 
@@ -596,6 +607,14 @@ func _gate_walls(data: BuildingData, cell: Vector2i, turns: int) -> Array[Wall]:
 		result.append(wall)
 	return result
 
+func get_waterfront_rotation(data: BuildingData, cell: Vector2i, preferred: int) -> int:
+	# 优先保留玩家朝向；门不朝合法岸边时自动选择有效方向。
+	for offset: int in range(4):
+		var turns := posmod(preferred + offset, 4)
+		if build_grid.is_building_area_free(data, cell, turns, _moving_building_cells()): return turns
+	return preferred
+
+
 func can_place_at(data: BuildingData, cell: Vector2i, turns: int) -> bool:
 	var catalog := BuildingCatalog.for_tree(get_tree())
 	if not moving_existing_building and catalog != null and not catalog.can_build(data): return false
@@ -605,7 +624,7 @@ func can_place_at(data: BuildingData, cell: Vector2i, turns: int) -> bool:
 	elif data.is_wall_tower():
 		if _tower_wall(data, cell) == null: return false
 		ignored = [cell]
-	return build_grid.is_area_free(cell, data.grid_size, turns, data.is_wall(), true, ignored)
+	return build_grid.is_building_area_free(data, cell, turns, ignored)
 
 func plan_wall_stroke(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 	var roads: Node = get_tree().get_first_node_in_group("road_manager")

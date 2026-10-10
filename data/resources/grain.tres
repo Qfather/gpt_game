@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cvhho6n28x8cs" path="res://Script/resource/food_properties.gd" id="1_food_properties"]
 [ext_resource type="Script" uid="uid://j73mtdmdhsqu" path="res://Script/resource/resource_data.gd" id="2_resource_data"]
+[ext_resource type="Texture2D" uid="uid://dp8mvmwvyei0x" path="res://assets/icons/resources/grain.svg" id="hud_icon"]
 
 [sub_resource type="Resource" id="FoodProperties_grain"]
 script = ExtResource("1_food_properties")
@@ -15,4 +16,5 @@ id = &"grain"
 display_name = "谷物"
 category = 2
 tags = Array[StringName]([&"food", &"grain", &"plant", &"raw"])
+icon = ExtResource("hud_icon")
 food_properties = SubResource("FoodProperties_grain")

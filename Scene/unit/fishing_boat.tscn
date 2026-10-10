@@ -1,0 +1,43 @@
+[gd_scene format=3]
+[ext_resource type="Script" path="res://Script/unit/fishing_boat.gd" id="script"]
+[sub_resource type="StandardMaterial3D" id="wood"]
+albedo_color = Color(0.53, 0.31, 0.14, 1)
+[sub_resource type="StandardMaterial3D" id="rim"]
+albedo_color = Color(0.88, 0.65, 0.34, 1)
+[sub_resource type="BoxMesh" id="hull"]
+size = Vector3(0.84, 0.32, 1.56)
+[sub_resource type="BoxMesh" id="side"]
+size = Vector3(0.1, 0.4, 1.56)
+[sub_resource type="BoxMesh" id="bench"]
+size = Vector3(0.7, 0.1, 0.26)
+[sub_resource type="PrismMesh" id="bow"]
+size = Vector3(0.84, 0.24, 0.3)
+[node name="FishingBoat" type="Node3D"]
+script = ExtResource("script")
+[node name="Visual" type="Node3D" parent="."]
+
+[node name="Hull" type="MeshInstance3D" parent="Visual"]
+position = Vector3(0.0, 0.08, 0.0)
+mesh = SubResource("hull")
+material_override = SubResource("wood")
+
+[node name="LeftSide" type="MeshInstance3D" parent="Visual"]
+position = Vector3(-0.37, 0.34, 0.0)
+mesh = SubResource("side")
+material_override = SubResource("rim")
+
+[node name="RightSide" type="MeshInstance3D" parent="Visual"]
+position = Vector3(0.37, 0.34, 0.0)
+mesh = SubResource("side")
+material_override = SubResource("rim")
+
+[node name="Bench" type="MeshInstance3D" parent="Visual"]
+position = Vector3(0.0, 0.38, -0.2)
+mesh = SubResource("bench")
+material_override = SubResource("rim")
+
+[node name="Bow" type="MeshInstance3D" parent="Visual"]
+position = Vector3(0.0, 0.3, 0.66)
+mesh = SubResource("bow")
+material_override = SubResource("rim")
+rotation = Vector3(0, 0, 0)

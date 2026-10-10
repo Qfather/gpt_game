@@ -944,6 +944,10 @@ func _configure_build_grid() -> void:
 	grid.grid_max = Vector2i(half_size.x - 1, half_size.y - 1)
 	grid.set_buildability_rule(Callable(self, "_is_grid_cell_buildable"))
 	grid.set_ground_height_rule(Callable(self, "_get_grid_ground_height"))
+	grid.water_rule = func(cell: Vector2i) -> bool: return not map_data.has_cell(_grid_to_map_cell(cell))
+	grid.occupancy_revision += 1
+	var ocean: Node3D = get_node_or_null("../../Ocean")
+	if ocean != null: grid.water_height = ocean.global_position.y
 	var base: BuildingBase = get_tree().get_first_node_in_group("bases") as BuildingBase
 	if base != null:
 		var origin: Vector2i = grid.world_to_grid(base.global_position - Vector3(1, 0, 1.5))

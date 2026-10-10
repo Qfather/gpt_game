@@ -151,18 +151,23 @@ func refresh_visibility() -> void:
 	var moving_sources: Array[Vector4] = []
 	var fixed_sources: Array[Vector4] = []
 	for unit: Node in get_tree().get_nodes_in_group("villagers"):
-		if not unit is Node3D or not unit.is_visible_in_tree() or (unit.has_method("is_dead") and unit.is_dead()):
+		if not unit is Node3D or (unit.has_method("is_dead") and unit.is_dead()):
+			continue
+		var aboard: bool = unit.get_script() == preload("res://Script/unit/game/villager.gd") and is_instance_valid(unit.fishing.boat) and unit.fishing.boat.occupied
+		if not unit.is_visible_in_tree() and not aboard:
 			continue
 		if not unit.has_method("get_faction") or unit.get_faction() != EnemyData.Faction.SETTLEMENT:
 			continue
 		var point: Vector3 = unit.global_position
 		moving_sources.append(Vector4(point.x, point.y, point.z, SIGHT_RADIUS))
 	for building: Node in get_tree().get_nodes_in_group("buildings"):
-		if not building is Node3D or building is ConstructionSite or building.is_queued_for_deletion() or not building.is_visible_in_tree():
+		if not building is Node3D or building.is_queued_for_deletion():
+			continue
+		if not building is ConstructionSite and not building.is_visible_in_tree():
 			continue
 		if building.has_method("get_health") and building.get_health() <= 0.0:
 			continue
-		var radius: float = building.get_sight_radius() if building.has_method("get_sight_radius") else SIGHT_RADIUS
+		var radius: float = 4.0 if building is ConstructionSite else (building.get_sight_radius() if building.has_method("get_sight_radius") else SIGHT_RADIUS)
 		var point: Vector3 = building.global_position
 		fixed_sources.append(Vector4(point.x, point.y, point.z, radius))
 	for camp: Node in get_tree().get_nodes_in_group("treasure_camps"):

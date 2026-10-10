@@ -12,6 +12,8 @@ const MILITIA_DATA: UnitDataResource = preload("res://data/units/MilitiaData.tre
 const ARCHER_DATA: UnitDataResource = preload("res://data/units/ArcherData.tres")
 const HUNTER_DATA: UnitDataResource = preload("res://data/units/HunterData.tres")
 const ARROW_SCRIPT: Script = preload("res://Script/combat/arrow.gd")
+const FISHER_DATA: UnitData = preload("res://data/units/FisherData.tres")
+var fishing: RefCounted = preload("res://Script/unit/fishing_behavior.gd").new()
 var hunting: RefCounted = preload("res://Script/unit/hunting_behavior.gd").new()
 var ranged_shot_remaining: float = 0.0
 var visual_instance: Node3D
@@ -103,7 +105,8 @@ enum State {
 	MOVE_TO_RELOCATED_BUILDING,
 	MOVE_TO_ROAD,
 	BUILD_ROAD,
-	SHELTERED
+	SHELTERED,
+	FISHING
 }
 
 var relocated_building: BuildingBase
@@ -116,10 +119,10 @@ var state: State = State.IDLE:
 		if state == value:
 			return
 		if navigation_agent != null:
-			if state in [State.MOVE_TO_RESOURCE, State.MOVE_TO_FIELD, State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.WAIT_CONSTRUCTION_SITE, State.RETURN_TO_IDLE, State.HUNTING, State.MOVE_TO_TRAINING, State.MOVE_TO_BARRACKS, State.RETURN_TO_BARRACKS, State.RETREAT_TO_BASE, State.MOVE_TO_WORKPLACE]:
+			if state in [State.MOVE_TO_RESOURCE, State.MOVE_TO_FIELD, State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.WAIT_CONSTRUCTION_SITE, State.RETURN_TO_IDLE, State.HUNTING, State.FISHING, State.MOVE_TO_TRAINING, State.MOVE_TO_BARRACKS, State.RETURN_TO_BARRACKS, State.RETREAT_TO_BASE, State.MOVE_TO_WORKPLACE]:
 				navigation_agent.target_desired_distance = gather_previous_target_desired_distance
 				navigation_agent.path_desired_distance = gather_previous_path_desired_distance
-			if value in [State.MOVE_TO_RESOURCE, State.MOVE_TO_FIELD, State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.WAIT_CONSTRUCTION_SITE, State.RETURN_TO_IDLE, State.HUNTING, State.MOVE_TO_TRAINING, State.MOVE_TO_BARRACKS, State.RETURN_TO_BARRACKS, State.RETREAT_TO_BASE, State.MOVE_TO_WORKPLACE]:
+			if value in [State.MOVE_TO_RESOURCE, State.MOVE_TO_FIELD, State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.WAIT_CONSTRUCTION_SITE, State.RETURN_TO_IDLE, State.HUNTING, State.FISHING, State.MOVE_TO_TRAINING, State.MOVE_TO_BARRACKS, State.RETURN_TO_BARRACKS, State.RETREAT_TO_BASE, State.MOVE_TO_WORKPLACE]:
 				gather_previous_target_desired_distance = navigation_agent.target_desired_distance
 				gather_previous_path_desired_distance = navigation_agent.path_desired_distance
 				navigation_agent.target_desired_distance = 0.2
@@ -195,7 +198,8 @@ enum Job {
 	LUMBERJACK,
 	MINER,
 	FARMER,
-	HUNTER
+	HUNTER,
+	FISHER
 }
 
 const JOB_CLOTHING_COLORS: Dictionary = {
@@ -383,7 +387,7 @@ func update_needs(delta: float) -> void:
 
 func get_activity_level() -> ActivityLevel:
 	match state:
-		State.HUNTING, State.RETREAT_TO_BASE:
+		State.HUNTING, State.FISHING, State.RETREAT_TO_BASE:
 			return ActivityLevel.WORKING
 		State.FIND_RESOURCE, State.MOVE_TO_RESOURCE, State.GATHER_RESOURCE:
 			return ActivityLevel.WORKING
@@ -845,6 +849,7 @@ func _create_unreachable_marker() -> void:
 
 
 func _on_unit_died(_source: Node) -> void:
+	fishing.reset()
 	if is_instance_valid(door_building): door_building.release_door(self)
 	if is_instance_valid(shelter_target): shelter_target.release_shelter(self)
 	hunting.release_target(self)
@@ -908,6 +913,10 @@ func _physics_process(delta):
 	preload("res://Script/unit/unit_facing.gd").update(visual_root if is_instance_valid(visual_instance) else body_mesh, delta)
 	if passing_door or construction_repositioning:
 		velocity = Vector3.ZERO
+		return
+	if fishing.active():
+		update_needs(delta)
+		fishing.process(self, delta)
 		return
 	if hunting.inside_processing:
 		update_needs(delta)
@@ -999,6 +1008,8 @@ func _physics_process(delta):
 			_process_road_construction(delta)
 		State.MOVE_TO_REPAIR, State.REPAIRING:
 			_process_building_repair(delta)
+		State.FISHING:
+			fishing.process(self, delta)
 		State.HUNTING:
 			hunting.process(self, delta)
 
@@ -1423,6 +1434,10 @@ func take_damage(amount: float, source: Node = null) -> float:
 
 
 func _begin_civilian_retreat(threat: Node3D = null) -> void:
+	if fishing.active():
+		fishing.pending_retreat = true
+		fishing.request_return()
+		return
 	if is_instance_valid(threat): retreat_threat = threat
 	if state == State.RETREAT_TO_BASE:
 		return
@@ -2014,6 +2029,7 @@ func _has_reached_task_site_navigation_target() -> bool:
 	target_delta.y = 0.0
 	if task_site is ConstructionSite:
 		if target_delta.length() > 0.35: return false
+		if task_site.building_data.placement_surface == 1 and not task_site.is_at_entrance_front(global_position, 0.2): return false
 		var obstacle: ResourceBase = task_site.get_blocking_resource()
 		if obstacle != null: return obstacle.is_in_gather_range(global_position)
 		if task_site.exterior_construction_started: return true
@@ -3205,7 +3221,7 @@ func deposit_to_base():
 
 
 	# 猎户在据点满仓时保留货物等待，避免每帧重复打印卸货日志。
-	if job == Job.HUNTER and carried_amount > 0.0:
+	if job in [Job.HUNTER, Job.FISHER] and carried_amount > 0.0:
 		return
 
 	print(
@@ -3251,7 +3267,7 @@ func deposit_to_base():
 		return
 
 
-	if is_hunter():
+	if is_hunter() or job == Job.FISHER:
 		is_transporting = false
 		start_current_job()
 		return
@@ -3707,6 +3723,10 @@ func finish_demolition_pickup() -> void:
 func on_building_relocated(building: BuildingBase, old_transform: Transform3D) -> void:
 	if is_dead():
 		return
+	if job == Job.FISHER and workplace == building:
+		fishing.approach_target = Vector3.INF
+		fishing.request_return()
+		return
 	if task_site == building and building is ConstructionSite and state in [State.MOVE_TO_BUILD_SITE, State.WAIT_CONSTRUCTION_SITE, State.MOVE_TO_TASK_SITE]:
 		_set_task_site_navigation_target()
 		return
@@ -3794,6 +3814,10 @@ func assign_job(
 
 	job = new_job
 	workplace = new_workplace
+	if new_job == Job.FISHER:
+		set_unit_data(FISHER_DATA)
+		state = State.FISHING
+		return
 	if new_job == Job.HUNTER:
 		set_unit_data(HUNTER_DATA)
 		state = State.HUNTING
@@ -4321,6 +4345,9 @@ func release_target_field() -> void:
 # ============================================================
 
 func start_current_job():
+	if job == Job.FISHER:
+		state = State.FISHING
+		return
 	if workplace is ResourceBuildingBase:
 		if workplace.resume_worker(self):
 			print(
@@ -4789,6 +4816,13 @@ func can_work_at(target: Node) -> bool:
 
 
 func abandon_current_work() -> void:
+	if job == Job.FISHER:
+		abandoned_work_target_id = workplace.get_instance_id() if is_instance_valid(workplace) else 0
+		abandoning_work = true
+		_set_unreachable_warning(false)
+		if is_instance_valid(workplace): workplace.remove_worker(self)
+		else: quit_job()
+		return
 	var previous_site: Variant = task_site
 	var task: GameTask = current_task as GameTask
 	var previous_target: Variant = task.target if task != null else previous_site
@@ -4836,6 +4870,13 @@ func abandon_current_work() -> void:
 
 
 func quit_job():
+	if job == Job.FISHER:
+		is_quitting_job = true
+		fishing.request_return()
+		if not fishing.active():
+			if carried_amount > 0.0: go_to_base()
+			else: finish_quit_job()
+		return
 	if job == Job.HUNTER:
 		is_quitting_job = true
 		if carried_amount > 0.0:
@@ -4873,6 +4914,9 @@ func quit_job():
 	finish_quit_job()
 #正式离职
 func finish_quit_job():
+	if job == Job.FISHER:
+		fishing.reset(true)
+		set_unit_data(RESIDENT_DATA)
 	if job == Job.HUNTER:
 		hunting.release_target(self)
 		set_unit_data(RESIDENT_DATA)
