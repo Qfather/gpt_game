@@ -32,3 +32,4 @@ training_cost = Dictionary[StringName, float]({
 })
 construction_time = 15.0
 max_construction_workers = 3
+placement_surface = null

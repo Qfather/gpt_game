@@ -1,21 +1,18 @@
-[gd_resource type="Resource" script_class="UnitData" format=3]
+[gd_resource type="Resource" script_class="UnitData" format=3 uid="uid://bxhf3tu6ox7qr"]
 
-[ext_resource type="Script" path="res://Script/unit/unit_data.gd" id="1_data"]
+[ext_resource type="Script" uid="uid://d2c8wn4dawh6x" path="res://Script/unit/unit_data.gd" id="1_data"]
 [ext_resource type="PackedScene" path="res://Scene/unit/swordsman_visual.tscn" id="2_visual"]
-
-[ext_resource type="Texture2D" path="res://assets/icons/units/militia.png" id="hud_icon"]
+[ext_resource type="Texture2D" uid="uid://b7e1k0n3ikbil" path="res://assets/icons/units/militia.png" id="hud_icon"]
 
 [resource]
 script = ExtResource("1_data")
 id = &"militia"
-combat_role = 3
 display_name = "民兵"
-hunger_rate = 0.35
+icon = ExtResource("hud_icon")
 description = "民兵营训练的基础近战守卫，可主动迎战、驻军和巡逻。"
 visual_scene = ExtResource("2_visual")
-
-max_health = 80.0
-damage = 5.0
 visual_tint = Color(0.65, 0.7, 0.6, 1)
-
-icon = ExtResource("hud_icon")
+max_health = 80.0
+combat_role = 3
+damage = 5.0
+hunger_rate = 0.35

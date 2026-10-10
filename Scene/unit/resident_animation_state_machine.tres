@@ -1,0 +1,53 @@
+[gd_resource type="AnimationNodeStateMachine" format=3 uid="uid://5wpqa77xvt24"]
+
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_b22ae"]
+animation = &"村民动画/搬运重物走"
+
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_gnspi"]
+animation = &"村民动画/锤子下蹲建造"
+
+[sub_resource type="AnimationNodeTimeSeek" id="AnimationNodeTimeSeek_e1juq"]
+
+[sub_resource type="AnimationNodeBlendTree" id="AnimationNodeBlendTree_eihpr"]
+nodes/Animation/node = SubResource("AnimationNodeAnimation_gnspi")
+nodes/Animation/position = Vector2(0, 0)
+nodes/Seek/node = SubResource("AnimationNodeTimeSeek_e1juq")
+nodes/Seek/position = Vector2(220, 0)
+node_connections = [&"output", 0, &"Seek", &"Seek", 0, &"Animation"]
+
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_fygdg"]
+animation = &"村民动画/待机"
+
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_5gw16"]
+animation = &"村民动画/锤子站立建造"
+
+[sub_resource type="AnimationNodeTimeSeek" id="AnimationNodeTimeSeek_hj63g"]
+
+[sub_resource type="AnimationNodeBlendTree" id="AnimationNodeBlendTree_m517j"]
+nodes/Animation/node = SubResource("AnimationNodeAnimation_5gw16")
+nodes/Animation/position = Vector2(0, 0)
+nodes/Seek/node = SubResource("AnimationNodeTimeSeek_hj63g")
+nodes/Seek/position = Vector2(220, 0)
+node_connections = [&"output", 0, &"Seek", &"Seek", 0, &"Animation"]
+
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_ki2co"]
+animation = &"村民动画/走"
+
+[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_o7j86"]
+xfade_time = 0.15
+
+[resource]
+resource_local_to_scene = true
+states/Start/position = Vector2(137, 49)
+states/carry_walk/node = SubResource("AnimationNodeAnimation_b22ae")
+states/carry_walk/position = Vector2(717, 130)
+states/crouch/node = SubResource("AnimationNodeBlendTree_eihpr")
+states/crouch/position = Vector2(250, 300)
+states/idle/node = SubResource("AnimationNodeAnimation_fygdg")
+states/idle/position = Vector2(219, 15)
+states/standing/node = SubResource("AnimationNodeBlendTree_m517j")
+states/standing/position = Vector2(546, 313)
+states/walk/node = SubResource("AnimationNodeAnimation_ki2co")
+states/walk/position = Vector2(507, -106)
+transitions = ["idle", "walk", SubResource("AnimationNodeStateMachineTransition_o7j86"), "idle", "carry_walk", SubResource("AnimationNodeStateMachineTransition_o7j86"), "idle", "crouch", SubResource("AnimationNodeStateMachineTransition_o7j86"), "idle", "standing", SubResource("AnimationNodeStateMachineTransition_o7j86"), "walk", "idle", SubResource("AnimationNodeStateMachineTransition_o7j86"), "walk", "carry_walk", SubResource("AnimationNodeStateMachineTransition_o7j86"), "walk", "crouch", SubResource("AnimationNodeStateMachineTransition_o7j86"), "walk", "standing", SubResource("AnimationNodeStateMachineTransition_o7j86"), "carry_walk", "idle", SubResource("AnimationNodeStateMachineTransition_o7j86"), "carry_walk", "walk", SubResource("AnimationNodeStateMachineTransition_o7j86"), "carry_walk", "crouch", SubResource("AnimationNodeStateMachineTransition_o7j86"), "carry_walk", "standing", SubResource("AnimationNodeStateMachineTransition_o7j86"), "crouch", "idle", SubResource("AnimationNodeStateMachineTransition_o7j86"), "crouch", "walk", SubResource("AnimationNodeStateMachineTransition_o7j86"), "crouch", "carry_walk", SubResource("AnimationNodeStateMachineTransition_o7j86"), "crouch", "standing", SubResource("AnimationNodeStateMachineTransition_o7j86"), "standing", "idle", SubResource("AnimationNodeStateMachineTransition_o7j86"), "standing", "walk", SubResource("AnimationNodeStateMachineTransition_o7j86"), "standing", "carry_walk", SubResource("AnimationNodeStateMachineTransition_o7j86"), "standing", "crouch", SubResource("AnimationNodeStateMachineTransition_o7j86")]
+graph_offset = Vector2(8, -143)

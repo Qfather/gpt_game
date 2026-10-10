@@ -949,13 +949,7 @@ func _create_random_edge_offset(worker_index: int, worker_count: int) -> Vector3
 	)
 	var center: Vector3 = model_bounds.position + model_bounds.size * 0.5
 	if exterior_construction_started:
-		half_size = Vector2(model_bounds.size.x, model_bounds.size.z) * 0.5 + Vector2.ONE
-		var side: int = worker_index % 4
-		var offset: float = float(worker_index / 4) * 0.7
-		if side == 0: return Vector3(center.x + offset, 0, center.z + half_size.y)
-		if side == 1: return Vector3(center.x + half_size.x, 0, center.z + offset)
-		if side == 2: return Vector3(center.x - offset, 0, center.z - half_size.y)
-		return Vector3(center.x - half_size.x, 0, center.z - offset)
+		return BuildingBase.get_exterior_work_offset(model_bounds, worker_index)
 	var angle: float = TAU * (float(worker_index) + 0.5) / float(maxi(worker_count, 1))
 	return Vector3(center.x + cos(angle) * half_size.x, 0.0, center.z + sin(angle) * half_size.y)
 

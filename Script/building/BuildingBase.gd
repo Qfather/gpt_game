@@ -30,6 +30,7 @@ var demolition_worker_target_count: int = 0
 var demolition_progress: float = 0.0
 var demolition_duration: float = 0.0
 var demolition_resources: Dictionary[StringName, float] = {}
+var demolition_assignment_remaining: float = 0.0
 var build_grid_position: Vector2i = Vector2i.ZERO
 var build_grid_size: Vector2i = Vector2i.ZERO
 var build_grid_rotation_step: int = 0
@@ -223,19 +224,20 @@ func _create_health_bar() -> void:
 
 
 func _process(delta: float) -> void:
+	demolition_assignment_remaining = maxf(demolition_assignment_remaining - delta, 0.0)
 	if demolition_state == DemolitionState.WAITING_FOR_WORKER:
-		_try_assign_demolition_worker()
+		if demolition_assignment_remaining <= 0.0: _try_assign_demolition_worker()
 		return
 	if (
 		demolition_state == DemolitionState.WAITING_FOR_DELIVERY
 		and not is_instance_valid(demolition_carrier)
 	):
-		_try_assign_demolition_worker()
+		if demolition_assignment_remaining <= 0.0: _try_assign_demolition_worker()
 		return
 
 	if demolition_state != DemolitionState.WORKING:
 		return
-	if demolition_workers.size() < demolition_worker_target_count:
+	if demolition_workers.size() < demolition_worker_target_count and demolition_assignment_remaining <= 0.0:
 		_try_assign_demolition_worker()
 
 	for worker: Node in demolition_workers.duplicate():
@@ -245,8 +247,12 @@ func _process(delta: float) -> void:
 		demolition_state = DemolitionState.WAITING_FOR_WORKER
 		return
 
+	var active_workers: int = 0
+	for worker: Node in demolition_workers:
+		if not worker.is_dead() and worker.state == worker.State.DEMOLISHING and worker.has_reached_demolition_position():
+			active_workers += 1
 	demolition_progress = minf(
-		demolition_progress + delta * float(demolition_workers.size()),
+		demolition_progress + delta * float(active_workers),
 		demolition_duration
 	)
 	if demolition_progress >= demolition_duration:
@@ -255,6 +261,40 @@ func _process(delta: float) -> void:
 
 func get_interaction_position(worker: Node) -> Vector3:
 	return get_entrance_position()
+
+
+static func get_exterior_work_offset(bounds: AABB, worker_index: int) -> Vector3:
+	var center: Vector3 = bounds.get_center()
+	var half_size := Vector2(bounds.size.x, bounds.size.z) * 0.5 + Vector2.ONE
+	var side: int = worker_index % 4
+	var offset: float = float(worker_index / 4) * 0.7
+	if side == 0: return Vector3(center.x + offset, 0, center.z + half_size.y)
+	if side == 1: return Vector3(center.x + half_size.x, 0, center.z + offset)
+	if side == 2: return Vector3(center.x - offset, 0, center.z - half_size.y)
+	return Vector3(center.x - half_size.x, 0, center.z - offset)
+
+
+func get_demolition_work_position(worker: Node) -> Vector3:
+	var map: RID = worker.navigation_agent.get_navigation_map()
+	if not map.is_valid() or NavigationServer3D.map_get_iteration_id(map) == 0:
+		return Vector3.INF
+	var bounds: AABB = get_entrance_footprint(self)
+	for attempt: int in range(4):
+		var point: Vector3 = to_global(get_exterior_work_offset(bounds, demolition_workers.size() + attempt))
+		var destination: Vector3 = NavigationServer3D.map_get_closest_point(map, point)
+		var offset: Vector3 = destination - point
+		if absf(offset.y) > 0.75: continue
+		offset.y = 0.0
+		if offset.length() > 0.35: continue
+		var occupied := false
+		for other: Node in demolition_workers:
+			if is_instance_valid(other) and other != worker and other.navigation_agent.target_position.distance_to(destination) < 0.5:
+				occupied = true
+		if occupied: continue
+		var path: PackedVector3Array = NavigationServer3D.map_get_path(map, worker.global_position, destination, true)
+		if not path.is_empty() and path[-1].distance_to(destination) <= 0.35:
+			return destination
+	return Vector3.INF
 
 
 static func get_local_entrance(root: Node3D) -> Vector3:
@@ -681,6 +721,7 @@ func demolish() -> bool:
 		call("release_all_workers")
 
 	demolition_state = DemolitionState.WAITING_FOR_WORKER
+	demolition_assignment_remaining = 0.0
 	demolition_workers.clear()
 	demolition_carrier = null
 	demolition_worker_target_count = get_max_demolition_workers()
@@ -821,6 +862,7 @@ func get_demolition_remaining_resources() -> Dictionary[StringName, float]:
 
 
 func _try_assign_demolition_worker() -> void:
+	demolition_assignment_remaining = 0.5
 	if demolition_workers.size() >= demolition_worker_target_count:
 		return
 	for villager: Node in get_tree().get_nodes_in_group("villagers"):
@@ -845,6 +887,8 @@ func _try_assign_demolition_worker() -> void:
 
 
 func begin_demolition_work(worker: Node) -> bool:
+	if worker.demolition_target != self or not worker.has_reached_demolition_position():
+		return false
 	if (
 		demolition_state != DemolitionState.WAITING_FOR_WORKER
 		and demolition_state != DemolitionState.WORKING
@@ -863,7 +907,7 @@ func begin_demolition_work(worker: Node) -> bool:
 
 
 func arrive_at_demolition_site(worker: Node) -> bool:
-	if demolition_state == DemolitionState.WAITING_FOR_WORKER:
+	if demolition_state in [DemolitionState.WAITING_FOR_WORKER, DemolitionState.WORKING]:
 		if not demolition_workers.has(worker):
 			return false
 		return begin_demolition_work(worker)

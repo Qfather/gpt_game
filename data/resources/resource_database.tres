@@ -1,16 +1,15 @@
-[gd_resource type="Resource" script_class="ResourceDatabase" load_steps=11 format=3]
+[gd_resource type="Resource" script_class="ResourceDatabase" format=3 uid="uid://bispgm8f4f7cs"]
 
-[ext_resource type="Script" path="res://Script/resource/resource_database.gd" id="1_resource_database"]
-[ext_resource type="Script" path="res://Script/resource/resource_data.gd" id="2_resource_data"]
-[ext_resource type="Resource" path="res://data/resources/wood.tres" id="3_wood"]
-[ext_resource type="Resource" path="res://data/resources/stone.tres" id="4_stone"]
-[ext_resource type="Resource" path="res://data/resources/grain.tres" id="5_grain"]
-[ext_resource type="Resource" path="res://data/resources/meat.tres" id="6_meat"]
-[ext_resource type="Resource" path="res://data/resources/plank.tres" id="7_plank"]
-[ext_resource type="Resource" path="res://data/resources/flour.tres" id="8_flour"]
-[ext_resource type="Resource" path="res://data/resources/bread.tres" id="9_bread"]
-
-[ext_resource type="Resource" path="res://data/resources/fish.tres" id="10_fish"]
+[ext_resource type="Script" uid="uid://d3vr6b1kn33kg" path="res://Script/resource/resource_database.gd" id="1_resource_database"]
+[ext_resource type="Script" uid="uid://j73mtdmdhsqu" path="res://Script/resource/resource_data.gd" id="2_resource_data"]
+[ext_resource type="Resource" uid="uid://cceavjt4i8pgj" path="res://data/resources/wood.tres" id="3_wood"]
+[ext_resource type="Resource" uid="uid://cd2hycmykhiu1" path="res://data/resources/stone.tres" id="4_stone"]
+[ext_resource type="Resource" uid="uid://bcnlw6jhdnmcw" path="res://data/resources/grain.tres" id="5_grain"]
+[ext_resource type="Resource" uid="uid://d4lijd88ixdjn" path="res://data/resources/meat.tres" id="6_meat"]
+[ext_resource type="Resource" uid="uid://dwbe5vrwo5wly" path="res://data/resources/plank.tres" id="7_plank"]
+[ext_resource type="Resource" uid="uid://c3np1xt7itprs" path="res://data/resources/flour.tres" id="8_flour"]
+[ext_resource type="Resource" uid="uid://bqie777cu24jy" path="res://data/resources/bread.tres" id="9_bread"]
+[ext_resource type="Resource" uid="uid://cbtrs8gpjxkyl" path="res://data/resources/fish.tres" id="10_fish"]
 
 [resource]
 script = ExtResource("1_resource_database")

@@ -119,10 +119,10 @@ var state: State = State.IDLE:
 		if state == value:
 			return
 		if navigation_agent != null:
-			if state in [State.MOVE_TO_RESOURCE, State.MOVE_TO_FIELD, State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.WAIT_CONSTRUCTION_SITE, State.RETURN_TO_IDLE, State.HUNTING, State.FISHING, State.MOVE_TO_TRAINING, State.MOVE_TO_BARRACKS, State.RETURN_TO_BARRACKS, State.RETREAT_TO_BASE, State.MOVE_TO_WORKPLACE]:
+			if state in [State.MOVE_TO_RESOURCE, State.MOVE_TO_FIELD, State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.WAIT_CONSTRUCTION_SITE, State.RETURN_TO_IDLE, State.HUNTING, State.FISHING, State.MOVE_TO_TRAINING, State.MOVE_TO_BARRACKS, State.RETURN_TO_BARRACKS, State.RETREAT_TO_BASE, State.MOVE_TO_WORKPLACE, State.MOVE_TO_DEMOLITION]:
 				navigation_agent.target_desired_distance = gather_previous_target_desired_distance
 				navigation_agent.path_desired_distance = gather_previous_path_desired_distance
-			if value in [State.MOVE_TO_RESOURCE, State.MOVE_TO_FIELD, State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.WAIT_CONSTRUCTION_SITE, State.RETURN_TO_IDLE, State.HUNTING, State.FISHING, State.MOVE_TO_TRAINING, State.MOVE_TO_BARRACKS, State.RETURN_TO_BARRACKS, State.RETREAT_TO_BASE, State.MOVE_TO_WORKPLACE]:
+			if value in [State.MOVE_TO_RESOURCE, State.MOVE_TO_FIELD, State.MOVE_TO_TASK_SITE, State.MOVE_TO_BUILD_SITE, State.WAIT_CONSTRUCTION_SITE, State.RETURN_TO_IDLE, State.HUNTING, State.FISHING, State.MOVE_TO_TRAINING, State.MOVE_TO_BARRACKS, State.RETURN_TO_BARRACKS, State.RETREAT_TO_BASE, State.MOVE_TO_WORKPLACE, State.MOVE_TO_DEMOLITION]:
 				gather_previous_target_desired_distance = navigation_agent.target_desired_distance
 				gather_previous_path_desired_distance = navigation_agent.path_desired_distance
 				navigation_agent.target_desired_distance = 0.2
@@ -3482,10 +3482,17 @@ func _repath_current_navigation_target() -> void:
 # ============================================================
 
 func assign_demolition(building: Node, take_over_current_job: bool = false) -> bool:
-	if building == null:
+	if not is_instance_valid(building):
 		return false
 	if not take_over_current_job and not is_idle():
 		return false
+	var target_position: Vector3 = building.global_position
+	if building is BuildingBase and building.demolition_state != BuildingBase.DemolitionState.WAITING_FOR_DELIVERY:
+		target_position = building.get_demolition_work_position(self)
+		if target_position == Vector3.INF:
+			return false
+	elif building.has_method("get_interaction_position"):
+		target_position = building.get_interaction_position(self)
 	if take_over_current_job:
 		current_task = null
 		task_source = null
@@ -3499,11 +3506,8 @@ func assign_demolition(building: Node, take_over_current_job: bool = false) -> b
 	demolition_target = building
 	if target_base == null:
 		find_base()
-	var target_position: Vector3 = building.global_position
-	if building.has_method("get_interaction_position"):
-		target_position = building.get_interaction_position(self)
 	navigation_agent.target_position = target_position
-	if global_position.distance_to(target_position) <= 1.0:
+	if has_reached_demolition_position():
 		if building.begin_demolition_work(self):
 			return true
 	state = State.MOVE_TO_DEMOLITION
@@ -3514,7 +3518,7 @@ func move_to_demolition() -> void:
 	if not is_instance_valid(demolition_target):
 		finish_demolition()
 		return
-	if not navigation_agent.is_navigation_finished():
+	if not has_reached_demolition_position():
 		move_along_navigation()
 		return
 
@@ -3525,6 +3529,15 @@ func move_to_demolition() -> void:
 
 func set_demolition_working() -> void:
 	state = State.DEMOLISHING
+	_face_direction(demolition_target.global_position - global_position)
+
+
+func has_reached_demolition_position() -> bool:
+	var offset: Vector3 = navigation_agent.target_position - global_position
+	if absf(offset.y) > 0.75: return false
+	if navigation_agent.target_position == Vector3.INF: return false
+	offset.y = 0.0
+	return offset.length() <= 0.35
 
 
 func begin_demolition_transport(

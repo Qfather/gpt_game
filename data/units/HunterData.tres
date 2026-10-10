@@ -1,18 +1,17 @@
-[gd_resource type="Resource" format=3]
-[ext_resource type="Script" path="res://Script/unit/unit_data.gd" id="1"]
+[gd_resource type="Resource" script_class="UnitData" format=3 uid="uid://bxcy15bpyerwe"]
+
+[ext_resource type="Script" uid="uid://d2c8wn4dawh6x" path="res://Script/unit/unit_data.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scene/unit/hunter_visual.tscn" id="2"]
-[ext_resource type="Texture2D" path="res://assets/icons/units/hunter.png" id="hud_icon"]
+[ext_resource type="Texture2D" uid="uid://dy42gc62suxmk" path="res://assets/icons/units/hunter.png" id="hud_icon"]
 
 [resource]
 script = ExtResource("1")
 id = &"hunter"
 display_name = "猎户"
+icon = ExtResource("hud_icon")
 visual_scene = ExtResource("2")
 uses_arrows = true
-arrow_speed = 18.0
 damage = 1.0
 attack_range = 7.0
-detection_range = 12.0
 attack_interval = 1.5
-
-icon = ExtResource("hud_icon")
+detection_range = 12.0

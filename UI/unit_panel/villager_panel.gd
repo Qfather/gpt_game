@@ -94,7 +94,8 @@ func _on_remove_pressed() -> void:
 
 func refresh():
 
-	if current_unit == null:
+	if not is_instance_valid(current_unit):
+		close_panel_immediately()
 		return
 
 	var villager: UnitBase = current_unit
@@ -152,7 +153,7 @@ func refresh():
 		state_label.text = "状态：" + villager.target_field.get_state_name()
 	if state_index == villager.State.WAIT_CONSTRUCTION_SITE and is_instance_valid(villager.task_site) and villager.task_site is ConstructionSite and villager.task_site.state == ConstructionSite.State.WAITING_RESOURCES:
 		state_label.text = "状态：等待建材" if villager._has_reached_task_site_navigation_target() else "状态：前往工地等待建材"
-	var garrison_building: BuildingBase = (villager.garrison_target if state_index in [villager.State.MOVE_TO_BARRACKS, villager.State.RETURN_TO_BARRACKS] else villager.garrisoned_in) as BuildingBase
+	var garrison_building = villager.garrison_target if state_index in [villager.State.MOVE_TO_BARRACKS, villager.State.RETURN_TO_BARRACKS] else villager.garrisoned_in
 	if is_instance_valid(garrison_building) and garrison_building.has_method("allows_garrison_attacks"):
 		state_label.text = state_label.text.replace("军营", "箭塔")
 	if state_index == villager.State.HUNTING:
@@ -173,7 +174,8 @@ func refresh():
 	if villager.is_stunned():
 		state_label.text = "状态：晕眩（%.1f 秒）" % villager.stun_remaining
 	task_label.text = "当前任务：" + _get_task_text(villager)
-	workplace_label.text = "工作地点：" + _get_node_name(villager.get("workplace") as Node)
+	var workplace = villager.get("workplace")
+	workplace_label.text = "工作地点：" + (_get_node_name(workplace) if is_instance_valid(workplace) else "无")
 	_update_needs_bar(hunger_bar, float(villager.call("get_hunger")))
 	_update_needs_bar(fatigue_bar, float(villager.call("get_fatigue")))
 

@@ -1,14 +1,11 @@
-[gd_resource type="Resource" script_class="ResourceData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ResourceData" format=3 uid="uid://cd2hycmykhiu1"]
 
-[ext_resource type="Script" path="res://Script/resource/resource_data.gd" id="1_resource_data"]
-
-
-[ext_resource type="Texture2D" path="res://assets/icons/resources/stone.svg" id="hud_icon"]
+[ext_resource type="Script" uid="uid://j73mtdmdhsqu" path="res://Script/resource/resource_data.gd" id="1_resource_data"]
+[ext_resource type="Texture2D" uid="uid://d0jtndxfgt76y" path="res://assets/icons/resources/stone.svg" id="hud_icon"]
 
 [resource]
 script = ExtResource("1_resource_data")
 id = &"stone"
 display_name = "石材"
 tags = Array[StringName]([&"stone", &"raw", &"construction"])
-
 icon = ExtResource("hud_icon")
