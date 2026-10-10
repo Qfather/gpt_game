@@ -124,6 +124,6 @@ godot --path . --script res://Tests/indoor_idle_rest_test.gd
 
 - 运行角色实体仍是`Scene/unit/villager.tscn`，由开局和人口系统生成；`data/units/ResidentData.tres`指定`Scene/unit/resident_visual.tscn`为居民外观。实体保留移动、碰撞、导航和居民行为，外观在运行时加载。
 - 用户已在居民外观中实例化`assets/modles/character/角色.glb`，旧基本体放在隐藏的`Node3D`下保留。模型GLB没有动画；`assets/animation/村民动画.glb`有73个动作，两者使用不同骨架名称。
-- 核对时两份GLB的`.import`已保存`BoneMap`与`SkeletonProfileHumanoid`，动画导入器已是`animation_library`。居民外观已有`AnimationPlayer`，内置库仅含无轨道的`new_animation`占位动作，尚未引用GLB动画库；居民行为代码尚未接入动画播放。
+- 核对时两份GLB的`.import`已保存`BoneMap`与`SkeletonProfileHumanoid`，动画导入器已是`animation_library`。居民外观已有`AnimationPlayer`；上传前用户又挂载了`村民动画.glb`动画库，原内置库的无轨道`new_animation`占位动作仍保留。居民行为代码尚未接入动画播放，轨道与实际效果未验证。
 - 下一步先复核骨骼映射，再挂载动画库并检查轨道目标、待机与行走播放、身高／脚底／朝向和循环，确认后按需求连接搬运及工作状态。动画侧拇指与食指重复映射`B-palm_01_L/R`，手指对应关系需要修正或确认；不能只凭导入配置认定重定向成功。
 - 模型替换后尚未进行游戏视觉、骨骼变形或渔民船上外观回归。此前基本体版本的捕鱼测试不能代替新GLB验收。`Scene/`根目录的旧同名场景属于清理候选，尚未逐一审核／删除；不要误删仍使用的`Scene/unit/villager.tscn`。
